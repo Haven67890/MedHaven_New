@@ -1,4 +1,4 @@
-import { ArrowRight, CheckCircle2, Layers3, ShieldCheck, Sparkles } from "lucide-react"
+import { ArrowRight, CircleCheck as CheckCircle2, Layers as Layers3, ShieldCheck, Sparkles } from "lucide-react"
 import Link from "next/link"
 
 import { SiteShell } from "@/components/layout/site-shell"
@@ -44,8 +44,8 @@ export default function HomePage() {
               </div>
               <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
                 <Button size="lg" asChild>
-                  <Link href="/register">
-                    Create an account
+                  <Link href="/dashboard">
+                    Open dashboard
                     <ArrowRight data-icon="inline-end" />
                   </Link>
                 </Button>

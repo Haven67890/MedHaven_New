@@ -1,27 +1,64 @@
 "use client"
 
-import { MenuIcon, PanelLeftIcon } from "lucide-react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { Menu as MenuIcon } from "lucide-react"
 
+import { accountNav, adminNav, communityNav, primaryNav, type NavItem } from "@/lib/navigation"
 import { MedHavenLogo } from "@/components/brand/medhaven-logo"
 import { ThemeToggle } from "@/components/layout/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { cn } from "@/lib/utils"
 
-function SidebarContent() {
+function NavLink({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }) {
+  const pathname = usePathname()
+  const isActive = pathname === item.href
+  const Icon = item.icon
+
+  return (
+    <Link
+      href={item.href}
+      onClick={onNavigate}
+      aria-current={isActive ? "page" : undefined}
+      className={cn(
+        "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+        isActive
+          ? "bg-primary/10 text-primary"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+      )}
+    >
+      <Icon className="size-4 shrink-0" aria-hidden="true" />
+      <span className="truncate">{item.label}</span>
+    </Link>
+  )
+}
+
+function NavSection({ title, items, onNavigate }: { title: string; items: NavItem[]; onNavigate?: () => void }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <p className="px-3 pb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">{title}</p>
+      {items.map((item) => (
+        <NavLink key={item.href} item={item} onNavigate={onNavigate} />
+      ))}
+    </div>
+  )
+}
+
+function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex h-full flex-col gap-6 p-4">
       <MedHavenLogo />
       <Separator />
-      <div className="flex flex-col gap-3" aria-label="Reserved navigation">
-        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Workspace</p>
-        <div className="flex items-center gap-3 rounded-lg bg-muted p-3 text-sm text-muted-foreground">
-          <PanelLeftIcon aria-hidden="true" />
-          Future navigation
-        </div>
-      </div>
-      <p className="mt-auto text-xs leading-5 text-muted-foreground">
-        This shell is ready for future phases.
+      <nav className="flex flex-1 flex-col gap-6 overflow-y-auto" aria-label="Application navigation">
+        <NavSection title="Workspace" items={primaryNav} onNavigate={onNavigate} />
+        <NavSection title="Community" items={communityNav} onNavigate={onNavigate} />
+        <NavSection title="Account" items={accountNav} onNavigate={onNavigate} />
+        <NavSection title="Administration" items={adminNav} onNavigate={onNavigate} />
+      </nav>
+      <p className="text-xs leading-5 text-muted-foreground">
+        MedHaven Phase 2 — interactive preview.
       </p>
     </div>
   )
@@ -45,14 +82,14 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
               <SheetContent side="left" className="p-0">
                 <SheetHeader className="sr-only">
                   <SheetTitle>Application navigation</SheetTitle>
-                  <SheetDescription>Placeholder navigation for future phases.</SheetDescription>
+                  <SheetDescription>Navigate the MedHaven workspace.</SheetDescription>
                 </SheetHeader>
                 <SidebarContent />
               </SheetContent>
             </Sheet>
             <MedHavenLogo compact />
           </div>
-          <p className="hidden text-sm font-medium lg:block">Foundation workspace</p>
+          <p className="hidden text-sm font-medium lg:block">MedHaven workspace</p>
           <ThemeToggle />
         </header>
         <main className="flex-1 p-4 sm:p-6">{children}</main>

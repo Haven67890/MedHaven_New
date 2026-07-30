@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { MenuIcon } from "lucide-react"
+import { Menu as MenuIcon } from "lucide-react"
 
 import { MedHavenLogo } from "@/components/brand/medhaven-logo"
 import { ThemeToggle } from "@/components/layout/theme-toggle"
@@ -10,6 +10,7 @@ import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTi
 
 const navigation = [
   { href: "/", label: "Home" },
+  { href: "/dashboard", label: "Dashboard" },
   { href: "/login", label: "Sign in" },
 ]
 
@@ -25,7 +26,7 @@ export function TopNavigation() {
             </Button>
           ))}
           <Button asChild>
-            <Link href="/register">Get started</Link>
+            <Link href="/dashboard">Get started</Link>
           </Button>
           <ThemeToggle />
         </nav>
@@ -52,7 +53,7 @@ export function TopNavigation() {
                 ))}
                 <SheetClose asChild>
                   <Button className="mt-2" asChild>
-                    <Link href="/register">Get started</Link>
+                    <Link href="/dashboard">Get started</Link>
                   </Button>
                 </SheetClose>
               </nav>
