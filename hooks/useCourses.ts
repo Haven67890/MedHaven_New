@@ -1,18 +1,20 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../services/db/supabaseService'
 
+type CourseRecord = Record<string, unknown>
+
 export function useCourses() {
-  const [courses, setCourses] = useState<Array<Record<string, unknown>>>([])
-  const [loading, setLoading] = useState(false)
+  const [courses, setCourses] = useState<CourseRecord[]>([])
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
-  const fetch = useCallback(async () => {
+  const fetchCourses = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const { data, error } = await supabase.from('courses').select('*').limit(100) as any
-      if (error) throw error
-      setCourses((data as Array<Record<string, unknown>>) ?? [])
+      const { data, error: queryError } = await supabase.from('courses').select('*').limit(100)
+      if (queryError) throw queryError
+      setCourses((data as CourseRecord[]) ?? [])
     } catch (err: unknown) {
       setError(err as Error)
     } finally {
@@ -20,7 +22,25 @@ export function useCourses() {
     }
   }, [])
 
-  useEffect(() => { fetch() }, [fetch])
+  useEffect(() => {
+    let mounted = true
+    supabase
+      .from('courses')
+      .select('*')
+      .limit(100)
+      .then(({ data, error: queryError }) => {
+        if (!mounted) return
+        if (queryError) {
+          setError(queryError)
+        } else {
+          setCourses((data as CourseRecord[]) ?? [])
+        }
+        setLoading(false)
+      })
+    return () => {
+      mounted = false
+    }
+  }, [])
 
-  return { courses, loading, error, refresh: fetch }
+  return { courses, loading, error, refresh: fetchCourses }
 }

@@ -1,10 +1,10 @@
 "use client"
 
 import React, { createContext, useEffect, useMemo, useState } from 'react'
+import type { Session, Subscription } from '@supabase/supabase-js'
 import { supabase } from '../../lib/auth/supabaseClient'
 
-// Narrowed user type to common fields; keep index signature for additional properties
-type User = { id?: string; email?: string | null; [key: string]: unknown }
+type User = { id?: string; email?: string | null }
 
 type AuthContextType = {
   user: User | null
@@ -17,29 +17,33 @@ type AuthContextType = {
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+function sessionUser(session: Session | null): User | null {
+  return session?.user ?? null
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let mounted = true
+    let listener: { subscription: Subscription } | null = null
 
-    // Get initial session/user
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return
-      if (data?.session) setUser((data.session as any).user ?? null)
+      setUser(sessionUser(data.session))
       setLoading(false)
     })
 
-    // Listen to auth changes
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser((session as any)?.user ?? null)
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(sessionUser(session))
     })
+    listener = data
 
     return () => {
       mounted = false
       try {
-        ;(listener as any)?.subscription?.unsubscribe?.()
+        listener?.subscription?.unsubscribe()
       } catch {
         // ignore unsubscribe errors
       }
@@ -51,7 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const res = await supabase.auth.signInWithPassword({ email, password })
     setLoading(false)
     if (res.error) throw res.error
-    setUser((res.data as any)?.user ?? null)
+    setUser(sessionUser(res.data.session))
     return res
   }
 

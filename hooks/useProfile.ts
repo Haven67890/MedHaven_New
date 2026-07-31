@@ -1,9 +1,11 @@
 import { useEffect, useState, useCallback } from 'react'
 import { UserRepository } from '../repositories'
 
+type ProfileRecord = Record<string, unknown> | null
+
 export function useProfile(userId?: string) {
-  const [profile, setProfile] = useState<Record<string, unknown> | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [profile, setProfile] = useState<ProfileRecord>(null)
+  const [loading, setLoading] = useState(Boolean(userId))
   const [error, setError] = useState<Error | null>(null)
 
   const fetchProfile = useCallback(async () => {
@@ -21,8 +23,24 @@ export function useProfile(userId?: string) {
   }, [userId])
 
   useEffect(() => {
-    fetchProfile()
-  }, [fetchProfile])
+    let mounted = true
+    if (!userId) return
+    UserRepository.getById(userId)
+      .then((data) => {
+        if (!mounted) return
+        setProfile(data)
+      })
+      .catch((err: unknown) => {
+        if (!mounted) return
+        setError(err as Error)
+      })
+      .finally(() => {
+        if (mounted) setLoading(false)
+      })
+    return () => {
+      mounted = false
+    }
+  }, [userId])
 
   return { profile, loading, error, refresh: fetchProfile }
 }

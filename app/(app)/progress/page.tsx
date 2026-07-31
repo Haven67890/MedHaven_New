@@ -1,8 +1,6 @@
 import type { Metadata } from "next"
-import Link from "next/link"
 import { Award, BookOpen, BrainCircuit, Flame, ListChecks, Target, TrendingUp, Trophy } from "lucide-react"
 
-import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageHeader } from "@/components/dashboard/page-header"
@@ -112,7 +110,7 @@ export default function ProgressTrackerPage() {
         <Card>
           <CardHeader>
             <CardTitle>Milestones</CardTitle>
-            <CardDescription>Achievements you've unlocked.</CardDescription>
+            <CardDescription>Achievements you&apos;ve unlocked.</CardDescription>
           </CardHeader>
           <CardContent>
             <ol className="relative flex flex-col gap-4 border-l border-border pl-4">

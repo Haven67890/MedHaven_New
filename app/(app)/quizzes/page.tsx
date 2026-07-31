@@ -4,7 +4,7 @@ import { ArrowRight, CircleCheck as CheckCircle2, ListChecks, RotateCcw, Sparkle
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageHeader } from "@/components/dashboard/page-header"
 import { Progress } from "@/components/ui/progress"
 import { SectionHeading } from "@/components/dashboard/section-heading"
