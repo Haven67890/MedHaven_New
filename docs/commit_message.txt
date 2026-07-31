@@ -1,1 +1,1 @@
-Add .env.example with placeholders for Supabase environment variables
+Wrap app root with AuthProvider
