@@ -1,1 +1,1 @@
-Wrap app root with AuthProvider
+fix(providers): correct syntax errors in AuthProvider (remove stray characters, fix types & hooks)

@@ -7,7 +7,7 @@ type User = any
 
 type AuthContextType = {
   user: User | null
-n  loading: boolean
+  loading: boolean
   login: (email: string, password: string) => Promise<any>
   register: (email: string, password: string) => Promise<any>
   logout: () => Promise<any>
