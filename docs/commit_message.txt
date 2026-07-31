@@ -1,1 +1,1 @@
-fix(providers): import ThemeProvider as named export in RootLayout
+fix(providers): correct RootLayout syntax, import ThemeProvider as named export
