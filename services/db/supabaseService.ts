@@ -1,3 +1,3 @@
-import { supabase } from './supabaseClient'
+import { supabase } from '../../lib/auth/supabaseClient'
 
 export { supabase }
