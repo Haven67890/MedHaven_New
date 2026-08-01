@@ -1,22 +1,24 @@
-import React, { useState, useEffect, useRef } from 'react';
+"use client"
+
+import React, { useState } from 'react';
 import { 
-  BookOpen, Search, MessageSquare, Calendar, User, Folder, Upload, Plus, 
-  Award, ShieldAlert, Trash, Eye, Download, Tag, ChevronRight, Sparkles, 
-  Clock, Smartphone, MapPin, Users, CheckCircle, Home, HeartPulse, 
-  Compass, FileText, AlertTriangle, Send, Share2, BookMarked, ThumbsUp, 
-  Filter, Check, Info, ArrowLeft, RefreshCw, Star, ShoppingBag, Globe,
-  Briefcase, MessageCircle, Volume2, Moon, Sun, AlertCircle, X, ChevronDown, CheckSquare,
+  BookOpen, Search, MessageSquare, Calendar, Folder, Upload, Plus, 
+  Award, ShieldAlert, Eye, Download, Tag, ChevronRight, Sparkles, 
+  MapPin, Users, CircleCheck as CheckCircle, Home, HeartPulse, 
+  AlertTriangle, Send,
+  Check, RefreshCw, ShoppingBag, Globe,
+  MessageCircle, AlertCircle, X, CheckSquare,
   Settings
 } from 'lucide-react';
 
 
 // JUTH Native Images registered exactly as provided
 const JUTH_IMAGES = {
-  mainGate: "Screenshot_20240923-184937.png", // Cloudy sky entrance gate
-  ambulanceDriveway: "Snapchat-1489759066.jpg", // Ambulance driveway under bright sky
-  ward11Entrance: "IMG_20250317_183421_424.jpg", // Stethoscope in front of WARD 11 MALE WARD
-  courtyardTree: "20260421_163352.jpg", // Beautiful flowering tree in hospital yard
-  emergencyTicker: "20260509_200240.jpg" // JUTH EMERGENCY UNIT led light display
+  mainGate: "https://images.pexels.com/photos/263402/pexels-photo-263402.jpeg?auto=compress&cs=tinysrgb&h=650&w=940", // Cloudy sky entrance gate
+  ambulanceDriveway: "https://images.pexels.com/photos/20026899/pexels-photo-20026899.jpeg?auto=compress&cs=tinysrgb&h=650&w=940", // Ambulance driveway under bright sky
+  ward11Entrance: "https://images.pexels.com/photos/6010865/pexels-photo-6010865.jpeg?auto=compress&cs=tinysrgb&h=650&w=940", // Stethoscope in front of WARD 11 MALE WARD
+  courtyardTree: "https://images.pexels.com/photos/36722685/pexels-photo-36722685.jpeg?auto=compress&cs=tinysrgb&h=650&w=940", // Beautiful flowering tree in hospital yard
+  emergencyTicker: "https://images.pexels.com/photos/5018000/pexels-photo-5018000.jpeg?auto=compress&cs=tinysrgb&h=650&w=940" // JUTH EMERGENCY UNIT led light display
 };
 
 const LEVELS = ['100L', '200L', '300L', '400L', '500L', '600L', 'Final Year'];
@@ -204,7 +206,7 @@ const INITIAL_STAFF = [
     phone: "+2348031234567",
     email: "mbanefo.j@juth.edu.ng",
     bio: "Head of Cardiology Division with 25+ years training clinical students.",
-    img: "Screenshot_20240923-184937.png"
+    img: JUTH_IMAGES.mainGate
   },
   {
     id: "staff-2",
@@ -216,7 +218,7 @@ const INITIAL_STAFF = [
     phone: "+2348057654321",
     email: "ruth.dung@juth.edu.ng",
     bio: "Consultant Neonatologist, championing local pediatric care optimization.",
-    img: "IMG_20250317_183421_424.jpg"
+    img: JUTH_IMAGES.ward11Entrance
   },
   {
     id: "staff-3",
@@ -228,7 +230,7 @@ const INITIAL_STAFF = [
     phone: "+2348061112233",
     email: "dama.l@juth.edu.ng",
     bio: "Chief Senior Lecturer, coordinator of Endocrinology clinical postings.",
-    img: "Screenshot_20240923-184937.png"
+    img: JUTH_IMAGES.mainGate
   },
   {
     id: "staff-4",
@@ -240,7 +242,7 @@ const INITIAL_STAFF = [
     phone: "+2348093334444",
     email: "musa.400lrep@jumsahub.org",
     bio: "Elected 400L Clinical representative. Reach out for any lecture or schedule amendments.",
-    img: "20260421_163352.jpg"
+    img: JUTH_IMAGES.courtyardTree
   }
 ];
 
@@ -254,7 +256,7 @@ const INITIAL_MARKETPLACE = [
     price: "₦75,000",
     sellerName: "Daniel Pam (600L)",
     sellerPhone: "+2348030001111",
-    img: "IMG_20250317_183421_424.jpg"
+    img: JUTH_IMAGES.ward11Entrance
   },
   {
     id: "market-2",
@@ -265,7 +267,7 @@ const INITIAL_MARKETPLACE = [
     price: "₦140,000",
     sellerName: "Zainab Isa (Final Year)",
     sellerPhone: "+2348052223333",
-    img: "Screenshot_20240923-184937.png"
+    img: JUTH_IMAGES.mainGate
   }
 ];
 
@@ -377,9 +379,9 @@ export default function App() {
   // Core Databases
   const [library, setLibrary] = useState(INITIAL_LIBRARY);
   const [timetable, setTimetable] = useState(INITIAL_TIMETABLES);
-  const [staffList, setStaffList] = useState(INITIAL_STAFF);
+  const [staffList] = useState(INITIAL_STAFF);
   const [marketItems, setMarketItems] = useState(INITIAL_MARKETPLACE);
-  const [blogPosts, setBlogPosts] = useState(INITIAL_BLOGS);
+  const [blogPosts] = useState(INITIAL_BLOGS);
   const [announcements, setAnnouncements] = useState([
     { 
       id: "ann-1", 
@@ -404,9 +406,9 @@ export default function App() {
   const [globalSearch, setGlobalSearch] = useState('');
 
   // Toast feedback state
-  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' | 'info' }>({ show: false, message: '', type: 'success' });
 
-  const showToast = (message, type = 'success') => {
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ show: true, message, type });
     setTimeout(() => {
       setToast(prev => ({ ...prev, show: false }));
@@ -417,7 +419,7 @@ export default function App() {
   const [quizActive, setQuizActive] = useState(false);
   const [activeQuiz, setActiveQuiz] = useState(PRE_MADE_QUIZZES[0]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [userAnswers, setUserAnswers] = useState({});
+  const [userAnswers, setUserAnswers] = useState<Record<number, string>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizScore, setQuizScore] = useState(0);
 
@@ -442,8 +444,8 @@ export default function App() {
   const [aiLoading, setAILoading] = useState(false);
 
   // Access check rule based on level
-  const canAccessLevel = (studentLevel, resourceLevel) => {
-    const hierarchy = { '100L': 1, '200L': 2, '300L': 3, '400L': 4, '500L': 5, '600L': 6, 'Final Year': 7 };
+  const canAccessLevel = (studentLevel: string, resourceLevel: string) => {
+    const hierarchy: Record<string, number> = { '100L': 1, '200L': 2, '300L': 3, '400L': 4, '500L': 5, '600L': 6, 'Final Year': 7 };
     const sRank = hierarchy[studentLevel] || 0;
     const rRank = hierarchy[resourceLevel] || 0;
     return sRank >= rRank;
@@ -460,7 +462,7 @@ export default function App() {
   });
 
   // Action methods
-  const handleDocUploadSubmit = (e) => {
+  const handleDocUploadSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDoc.title.trim()) {
       showToast("Please input a descriptive slide/document title.", "error");
@@ -488,7 +490,7 @@ export default function App() {
     showToast("Study resource uploaded successfully to JUTH database!", "success");
   };
 
-  const handleMarketItemSubmit = (e) => {
+  const handleMarketItemSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newItem.title.trim()) {
       showToast("Please input an item title for listing.", "error");
@@ -503,7 +505,7 @@ export default function App() {
       price: newItem.price || "₦ Free",
       sellerName: newItem.seller || userProfile.name,
       sellerPhone: newItem.phone || userProfile.phone,
-      img: "IMG_20250317_183421_424.jpg" // Defaults to physical stethoscope image
+      img: JUTH_IMAGES.ward11Entrance // Defaults to physical stethoscope image
     };
     setMarketItems([item, ...marketItems]);
     setShowItemPostModal(false);
@@ -511,7 +513,7 @@ export default function App() {
     showToast("Listing posted successfully to student marketplace!", "success");
   };
 
-  const handleTimetableSubmit = (e) => {
+  const handleTimetableSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSlot.course.trim()) {
       showToast("Provide a course or hospital ward rotation title.", "error");
@@ -533,7 +535,7 @@ export default function App() {
     showToast("Schedule block registered in timetable registry!", "success");
   };
 
-  const handleAnnouncementSubmit = (e) => {
+  const handleAnnouncementSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newAnn.title.trim() || !newAnn.content.trim()) {
       showToast("Please enter a clear title and details text.", "error");
@@ -553,7 +555,7 @@ export default function App() {
   };
 
 
-  const handleAITutorSubmit = async (e) => {
+  const handleAITutorSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!aiInput.trim() || aiLoading) return;
 
@@ -605,7 +607,7 @@ export default function App() {
   };
 
   // Auth operations
-  const handleRegFormSubmit = (e) => {
+  const handleRegFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (regForm.password !== regForm.confirmPassword) {
       showToast("Passwords do not match. Please verify.", "error");
@@ -627,7 +629,7 @@ export default function App() {
     showToast(`Welcome to MedHaven Hub, ${regForm.name || 'Scholar'}!`, "success");
   };
 
-  const handleLoginFormSubmit = (e) => {
+  const handleLoginFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginForm.email.includes("@")) {
       showToast("Enter a valid JUTH or university email address.", "error");
@@ -1013,6 +1015,7 @@ export default function App() {
 
                   {/* Cloudy entrance gate photo exactly matched */}
                   <div className="relative z-10 w-full md:w-72 h-44 rounded-xl overflow-hidden border border-slate-800 shadow-2xl shrink-0 group">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img 
                       src={JUTH_IMAGES.mainGate} 
                       alt="JUTH Main admission gate"
@@ -1087,6 +1090,7 @@ export default function App() {
 
                       {/* Stethoscope in front of Ward 11 exactly registered */}
                       <div className="w-full md:w-56 h-36 rounded-xl overflow-hidden border border-slate-800 relative shadow-lg shrink-0 group">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={JUTH_IMAGES.ward11Entrance} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" alt="Ward 11 door with stethoscope" />
                         <div className="absolute inset-0 bg-slate-950/60 flex items-end p-2.5">
                           <span className="text-[10px] font-bold text-white bg-slate-950/80 px-2 py-0.5 rounded border border-slate-800">Ward 11 Entry Gateway</span>
@@ -1104,6 +1108,7 @@ export default function App() {
                     </div>
 
                     <div className="h-28 rounded-lg overflow-hidden relative border border-slate-850">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={JUTH_IMAGES.courtyardTree} className="w-full h-full object-cover" alt="Administrative garden" />
                       <div className="absolute inset-0 bg-slate-950/30 flex items-end p-2">
                         <span className="text-[9px] text-slate-200 uppercase font-black tracking-wider">Courtyard Flowering Tree</span>
@@ -1354,6 +1359,7 @@ export default function App() {
 
                     {/* LED ticker sign from clinical emergencies matched */}
                     <div className="rounded-xl overflow-hidden border border-slate-800 relative h-36">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={JUTH_IMAGES.emergencyTicker} className="w-full h-full object-cover" alt="Red LED emergency ticker board" />
                       <div className="absolute inset-0 bg-slate-950/20" />
                     </div>
@@ -1561,6 +1567,7 @@ export default function App() {
                     <div key={item.id} className="bg-slate-950 border border-slate-850 rounded-2xl overflow-hidden hover:border-slate-700 transition flex flex-col justify-between">
                       <div className="p-4 space-y-4">
                         <div className="h-44 rounded-xl overflow-hidden bg-slate-900 border border-slate-850 relative">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={item.img} className="w-full h-full object-cover" alt="medical gear" />
                           <span className="absolute top-3 right-3 bg-slate-950/80 border border-emerald-500/20 backdrop-blur-sm text-emerald-400 font-extrabold text-xs px-3 py-1 rounded-lg">
                             {item.price}
