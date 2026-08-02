@@ -406,9 +406,9 @@ export default function App() {
   const [globalSearch, setGlobalSearch] = useState('');
 
   // Toast feedback state
-  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' | 'info' }>({ show: false, message: '', type: 'success' });
 
-  const showToast = (message, type = 'success') => {
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ show: true, message, type });
     setTimeout(() => {
       setToast(prev => ({ ...prev, show: false }));
@@ -419,7 +419,7 @@ export default function App() {
   const [quizActive, setQuizActive] = useState(false);
   const [activeQuiz, setActiveQuiz] = useState(PRE_MADE_QUIZZES[0]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [userAnswers, setUserAnswers] = useState({});
+  const [userAnswers, setUserAnswers] = useState<Record<number, string>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizScore, setQuizScore] = useState(0);
 
@@ -444,8 +444,8 @@ export default function App() {
   const [aiLoading, setAILoading] = useState(false);
 
   // Access check rule based on level
-  const canAccessLevel = (studentLevel, resourceLevel) => {
-    const hierarchy = { '100L': 1, '200L': 2, '300L': 3, '400L': 4, '500L': 5, '600L': 6, 'Final Year': 7 };
+  const canAccessLevel = (studentLevel: string, resourceLevel: string) => {
+    const hierarchy: Record<string, number> = { '100L': 1, '200L': 2, '300L': 3, '400L': 4, '500L': 5, '600L': 6, 'Final Year': 7 };
     const sRank = hierarchy[studentLevel] || 0;
     const rRank = hierarchy[resourceLevel] || 0;
     return sRank >= rRank;
@@ -462,7 +462,7 @@ export default function App() {
   });
 
   // Action methods
-  const handleDocUploadSubmit = (e) => {
+  const handleDocUploadSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!newDoc.title.trim()) {
       showToast("Please input a descriptive slide/document title.", "error");
@@ -490,7 +490,7 @@ export default function App() {
     showToast("Study resource uploaded successfully to JUTH database!", "success");
   };
 
-  const handleMarketItemSubmit = (e) => {
+  const handleMarketItemSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!newItem.title.trim()) {
       showToast("Please input an item title for listing.", "error");
@@ -513,7 +513,7 @@ export default function App() {
     showToast("Listing posted successfully to student marketplace!", "success");
   };
 
-  const handleTimetableSubmit = (e) => {
+  const handleTimetableSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!newSlot.course.trim()) {
       showToast("Provide a course or hospital ward rotation title.", "error");
@@ -535,7 +535,7 @@ export default function App() {
     showToast("Schedule block registered in timetable registry!", "success");
   };
 
-  const handleAnnouncementSubmit = (e) => {
+  const handleAnnouncementSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!newAnn.title.trim() || !newAnn.content.trim()) {
       showToast("Please enter a clear title and details text.", "error");
@@ -555,7 +555,7 @@ export default function App() {
   };
 
 
-  const handleAITutorSubmit = async (e) => {
+  const handleAITutorSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!aiInput.trim() || aiLoading) return;
 
@@ -607,7 +607,7 @@ export default function App() {
   };
 
   // Auth operations
-  const handleRegFormSubmit = (e) => {
+  const handleRegFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (regForm.password !== regForm.confirmPassword) {
       showToast("Passwords do not match. Please verify.", "error");
@@ -629,7 +629,7 @@ export default function App() {
     showToast(`Welcome to MedHaven Hub, ${regForm.name || 'Scholar'}!`, "success");
   };
 
-  const handleLoginFormSubmit = (e) => {
+  const handleLoginFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!loginForm.email.includes("@")) {
       showToast("Enter a valid JUTH or university email address.", "error");
