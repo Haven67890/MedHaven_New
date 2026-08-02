@@ -24,6 +24,23 @@ const JUTH_IMAGES = {
 
 const LEVELS = ['100L', '200L', '300L', '400L', '500L', '600L', 'Final Year'];
 
+type StudyResource = {
+  id: string;
+  title: string;
+  description: string;
+  type: string;
+  level: string;
+  department: string;
+  subfolder: string;
+  fileUrl: string;
+  isFeatured: boolean;
+  uploadedBy: string;
+  uploadedAt: string;
+  downloads: number;
+  views: number;
+  rating: number;
+};
+
 const getProfileDisplayName = (fullName?: string | null, fallback = 'Scholar') => {
   const cleanName = fullName?.trim();
   return cleanName && cleanName.length > 0 ? cleanName : fallback;
@@ -462,7 +479,7 @@ export default function App() {
   }, [userProfile.email]);
 
   // Core Databases
-  const [library, setLibrary] = useState(INITIAL_LIBRARY);
+  const [library, setLibrary] = useState<StudyResource[]>([]);
   const [timetable, setTimetable] = useState(INITIAL_TIMETABLES);
 
   // Auth Form parameters
@@ -499,14 +516,14 @@ export default function App() {
           const mappedLibrary = data.map((course, index) => ({
             id: String(course.id ?? `course-${index}`),
             title: String(course.name ?? course.title ?? course.code ?? 'Course'),
-            description: String(course.description ?? 'Live course content from Supabase.'),
-            type: 'Course',
+            description: String(course.description ?? 'Live curriculum item from Supabase.'),
+            type: 'Lecture Slides',
             level: String(course.level ?? userProfile.level),
-            department: String(course.department_id ?? 'Medicine'),
-            subfolder: String(course.parent_id ?? 'General'),
+            department: String(course.parent_id ?? course.name ?? 'General'),
+            subfolder: String(course.parent_id ?? 'Curriculum'),
             fileUrl: '#',
             isFeatured: Boolean(course.parent_id) === false,
-            uploadedBy: 'Live Supabase',
+            uploadedBy: 'Supabase',
             uploadedAt: new Date().toISOString().split('T')[0],
             downloads: 0,
             views: 0,
@@ -517,11 +534,11 @@ export default function App() {
           return;
         }
       } catch {
-        // Keep the existing demo library if the live dataset is unavailable.
+        // No live course records yet: keep the library empty and show the clean empty state.
       }
 
       if (mounted) {
-        setLibrary(INITIAL_LIBRARY);
+        setLibrary([]);
       }
     };
 
