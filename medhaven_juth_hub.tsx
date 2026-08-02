@@ -575,7 +575,11 @@ export default function App() {
   const [globalSearch, setGlobalSearch] = useState('');
 
   // Toast feedback state
-  const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' | 'info' }>({ show: false, message: '', type: 'success' });
+  const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' | 'info' }>({
+    show: false,
+    message: '',
+    type: 'success'
+  });
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ show: true, message, type });
