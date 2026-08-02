@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   BookOpen, Search, MessageSquare, Calendar, User, Folder, Upload, Plus, 
