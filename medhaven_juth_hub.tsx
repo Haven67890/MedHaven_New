@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
+import { supabase } from './lib/auth/supabaseClient';
 import { 
   BookOpen, Search, MessageSquare, Calendar, User, Folder, Upload, Plus, 
   Award, ShieldAlert, Trash, Eye, Download, Tag, ChevronRight, Sparkles, 
@@ -23,6 +24,16 @@ const JUTH_IMAGES = {
 
 const LEVELS = ['100L', '200L', '300L', '400L', '500L', '600L', 'Final Year'];
 
+const getProfileDisplayName = (fullName?: string | null, fallback = 'Scholar') => {
+  const cleanName = fullName?.trim();
+  return cleanName && cleanName.length > 0 ? cleanName : fallback;
+};
+
+const getTimeGreeting = (fullName?: string | null) => {
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  return `${greeting}, ${getProfileDisplayName(fullName)}`;
+};
 
 const INITIAL_LIBRARY = [
   // 400L - Clinical Phase 1 (Medicine M1, Surgery S1, etc.)
@@ -345,19 +356,74 @@ export default function App() {
   // Gemini API configuration
   const [geminiApiKey, setGeminiApiKey] = useState("");
 
-  // Simulated Student Profile State
+  // Live student profile state with safe fallback identity
   const [userProfile, setUserProfile] = useState({
-    name: "John Snow",
-    matric: "UJT/2022/MBBS/014",
-    email: "john.snow@juth.edu.ng",
+    name: "Scholar",
+    matric: "",
+    email: "",
     level: "400L",
     course: "Medicine and Surgery (MBBS)",
     gender: "Male",
-    phone: "+2348031234567",
+    phone: "",
     isAdmin: true,
     points: 340,
     reputation: 1500
   });
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadProfile = async () => {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        const userId = authData?.user?.id ?? null;
+        const userEmail = authData?.user?.email ?? (userProfile.email || null);
+
+        if (!mounted) return;
+
+        if (userId || userEmail) {
+          let query = supabase
+            .from('profiles')
+            .select('id, full_name, email, role_id, level, department_id, faculty_id, university_id, avatar_url')
+            .limit(1);
+
+          if (userId) {
+            query = query.eq('id', userId);
+          } else if (userEmail) {
+            query = query.eq('email', userEmail);
+          }
+
+          const { data, error } = await query.maybeSingle();
+
+          if (!mounted) return;
+
+          if (!error && data) {
+            setUserProfile((prev) => ({
+              ...prev,
+              name: getProfileDisplayName(data.full_name ?? null, prev.name || 'Scholar'),
+              email: data.email ?? prev.email,
+              level: data.level ?? prev.level,
+              matric: String(data.id ?? prev.matric),
+              gender: prev.gender,
+              phone: prev.phone,
+              isAdmin: Boolean(data.role_id) || prev.isAdmin,
+              course: prev.course,
+            }));
+          }
+        }
+      } catch {
+        if (mounted) {
+          setUserProfile((prev) => ({ ...prev, name: prev.name || 'Scholar' }));
+        }
+      }
+    };
+
+    void loadProfile();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Auth Form parameters
   const [regForm, setRegForm] = useState({
@@ -375,6 +441,56 @@ export default function App() {
     email: "",
     password: ""
   });
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadCourses = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('courses')
+          .select('id, code, name, title, level, parent_id, department_id, faculty_id, university_id, description')
+          .order('name', { ascending: true })
+          .limit(100);
+
+        if (!mounted) return;
+
+        if (!error && data && data.length > 0) {
+          const mappedLibrary = data.map((course, index) => ({
+            id: String(course.id ?? `course-${index}`),
+            title: String(course.name ?? course.title ?? course.code ?? 'Course'),
+            description: String(course.description ?? 'Live course content from Supabase.'),
+            type: 'Course',
+            level: String(course.level ?? userProfile.level),
+            department: String(course.department_id ?? 'Medicine'),
+            subfolder: String(course.parent_id ?? 'General'),
+            fileUrl: '#',
+            isFeatured: Boolean(course.parent_id) === false,
+            uploadedBy: 'Live Supabase',
+            uploadedAt: new Date().toISOString().split('T')[0],
+            downloads: 0,
+            views: 0,
+            rating: 4.5,
+          }));
+
+          setLibrary(mappedLibrary);
+          return;
+        }
+      } catch {
+        // Keep the existing demo library if the live dataset is unavailable.
+      }
+
+      if (mounted) {
+        setLibrary(INITIAL_LIBRARY);
+      }
+    };
+
+    void loadCourses();
+
+    return () => {
+      mounted = false;
+    };
+  }, [userProfile.level]);
 
   // Core Databases
   const [library, setLibrary] = useState(INITIAL_LIBRARY);
@@ -997,7 +1113,7 @@ export default function App() {
                     <div className="inline-flex items-center gap-1.5 bg-cyan-500/10 text-cyan-400 px-3 py-1 rounded-full text-xs font-bold border border-cyan-500/20">
                       <HeartPulse className="w-3.5 h-3.5" /> JUTH systems mapped
                     </div>
-                    <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight">Welcome back, Scholar {userProfile.name}</h2>
+                    <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight">{getTimeGreeting(userProfile.name)}</h2>
                     <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">
                       Dashboard resources and rotations filtered for <span className="text-cyan-400 font-black">{userProfile.level}</span>. Prepare for morning Ward 11 rounds and cardiology postings with our customized revision library.
                     </p>
