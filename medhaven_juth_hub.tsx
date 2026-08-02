@@ -367,11 +367,38 @@ export default function App() {
     phone: "",
     isAdmin: true,
     points: 340,
-    reputation: 1500
+    reputation: 1500,
+    departmentName: "",
+    facultyName: "",
+    universityName: "",
+    avatarUrl: ""
   });
 
   useEffect(() => {
     let mounted = true;
+
+    const lookupMetadata = async (departmentId: string | number | null, facultyId: string | number | null, universityId: string | number | null) => {
+      const requests = [
+        departmentId ? supabase.from('departments').select('name').eq('id', departmentId).maybeSingle() : Promise.resolve({ data: null, error: null }),
+        facultyId ? supabase.from('faculties').select('name').eq('id', facultyId).maybeSingle() : Promise.resolve({ data: null, error: null }),
+        universityId ? supabase.from('universities').select('name').eq('id', universityId).maybeSingle() : Promise.resolve({ data: null, error: null })
+      ];
+
+      const [departmentResult, facultyResult, universityResult] = await Promise.allSettled(requests);
+
+      if (!mounted) return;
+
+      const departmentName = departmentResult.status === 'fulfilled' && departmentResult.value.data ? String((departmentResult.value.data as { name?: string | null }).name ?? '') : '';
+      const facultyName = facultyResult.status === 'fulfilled' && facultyResult.value.data ? String((facultyResult.value.data as { name?: string | null }).name ?? '') : '';
+      const universityName = universityResult.status === 'fulfilled' && universityResult.value.data ? String((universityResult.value.data as { name?: string | null }).name ?? '') : '';
+
+      setUserProfile((prev) => ({
+        ...prev,
+        departmentName,
+        facultyName,
+        universityName
+      }));
+    };
 
     const loadProfile = async () => {
       try {
@@ -398,17 +425,26 @@ export default function App() {
           if (!mounted) return;
 
           if (!error && data) {
-            setUserProfile((prev) => ({
-              ...prev,
-              name: getProfileDisplayName(data.full_name ?? null, prev.name || 'Scholar'),
-              email: data.email ?? prev.email,
-              level: data.level ?? prev.level,
-              matric: String(data.id ?? prev.matric),
-              gender: prev.gender,
-              phone: prev.phone,
-              isAdmin: Boolean(data.role_id) || prev.isAdmin,
-              course: prev.course,
-            }));
+            const nextProfile = {
+              name: getProfileDisplayName(data.full_name ?? null, userProfile.name || 'Scholar'),
+              email: data.email ?? userProfile.email,
+              level: data.level ?? userProfile.level,
+              matric: String(data.id ?? userProfile.matric),
+              gender: userProfile.gender,
+              phone: userProfile.phone,
+              isAdmin: Boolean(data.role_id) || userProfile.isAdmin,
+              course: userProfile.course,
+              departmentName: userProfile.departmentName,
+              facultyName: userProfile.facultyName,
+              universityName: userProfile.universityName,
+              avatarUrl: String(data.avatar_url ?? userProfile.avatarUrl),
+              points: userProfile.points,
+              reputation: userProfile.reputation
+            };
+
+            setUserProfile(nextProfile);
+            await lookupMetadata(data.department_id ?? null, data.faculty_id ?? null, data.university_id ?? null);
+            return;
           }
         }
       } catch {
@@ -423,7 +459,11 @@ export default function App() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [userProfile.email]);
+
+  // Core Databases
+  const [library, setLibrary] = useState(INITIAL_LIBRARY);
+  const [timetable, setTimetable] = useState(INITIAL_TIMETABLES);
 
   // Auth Form parameters
   const [regForm, setRegForm] = useState({
@@ -491,10 +531,6 @@ export default function App() {
       mounted = false;
     };
   }, [userProfile.level]);
-
-  // Core Databases
-  const [library, setLibrary] = useState(INITIAL_LIBRARY);
-  const [timetable, setTimetable] = useState(INITIAL_TIMETABLES);
   const [staffList, setStaffList] = useState(INITIAL_STAFF);
   const [marketItems, setMarketItems] = useState(INITIAL_MARKETPLACE);
   const [blogPosts, setBlogPosts] = useState(INITIAL_BLOGS);
@@ -739,7 +775,11 @@ export default function App() {
       phone: regForm.phone || "+2348000000000",
       isAdmin: true,
       points: 150,
-      reputation: 100
+      reputation: 100,
+      departmentName: "",
+      facultyName: "",
+      universityName: "",
+      avatarUrl: ""
     });
     setIsAuthenticated(true);
     showToast(`Welcome to MedHaven Hub, ${regForm.name || 'Scholar'}!`, "success");
