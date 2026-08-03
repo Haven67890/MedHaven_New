@@ -10,7 +10,7 @@ type AuthContextType = {
   user: User | null
   loading: boolean
   login: (email: string, password: string) => Promise<unknown>
-  register: (email: string, password: string) => Promise<unknown>
+  register: (email: string, password: string, fullName?: string) => Promise<unknown>
   logout: () => Promise<unknown>
   resetPassword: (email: string) => Promise<unknown>
 }
@@ -59,11 +59,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return res
   }
 
-  const register = async (email: string, password: string) => {
+  const register = async (email: string, password: string, fullName?: string) => {
     setLoading(true)
-    const res = await supabase.auth.signUp({ email, password })
+    const res = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName ?? null,
+        },
+      },
+    })
     setLoading(false)
     if (res.error) throw res.error
+
+    // Attempt to create profile row after signup
+    if (res.data.user) {
+      await supabase
+        .from("profiles")
+        .insert({
+          id: res.data.user.id,
+          email: email.trim().toLowerCase(),
+          full_name: fullName ?? null,
+        })
+    }
+
     return res
   }
 
@@ -77,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const resetPassword = async (email: string) => {
     const res = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/(auth)/reset` : undefined,
+      redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/login` : undefined,
     })
     if (res.error) throw res.error
     return res

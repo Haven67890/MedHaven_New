@@ -234,7 +234,7 @@ const INITIAL_STAFF = [
     phone: "+2348031234567",
     email: "mbanefo.j@juth.edu.ng",
     bio: "Head of Cardiology Division with 25+ years training clinical students.",
-    img: "Screenshot_20240923-184937.png"
+    img: "https://images.unsplash.com/photo-1584515933487-779824d29309?auto=format&fit=crop&w=400&q=80"
   },
   {
     id: "staff-2",
@@ -246,7 +246,7 @@ const INITIAL_STAFF = [
     phone: "+2348057654321",
     email: "ruth.dung@juth.edu.ng",
     bio: "Consultant Neonatologist, championing local pediatric care optimization.",
-    img: "IMG_20250317_183421_424.jpg"
+    img: "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=400&q=80"
   },
   {
     id: "staff-3",
@@ -258,7 +258,7 @@ const INITIAL_STAFF = [
     phone: "+2348061112233",
     email: "dama.l@juth.edu.ng",
     bio: "Chief Senior Lecturer, coordinator of Endocrinology clinical postings.",
-    img: "Screenshot_20240923-184937.png"
+    img: "https://images.unsplash.com/photo-1584515933487-779824d29309?auto=format&fit=crop&w=400&q=80"
   },
   {
     id: "staff-4",
@@ -270,7 +270,7 @@ const INITIAL_STAFF = [
     phone: "+2348093334444",
     email: "musa.400lrep@jumsahub.org",
     bio: "Elected 400L Clinical representative. Reach out for any lecture or schedule amendments.",
-    img: "20260421_163352.jpg"
+    img: "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=400&q=80"
   }
 ];
 
@@ -282,9 +282,9 @@ const INITIAL_MARKETPLACE = [
     category: "Stethoscopes",
     condition: "Like New",
     price: "₦75,000",
-    sellerName: "Daniel Pam (600L)",
+    sellerName: "Student Seller",
     sellerPhone: "+2348030001111",
-    img: "IMG_20250317_183421_424.jpg"
+    img: "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=400&q=80"
   },
   {
     id: "market-2",
@@ -295,7 +295,7 @@ const INITIAL_MARKETPLACE = [
     price: "₦140,000",
     sellerName: "Zainab Isa (Final Year)",
     sellerPhone: "+2348052223333",
-    img: "Screenshot_20240923-184937.png"
+    img: "https://images.unsplash.com/photo-1584515933487-779824d29309?auto=format&fit=crop&w=400&q=80"
   }
 ];
 
@@ -367,7 +367,7 @@ const PRE_MADE_QUIZZES = [
 
 export default function App() {
   // Authentication states
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
 
   // Gemini API configuration
@@ -382,7 +382,7 @@ export default function App() {
     course: "Medicine and Surgery (MBBS)",
     gender: "Male",
     phone: "",
-    isAdmin: true,
+    isAdmin: false,
     points: 340,
     reputation: 1500,
     departmentName: "",
@@ -449,7 +449,7 @@ export default function App() {
               matric: String(data.id ?? userProfile.matric),
               gender: userProfile.gender,
               phone: userProfile.phone,
-              isAdmin: Boolean(data.role_id) || userProfile.isAdmin,
+              isAdmin: Boolean(userProfile.isAdmin),
               course: userProfile.course,
               departmentName: userProfile.departmentName,
               facultyName: userProfile.facultyName,
@@ -604,7 +604,7 @@ export default function App() {
 
   // Form entries for uploads
   const [newDoc, setNewDoc] = useState({ title: '', desc: '', type: 'Lecture Slides', level: '400L', dept: 'Medicine', subfolder: 'M1/Cardiology' });
-  const [newItem, setNewItem] = useState({ title: '', desc: '', category: 'Stethoscopes', cond: 'Like New', price: '₦', phone: '', seller: 'John Snow' });
+  const [newItem, setNewItem] = useState({ title: '', desc: '', category: 'Stethoscopes', cond: 'Like New', price: '₦', phone: '', seller: '' });
   const [newSlot, setNewSlot] = useState({ day: 'Monday', time: '08:00 - 10:00', activity: 'Lecture', course: '', location: '', lecturer: '' });
   const [newAnn, setNewAnn] = useState({ title: '', content: '', priority: 'Medium', level: '400L' });
 
@@ -678,7 +678,7 @@ export default function App() {
       price: newItem.price || "₦ Free",
       sellerName: newItem.seller || userProfile.name,
       sellerPhone: newItem.phone || userProfile.phone,
-      img: "IMG_20250317_183421_424.jpg" // Defaults to physical stethoscope image
+      img: "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=400&q=80" // Defaults to physical stethoscope image
     };
     setMarketItems([item, ...marketItems]);
     setShowItemPostModal(false);
@@ -780,40 +780,65 @@ export default function App() {
   };
 
   // Auth operations
-  const handleRegFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleRegFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (regForm.password !== regForm.confirmPassword) {
       showToast("Passwords do not match. Please verify.", "error");
       return;
     }
-    setUserProfile({
-      name: regForm.name || "Student Scholar",
-      matric: regForm.matric || "UJT/2026/MBBS/999",
-      email: regForm.email,
-      level: regForm.level,
-      course: regForm.course,
-      gender: "Male",
-      phone: regForm.phone || "+2348000000000",
-      isAdmin: true,
-      points: 150,
-      reputation: 100,
-      departmentName: "",
-      facultyName: "",
-      universityName: "",
-      avatarUrl: ""
-    });
-    setIsAuthenticated(true);
-    showToast(`Welcome to MedHaven Hub, ${regForm.name || 'Scholar'}!`, "success");
+    if (regForm.password.length < 8) {
+      showToast("Password must be at least 8 characters long.", "error");
+      return;
+    }
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: regForm.email,
+        password: regForm.password,
+        options: {
+          data: {
+            full_name: regForm.name || "Student Scholar",
+          },
+        },
+      });
+      if (authError) {
+        showToast(authError.message, "error");
+        return;
+      }
+      if (authData.user) {
+        await supabase.from("profiles").insert({
+          id: authData.user.id,
+          email: regForm.email,
+          full_name: regForm.name || "Student Scholar",
+          level: regForm.level,
+        });
+      }
+      setIsAuthenticated(true);
+      showToast(`Welcome to MedHaven Hub, ${regForm.name || 'Scholar'}!`, "success");
+    } catch {
+      showToast("Unable to create account. Please try again.", "error");
+    }
   };
 
-  const handleLoginFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleLoginFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!loginForm.email.includes("@")) {
       showToast("Enter a valid JUTH or university email address.", "error");
       return;
     }
-    setIsAuthenticated(true);
-    showToast(`Successfully logged in as ${userProfile.name}!`, "success");
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: loginForm.email,
+        password: loginForm.password,
+      });
+      if (error) {
+        showToast(error.message || "Unable to sign in.", "error");
+        return;
+      }
+      setIsAuthenticated(true);
+      showToast(`Successfully logged in as ${userProfile.name}!`, "success");
+    } catch {
+      showToast("Unable to sign in. Please try again.", "error");
+    }
   };
 
   return (
@@ -899,7 +924,7 @@ export default function App() {
                         required 
                         value={regForm.name}
                         onChange={(e) => setRegForm({ ...regForm, name: e.target.value })}
-                        placeholder="e.g. Daniel Pam" 
+                        placeholder="e.g. Your Name" 
                         className="w-full bg-slate-900 border border-slate-800 focus:border-cyan-500 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none"
                       />
                     </div>
@@ -997,7 +1022,7 @@ export default function App() {
                       required 
                       value={loginForm.email}
                       onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                      placeholder="e.g. john.snow@juth.edu.ng" 
+                      placeholder="e.g. your.name@juth.edu.ng" 
                       className="w-full bg-slate-900 border border-slate-800 focus:border-cyan-500 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none"
                     />
                   </div>
@@ -1032,10 +1057,20 @@ export default function App() {
 
                   <button 
                     type="button"
-                    onClick={() => { setIsAuthenticated(true); showToast("Authenticated successfully via JUTH Cloud Directory.", "success"); }}
+                    onClick={async () => {
+                      const { error } = await supabase.auth.signInWithOAuth({
+                        provider: "google",
+                        options: {
+                          redirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
+                        },
+                      });
+                      if (error) {
+                        showToast("Google sign-in is not yet configured. Please use email and password.", "info");
+                      }
+                    }}
                     className="w-full bg-slate-900 border border-slate-800 hover:bg-slate-855 text-slate-300 text-xs font-semibold py-2 rounded-lg flex items-center justify-center gap-2 transition"
                   >
-                    <Globe className="w-4 h-4 text-cyan-400" /> Continue with Google Directory
+                    <Globe className="w-4 h-4 text-cyan-400" /> Continue with Google
                   </button>
                 </form>
               )}

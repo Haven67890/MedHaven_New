@@ -24,17 +24,19 @@ export const adminDepartments = [
   { id: "ad6", name: "Clinical Skills", students: 420, materials: 288, color: "accent" },
 ] as const
 
-export const adminUsers = [
-  { id: "au1", name: "Amara Okafor", role: "Student", level: "MBBS 400", status: "Active", initials: "AO" },
-  { id: "au2", name: "Kwame Asante", role: "Student", level: "MBBS 300", status: "Active", initials: "KA" },
-  { id: "au3", name: "Dr. Ama Mensah", role: "Staff", level: "Pathology", status: "Active", initials: "AM" },
-  { id: "au4", name: "Fatima Bello", role: "Student", level: "MBBS 500", status: "Suspended", initials: "FB" },
-  { id: "au5", name: "Prof. Kofi Boateng", role: "Staff", level: "Physiology", status: "Active", initials: "KB" },
-] as const
+export const adminUsers: Array<{
+  id: string
+  name: string
+  role: string
+  level: string
+  status: "Active" | "Suspended"
+  initials: string
+}> = []
 
-export const adminReports = [
-  { id: "ar1", title: "Pharmacology quiz error report", reporter: "Amara Okafor", status: "Open", time: "2h ago" },
-  { id: "ar2", title: "Broken lecture video link", reporter: "Kwame Asante", status: "In review", time: "5h ago" },
-  { id: "ar3", title: "Marketplace listing dispute", reporter: "Fatima Bello", status: "Open", time: "1d ago" },
-  { id: "ar4", title: "Timetable conflict — Anatomy", reporter: "Chinedu Eze", status: "Resolved", time: "2d ago" },
-] as const
+export const adminReports: Array<{
+  id: string
+  title: string
+  reporter: string
+  status: "Open" | "In review" | "Resolved"
+  time: string
+}> = []

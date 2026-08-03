@@ -1,71 +1,11 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
 
 import { MedHavenLogo } from "@/components/brand/medhaven-logo"
 import { ThemeToggle } from "@/components/layout/theme-toggle"
-import useAuth from "@/hooks/useAuth"
-import { supabase } from "@/lib/auth/supabaseClient"
-
-function normalizeRole(value: unknown): string {
-  if (typeof value !== "string") return ""
-  return value.trim().toLowerCase()
-}
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth()
-  const router = useRouter()
-  const pathname = usePathname()
-  const [ready, setReady] = useState(false)
-
-  useEffect(() => {
-    if (loading) return
-
-    const redirectAuthenticatedUser = async () => {
-      if (!user) {
-        setReady(true)
-        return
-      }
-
-      const { data: authData } = await supabase.auth.getUser()
-      const userId = authData?.user?.id ?? user.id
-      const userEmail = authData?.user?.email ?? user.email
-
-      let role = "student"
-      if (userId || userEmail) {
-        let query = supabase.from("profiles").select("role, role_name, level, is_admin").limit(1)
-        if (userId) query = query.eq("id", userId)
-        else if (userEmail) query = query.eq("email", userEmail)
-
-        const { data } = await query.maybeSingle()
-        const profile = (data ?? {}) as Record<string, unknown>
-        const detectedRole = normalizeRole(profile.role ?? profile.role_name ?? profile.user_role ?? profile.access_role)
-        if (detectedRole === "admin" || detectedRole === "super_admin") {
-          role = detectedRole
-        }
-      }
-
-      if (pathname === "/login" || pathname === "/register") {
-        router.replace(role === "admin" || role === "super_admin" ? "/admin" : "/dashboard")
-        return
-      }
-
-      setReady(true)
-    }
-
-    void redirectAuthenticatedUser()
-  }, [loading, pathname, router, user])
-
-  if (loading || !ready) {
-    return (
-      <div className="flex min-h-svh items-center justify-center bg-background text-sm text-muted-foreground">
-        Preparing your session...
-      </div>
-    )
-  }
-
   return (
     <div className="relative flex min-h-svh bg-background">
       <div className="absolute right-4 top-4 sm:right-6 sm:top-6">

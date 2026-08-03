@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Bell, Eye, EyeOff, Lock, Moon, Palette, User } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input"
 import { PageHeader } from "@/components/dashboard/page-header"
 import { SectionHeading } from "@/components/dashboard/section-heading"
 import { cn } from "@/lib/utils"
+import useAuth from "@/hooks/useAuth"
+import { supabase } from "@/lib/auth/supabaseClient"
 
 function Toggle({ checked, onChange, label, description }: { checked: boolean; onChange: (v: boolean) => void; label: string; description: string }) {
   return (
@@ -37,9 +39,34 @@ function Toggle({ checked, onChange, label, description }: { checked: boolean; o
 }
 
 export default function SettingsPage() {
+  const { user } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
   const [notifications, setNotifications] = useState({ announcements: true, tutorials: true, marketplace: false, weekly: true })
   const [appearance, setAppearance] = useState({ darkMode: true, reducedMotion: false })
+  const [profile, setProfile] = useState<{ first_name?: string; last_name?: string; email?: string } | null>(null)
+
+  useEffect(() => {
+    if (!user?.id) return
+
+    const loadProfile = async () => {
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("full_name, email")
+        .eq("id", user.id)
+        .maybeSingle()
+
+      if (profileData) {
+        const names = String(profileData.full_name ?? "").split(" ")
+        setProfile({
+          first_name: names[0] || "",
+          last_name: names.slice(1).join(" ") || "",
+          email: profileData.email ?? user.email ?? "",
+        })
+      }
+    }
+
+    void loadProfile()
+  }, [user?.id, user?.email])
 
   return (
     <div className="flex flex-col gap-8">
@@ -57,16 +84,16 @@ export default function SettingsPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field>
                   <FieldLabel htmlFor="settings-firstname">First name</FieldLabel>
-                  <Input id="settings-firstname" defaultValue="Amara" />
+                  <Input id="settings-firstname" defaultValue={profile?.first_name ?? ""} />
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="settings-lastname">Last name</FieldLabel>
-                  <Input id="settings-lastname" defaultValue="Okafor" />
+                  <Input id="settings-lastname" defaultValue={profile?.last_name ?? ""} />
                 </Field>
               </div>
               <Field>
                 <FieldLabel htmlFor="settings-email">Email address</FieldLabel>
-                <Input id="settings-email" type="email" defaultValue="amara.okafor@medhaven.edu" />
+                <Input id="settings-email" type="email" defaultValue={profile?.email ?? ""} />
                 <FieldDescription>Used for sign-in and important notifications.</FieldDescription>
               </Field>
               <div className="flex justify-end">

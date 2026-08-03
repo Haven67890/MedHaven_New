@@ -7,27 +7,30 @@ import { MedHavenLogo } from "@/components/brand/medhaven-logo"
 import { ThemeToggle } from "@/components/layout/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
-
-const navigation = [
-  { href: "/", label: "Home" },
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/login", label: "Sign in" },
-]
+import useAuth from "@/hooks/useAuth"
 
 export function TopNavigation() {
+  const { user, loading } = useAuth()
+
   return (
     <header className="sticky top-0 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <MedHavenLogo />
         <nav className="hidden items-center gap-1 md:flex" aria-label="Primary navigation">
-          {navigation.map((item) => (
-            <Button key={item.href} variant="ghost" asChild>
-              <Link href={item.href}>{item.label}</Link>
+          {!loading && !user ? (
+            <>
+              <Button variant="ghost" asChild>
+                <Link href="/login">Sign in</Link>
+              </Button>
+              <Button asChild>
+                <Link href="/register">Register</Link>
+              </Button>
+            </>
+          ) : (
+            <Button variant="ghost" asChild>
+              <Link href="/dashboard">Dashboard</Link>
             </Button>
-          ))}
-          <Button asChild>
-            <Link href="/dashboard">Get started</Link>
-          </Button>
+          )}
           <ThemeToggle />
         </nav>
         <div className="flex items-center gap-1 md:hidden">
@@ -44,18 +47,26 @@ export function TopNavigation() {
                 <SheetDescription>Move around the MedHaven foundation.</SheetDescription>
               </SheetHeader>
               <nav className="flex flex-col gap-2 px-4" aria-label="Mobile navigation">
-                {navigation.map((item) => (
-                  <SheetClose key={item.href} asChild>
-                    <Button variant="ghost" className="justify-start" asChild>
-                      <Link href={item.href}>{item.label}</Link>
+                {!loading && !user ? (
+                  <>
+                    <SheetClose asChild>
+                      <Button variant="ghost" className="justify-start" asChild>
+                        <Link href="/login">Sign in</Link>
+                      </Button>
+                    </SheetClose>
+                    <SheetClose asChild>
+                      <Button className="mt-2" asChild>
+                        <Link href="/register">Register</Link>
+                      </Button>
+                    </SheetClose>
+                  </>
+                ) : (
+                  <SheetClose asChild>
+                    <Button className="mt-2" asChild>
+                      <Link href="/dashboard">Dashboard</Link>
                     </Button>
                   </SheetClose>
-                ))}
-                <SheetClose asChild>
-                  <Button className="mt-2" asChild>
-                    <Link href="/dashboard">Get started</Link>
-                  </Button>
-                </SheetClose>
+                )}
               </nav>
             </SheetContent>
           </Sheet>

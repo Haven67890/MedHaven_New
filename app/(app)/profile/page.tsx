@@ -1,47 +1,124 @@
-import type { Metadata } from "next"
+"use client"
+
 import Link from "next/link"
-import { Award, BookOpen, BrainCircuit, CalendarDays, Flame, GraduationCap, ListChecks, Mail, MapPin, Pencil, Settings, Trophy } from "lucide-react"
+import { Mail, MapPin, GraduationCap, CalendarDays, BookOpen, Settings, Pencil } from "lucide-react"
 
 import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageHeader } from "@/components/dashboard/page-header"
-import { Progress } from "@/components/ui/progress"
-import { SectionHeading } from "@/components/dashboard/section-heading"
-import { student } from "@/lib/data/dashboard"
+import useAuth from "@/hooks/useAuth"
+import { supabase } from "@/lib/auth/supabaseClient"
+import { useEffect, useState } from "react"
 
-export const metadata: Metadata = {
-  title: "Profile",
-  description: "Your MedHaven profile.",
+type Profile = {
+  full_name?: string | null
+  email?: string | null
+  level?: string | null
+  department_id?: string | number | null
+  faculty_id?: string | number | null
+  university_id?: string | number | null
+  avatar_url?: string | null
 }
 
-const stats = [
-  { id: "st1", label: "Quizzes taken", value: "48", icon: "ListChecks" },
-  { id: "st2", label: "Flashcards reviewed", value: "1,420", icon: "BrainCircuit" },
-  { id: "st3", label: "Materials opened", value: "27", icon: "BookOpen" },
-  { id: "st4", label: "Tutorials attended", value: "18", icon: "GraduationCap" },
-] as const
+function useProfile(userId: string | undefined) {
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [departmentName, setDepartmentName] = useState("")
+  const [facultyName, setFacultyName] = useState("")
+  const [universityName, setUniversityName] = useState("")
+  const [loading, setLoading] = useState(true)
 
-const statIcons = { ListChecks, BrainCircuit, BookOpen, GraduationCap } as const
+  useEffect(() => {
+    let mounted = true
 
-const achievements = [
-  { id: "a1", title: "7-day streak", icon: "Flame", unlocked: true },
-  { id: "a2", title: "Top 10 rank", icon: "Trophy", unlocked: true },
-  { id: "a3", title: "40+ quizzes", icon: "ListChecks", unlocked: true },
-  { id: "a4", title: "90%+ accuracy", icon: "Award", unlocked: true },
-  { id: "a5", title: "14-day streak", icon: "Flame", unlocked: false },
-  { id: "a6", title: "#1 rank", icon: "Trophy", unlocked: false },
-] as const
+    const loadProfile = async () => {
+      if (!userId) {
+        if (mounted) setLoading(false)
+        return
+      }
 
-const achievementIcons = { Flame, Trophy, ListChecks, Award } as const
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("full_name, email, level, department_id, faculty_id, university_id, avatar_url")
+        .eq("id", userId)
+        .maybeSingle()
+
+      if (!mounted) return
+
+      if (profileData) {
+        setProfile(profileData as Profile)
+
+        // Fetch related names
+        const requests = [
+          profileData.department_id
+            ? supabase.from("departments").select("name").eq("id", profileData.department_id).maybeSingle()
+            : Promise.resolve({ data: null, error: null }),
+          profileData.faculty_id
+            ? supabase.from("faculties").select("name").eq("id", profileData.faculty_id).maybeSingle()
+            : Promise.resolve({ data: null, error: null }),
+          profileData.university_id
+            ? supabase.from("universities").select("name").eq("id", profileData.university_id).maybeSingle()
+            : Promise.resolve({ data: null, error: null }),
+        ]
+
+        const [deptResult, facResult, uniResult] = await Promise.allSettled(requests)
+
+        if (!mounted) return
+
+        const deptName = deptResult.status === "fulfilled" && deptResult.value.data
+          ? String((deptResult.value.data as { name?: string | null }).name ?? "")
+          : ""
+        const facName = facResult.status === "fulfilled" && facResult.value.data
+          ? String((facResult.value.data as { name?: string | null }).name ?? "")
+          : ""
+        const uniName = uniResult.status === "fulfilled" && uniResult.value.data
+          ? String((uniResult.value.data as { name?: string | null }).name ?? "")
+          : ""
+
+        setDepartmentName(deptName)
+        setFacultyName(facName)
+        setUniversityName(uniName)
+      }
+
+      if (mounted) setLoading(false)
+    }
+
+    void loadProfile()
+
+    return () => {
+      mounted = false
+    }
+  }, [userId])
+
+  return { profile, departmentName, facultyName, universityName, loading }
+}
 
 export default function ProfilePage() {
+  const { user } = useAuth()
+  const { profile, departmentName, facultyName, universityName, loading } = useProfile(user?.id)
+
+  const displayName = profile?.full_name ?? user?.email ?? "Your Account"
+  const initials = displayName
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2)
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <p className="text-sm text-muted-foreground">Loading profile...</p>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title="Profile" description="Your academic identity on MedHaven.">
         <Button variant="outline" asChild>
-          <Link href="/settings"><Settings data-icon="inline-start" />Settings</Link>
+          <Link href="/settings"><Settings className="mr-2 size-4" />Settings</Link>
         </Button>
       </PageHeader>
 
@@ -49,88 +126,77 @@ export default function ProfilePage() {
         <div className="h-28 bg-gradient-to-br from-primary/20 via-primary/10 to-accent" />
         <CardContent className="-mt-12 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-            <Avatar initials={student.avatarInitials} className="size-24 border-4 border-card text-3xl shadow-sm" />
+            <Avatar initials={initials} className="size-24 border-4 border-card text-3xl shadow-sm" />
             <div className="flex flex-col gap-1 pb-2">
-              <h2 className="text-xl font-semibold tracking-tight text-foreground">{student.name}</h2>
-              <p className="text-sm text-muted-foreground">{student.level} · {student.semester}</p>
+              <h2 className="text-xl font-semibold tracking-tight text-foreground">{displayName}</h2>
+              <p className="text-sm text-muted-foreground">
+                {profile?.level ? `Level ${profile.level}` : "Academic level not set"}
+              </p>
               <div className="flex flex-wrap items-center gap-2 pt-1">
-                <Badge variant="warning"><Flame className="size-3" aria-hidden="true" />{student.streak} day streak</Badge>
-                <Badge variant="muted">Rank #{student.rank}</Badge>
-                <Badge variant="accent">GPA {student.gpa}</Badge>
+                {departmentName && (
+                  <Badge variant="muted">{departmentName}</Badge>
+                )}
+                {facultyName && (
+                  <Badge variant="muted">{facultyName}</Badge>
+                )}
+                {universityName && (
+                  <Badge variant="muted">{universityName}</Badge>
+                )}
               </div>
             </div>
           </div>
-          <Button variant="outline" className="shrink-0"><Pencil data-icon="inline-start" />Edit profile</Button>
+          <Button variant="outline" className="shrink-0"><Pencil className="mr-2 size-4" />Edit profile</Button>
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-1">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
           <CardHeader>
             <CardTitle>Details</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3 text-sm">
-            <div className="flex items-center gap-2 text-muted-foreground"><Mail className="size-4" aria-hidden="true" /> amara.okafor@medhaven.edu</div>
-            <div className="flex items-center gap-2 text-muted-foreground"><MapPin className="size-4" aria-hidden="true" /> Accra, Ghana</div>
-            <div className="flex items-center gap-2 text-muted-foreground"><GraduationCap className="size-4" aria-hidden="true" /> MBBS Candidate, 2026</div>
-            <div className="flex items-center gap-2 text-muted-foreground"><CalendarDays className="size-4" aria-hidden="true" /> Joined Sept 2022</div>
-            <div className="flex items-center gap-2 text-muted-foreground"><BookOpen className="size-4" aria-hidden="true" /> Matric: {student.matric}</div>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Mail className="size-4" aria-hidden="true" />
+              {profile?.email ?? user?.email ?? "Not available"}
+            </div>
+            {departmentName && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <BookOpen className="size-4" aria-hidden="true" />
+                {departmentName}
+              </div>
+            )}
+            {facultyName && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <GraduationCap className="size-4" aria-hidden="true" />
+                {facultyName}
+              </div>
+            )}
+            {universityName && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <MapPin className="size-4" aria-hidden="true" />
+                {universityName}
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-2">
+        <Card>
           <CardHeader>
-            <CardTitle>Study stats</CardTitle>
-            <CardDescription>Your activity at a glance.</CardDescription>
+            <CardTitle>Account info</CardTitle>
+            <CardDescription>Basic account details.</CardDescription>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {stats.map((stat) => {
-              const Icon = statIcons[stat.icon]
-              return (
-                <div key={stat.id} className="flex flex-col items-center gap-2 rounded-xl border border-border p-4 text-center">
-                  <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <Icon className="size-5" aria-hidden="true" />
-                  </span>
-                  <span className="text-xl font-semibold text-foreground">{stat.value}</span>
-                  <span className="text-xs text-muted-foreground">{stat.label}</span>
-                </div>
-              )
-            })}
+          <CardContent className="flex flex-col gap-3 text-sm">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <CalendarDays className="size-4" aria-hidden="true" />
+              Account created for MedHaven
+            </div>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <BookOpen className="size-4" aria-hidden="true" />
+              Role: Student
+            </div>
           </CardContent>
         </Card>
       </div>
-
-      <section>
-        <SectionHeading title="Achievements" description="Badges you've earned and those still to unlock." />
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {achievements.map((achievement) => {
-            const Icon = achievementIcons[achievement.icon]
-            return (
-              <div key={achievement.id} className={`flex flex-col items-center gap-2 rounded-xl border border-border p-4 text-center ${achievement.unlocked ? "bg-card" : "bg-muted/40 opacity-60"}`}>
-                <span className={`flex size-11 items-center justify-center rounded-xl ${achievement.unlocked ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
-                  <Icon className="size-5" aria-hidden="true" />
-                </span>
-                <span className="text-xs font-medium text-foreground">{achievement.title}</span>
-                <Badge variant={achievement.unlocked ? "success" : "muted"}>{achievement.unlocked ? "Unlocked" : "Locked"}</Badge>
-              </div>
-            )
-          })}
-        </div>
-      </section>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Term progress</CardTitle>
-          <CardDescription>Overall completion toward end of semester.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">67% complete</span>
-            <span className="text-sm font-medium text-foreground">19 days to exams</span>
-          </div>
-          <Progress value={67} />
-        </CardContent>
-      </Card>
     </div>
   )
 }
