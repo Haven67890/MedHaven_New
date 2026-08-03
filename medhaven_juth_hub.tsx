@@ -13,13 +13,13 @@ import {
 } from 'lucide-react';
 
 
-// JUTH Native Images registered exactly as provided
+// Reliable placeholder imagery for the hospital dashboard without broken asset references.
 const JUTH_IMAGES = {
-  mainGate: "Screenshot_20240923-184937.png", // Cloudy sky entrance gate
-  ambulanceDriveway: "Snapchat-1489759066.jpg", // Ambulance driveway under bright sky
-  ward11Entrance: "IMG_20250317_183421_424.jpg", // Stethoscope in front of WARD 11 MALE WARD
-  courtyardTree: "20260421_163352.jpg", // Beautiful flowering tree in hospital yard
-  emergencyTicker: "20260509_200240.jpg" // JUTH EMERGENCY UNIT led light display
+  mainGate: "https://images.unsplash.com/photo-1584515933487-779824d29309?auto=format&fit=crop&w=1200&q=80",
+  ambulanceDriveway: "https://images.unsplash.com/photo-1538108149393-fbbd81895907?auto=format&fit=crop&w=1200&q=80",
+  ward11Entrance: "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=1200&q=80",
+  courtyardTree: "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=1200&q=80",
+  emergencyTicker: "https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=1200&q=80"
 };
 
 const LEVELS = ['100L', '200L', '300L', '400L', '500L', '600L', 'Final Year'];
