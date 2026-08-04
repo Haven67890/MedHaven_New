@@ -84,7 +84,12 @@ function LoginContent() {
               <Input id="login-email" type="email" autoComplete="email" placeholder="name@example.com" value={email} onChange={(event) => setEmail(event.target.value)} required />
             </Field>
             <Field>
-              <FieldLabel htmlFor="login-password">Password</FieldLabel>
+              <div className="flex justify-between items-center">
+                <FieldLabel htmlFor="login-password">Password</FieldLabel>
+                <Link href="/forgot-password" className="text-xs text-primary underline-offset-4 hover:underline">
+                  Forgot Password?
+                </Link>
+              </div>
               <Input id="login-password" type="password" autoComplete="current-password" placeholder="Enter your password" value={password} onChange={(event) => setPassword(event.target.value)} required />
             </Field>
           </FieldGroup>

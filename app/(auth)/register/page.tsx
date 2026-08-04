@@ -22,9 +22,12 @@ function RegisterContent() {
   const [level, setLevel] = useState("400L")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+
+  const [showOtpStep, setShowOtpStep] = useState(false)
+  const [otpCode, setOtpCode] = useState("")
+
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
-  const [registeredEmail, setRegisteredEmail] = useState<string | null>(null)
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -92,10 +95,35 @@ function RegisterContent() {
         console.warn("Failed to create profile row gracefully:", dbErr)
       }
 
-      // Successful UX: Set registered email to trigger show success card!
-      setRegisteredEmail(email)
+      // Show OTP Step instead of hiding form or resetting
+      setShowOtpStep(true)
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to create account.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleOtpSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setError("")
+    setIsSubmitting(true)
+
+    try {
+      const { error: otpError } = await supabase.auth.verifyOtp({
+        email,
+        token: otpCode.trim(),
+        type: 'signup',
+      })
+
+      if (otpError) {
+        setError(otpError.message)
+        return
+      }
+
+      router.replace("/dashboard")
+    } catch (verifyError) {
+      setError(verifyError instanceof Error ? verifyError.message : "Unable to verify OTP code.")
     } finally {
       setIsSubmitting(false)
     }
@@ -118,22 +146,39 @@ function RegisterContent() {
     }
   }
 
-  // Success UX State
-  if (registeredEmail) {
+  // OTP Verification Step UX
+  if (showOtpStep) {
     return (
       <Card className="border-border shadow-xl shadow-primary/5">
         <CardHeader>
-          <CardTitle className="text-2xl text-primary">Check Your Email</CardTitle>
-          <CardDescription>Verify your account to continue.</CardDescription>
+          <CardTitle className="text-2xl">Verify Your Email</CardTitle>
+          <CardDescription>Enter the 6-digit verification code sent to your email.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            We sent a verification link to <span className="font-semibold text-foreground">{registeredEmail}</span>. Please click the link in your email to confirm your account and log into MedHaven.
-          </p>
-          <Button asChild className="w-full">
-            <Link href="/login">Go to Sign In</Link>
-          </Button>
+        <CardContent>
+          <form aria-label="Verify OTP" className="flex flex-col gap-6" onSubmit={handleOtpSubmit}>
+            {/* LOUD ERROR ALERT BANNER */}
+            {(error || errorQuery) ? (
+              <div className="bg-destructive/15 border border-destructive/30 text-destructive text-sm rounded-lg p-4 flex flex-col gap-1 shadow-sm font-medium">
+                <span className="font-extrabold uppercase text-xs tracking-wider">Verification Error:</span>
+                <p>{error || errorQuery}</p>
+              </div>
+            ) : null}
+
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="register-otp">Verification Code</FieldLabel>
+                <Input id="register-otp" type="text" maxLength={6} placeholder="Enter 6-digit OTP code" value={otpCode} onChange={(event) => setOtpCode(event.target.value)} required />
+              </Field>
+            </FieldGroup>
+
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? "Verifying..." : "Verify Code"}
+            </Button>
+          </form>
         </CardContent>
+        <CardFooter className="justify-center border-t border-border pt-6 text-sm text-muted-foreground">
+          Didn&apos;t get a code?&nbsp;<button type="button" onClick={() => setShowOtpStep(false)} className="font-medium text-primary underline-offset-4 hover:underline">Go back to signup</button>
+        </CardFooter>
       </Card>
     )
   }
