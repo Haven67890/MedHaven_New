@@ -4,7 +4,6 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { FormEvent, useState, Suspense } from "react"
 
-import useAuth from "@/hooks/useAuth"
 import { supabase } from "@/lib/auth/supabaseClient"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -17,13 +16,15 @@ function RegisterContent() {
   const searchParams = useSearchParams()
   const errorQuery = searchParams ? searchParams.get("error") : null
 
-  const { register } = useAuth()
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
+  const [department, setDepartment] = useState("Medicine & Surgery")
+  const [level, setLevel] = useState("400L")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
+  const [registeredEmail, setRegisteredEmail] = useState<string | null>(null)
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -47,7 +48,7 @@ function RegisterContent() {
     setIsSubmitting(true)
 
     try {
-      // Step 1: Create Supabase auth user
+      // Step 1: Create Supabase auth user with user metadata
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -55,6 +56,8 @@ function RegisterContent() {
           emailRedirectTo: `${typeof window !== "undefined" ? window.location.origin : ""}/api/auth/callback`,
           data: {
             full_name: fullName.trim(),
+            department: department,
+            level: level,
           },
         },
       })
@@ -77,6 +80,9 @@ function RegisterContent() {
             id: authData.user.id,
             email: email.trim().toLowerCase(),
             full_name: fullName.trim(),
+            department: department,
+            level: level,
+            role: "student"
           }, { onConflict: "id" })
 
         if (profileError) {
@@ -86,20 +92,8 @@ function RegisterContent() {
         console.warn("Failed to create profile row gracefully:", dbErr)
       }
 
-      // Step 3: Sign in automatically after registration
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      if (signInError) {
-        // If sign-in fails (e.g. email confirmation required), redirect to login
-        router.push("/login")
-        return
-      }
-
-      // Step 4: Redirect to dashboard after successful registration + sign-in
-      router.replace("/dashboard")
+      // Successful UX: Set registered email to trigger show success card!
+      setRegisteredEmail(email)
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to create account.")
     } finally {
@@ -120,8 +114,28 @@ function RegisterContent() {
         setError(oauthError.message)
       }
     } catch (oauthErr) {
-      setError(oauthErr instanceof Error ? oauthErr.message : "Google sign-up failed.")
+      setError(oauthErr instanceof Error ? oauthErr.message : "Google sign-in failed.")
     }
+  }
+
+  // Success UX State
+  if (registeredEmail) {
+    return (
+      <Card className="border-border shadow-xl shadow-primary/5">
+        <CardHeader>
+          <CardTitle className="text-2xl text-primary">Check Your Email</CardTitle>
+          <CardDescription>Verify your account to continue.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            We sent a verification link to <span className="font-semibold text-foreground">{registeredEmail}</span>. Please click the link in your email to confirm your account and log into MedHaven.
+          </p>
+          <Button asChild className="w-full">
+            <Link href="/login">Go to Sign In</Link>
+          </Button>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
@@ -145,14 +159,52 @@ function RegisterContent() {
               <FieldLabel htmlFor="register-name">Full name</FieldLabel>
               <Input id="register-name" autoComplete="name" placeholder="Your full name" value={fullName} onChange={(event) => setFullName(event.target.value)} required />
             </Field>
+
             <Field>
               <FieldLabel htmlFor="register-email">Email address</FieldLabel>
               <Input id="register-email" type="email" autoComplete="email" placeholder="name@example.com" value={email} onChange={(event) => setEmail(event.target.value)} required />
             </Field>
+
+            <Field>
+              <FieldLabel htmlFor="register-department">Department</FieldLabel>
+              <select
+                id="register-department"
+                value={department}
+                onChange={(event) => setDepartment(event.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                required
+              >
+                <option value="Medicine & Surgery">Medicine & Surgery</option>
+                <option value="Nursing">Nursing</option>
+                <option value="Medical Laboratory Science">Medical Laboratory Science</option>
+                <option value="Physiology">Physiology</option>
+                <option value="Anatomy">Anatomy</option>
+              </select>
+            </Field>
+
+            <Field>
+              <FieldLabel htmlFor="register-level">Level / Academic Year</FieldLabel>
+              <select
+                id="register-level"
+                value={level}
+                onChange={(event) => setLevel(event.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                required
+              >
+                <option value="100L">100L</option>
+                <option value="200L">200L</option>
+                <option value="300L">300L</option>
+                <option value="400L">400L</option>
+                <option value="500L">500L</option>
+                <option value="600L / Clinicals">600L / Clinicals</option>
+              </select>
+            </Field>
+
             <Field>
               <FieldLabel htmlFor="register-password">Password</FieldLabel>
               <Input id="register-password" type="password" autoComplete="new-password" placeholder="Create a password (min 8 characters)" value={password} onChange={(event) => setPassword(event.target.value)} required />
             </Field>
+
             <Field>
               <FieldLabel htmlFor="register-confirm-password">Confirm password</FieldLabel>
               <Input id="register-confirm-password" type="password" autoComplete="new-password" placeholder="Re-enter your password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required />
