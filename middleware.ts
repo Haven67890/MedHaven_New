@@ -58,6 +58,19 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard", request.url))
   }
 
+  // Force onboarding details completion for Google Sign-In and incomplete profiles
+  if (user && pathname !== "/profile/complete" && !pathname.startsWith("/api")) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("department, level")
+      .eq("id", user.id)
+      .maybeSingle()
+
+    if (!profile || !profile.department || !profile.level) {
+      return NextResponse.redirect(new URL("/profile/complete", request.url))
+    }
+  }
+
   // If no user and route is protected, redirect to login
   if (!user && !isPublicRoute) {
     const isProtected =
