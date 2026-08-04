@@ -152,7 +152,9 @@ function RegisterContent() {
       <Card className="border-border shadow-xl shadow-primary/5">
         <CardHeader>
           <CardTitle className="text-2xl">Verify Your Email</CardTitle>
-          <CardDescription>Enter the 6-digit verification code sent to your email.</CardDescription>
+          <CardDescription>
+            Enter the 6-digit verification code sent to your email. You can either type the 6-digit code below OR click the confirmation link in your email to verify.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form aria-label="Verify OTP" className="flex flex-col gap-6" onSubmit={handleOtpSubmit}>
