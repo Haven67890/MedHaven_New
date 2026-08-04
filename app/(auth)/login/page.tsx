@@ -1,8 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { FormEvent, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { FormEvent, useState, Suspense } from "react"
 
 import useAuth from "@/hooks/useAuth"
 import { supabase } from "@/lib/auth/supabaseClient"
@@ -17,8 +17,11 @@ function normalizeRole(value: unknown): string {
   return value.trim().toLowerCase()
 }
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const errorQuery = searchParams ? searchParams.get("error") : null
+
   const { login } = useAuth()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -70,11 +73,10 @@ export default function LoginPage() {
         },
       })
       if (oauthError) {
-        // OAuth may not be configured — show gracefully
-        setError("Google sign-in is not yet configured. Please use email and password.")
+        setError(oauthError.message)
       }
-    } catch {
-      setError("Google sign-in is not available. Please use email and password.")
+    } catch (oauthErr) {
+      setError(oauthErr instanceof Error ? oauthErr.message : "Google sign-in failed.")
     }
   }
 
@@ -86,6 +88,14 @@ export default function LoginPage() {
       </CardHeader>
       <CardContent>
         <form aria-label="Sign in" className="flex flex-col gap-6" onSubmit={handleSubmit}>
+          {/* LOUD ERROR ALERT BANNER */}
+          {(error || errorQuery) ? (
+            <div className="bg-destructive/15 border border-destructive/30 text-destructive text-sm rounded-lg p-4 flex flex-col gap-1 shadow-sm font-medium">
+              <span className="font-extrabold uppercase text-xs tracking-wider">Authentication Error:</span>
+              <p>{error || errorQuery}</p>
+            </div>
+          ) : null}
+
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="login-email">Email address</FieldLabel>
@@ -96,8 +106,6 @@ export default function LoginPage() {
               <Input id="login-password" type="password" autoComplete="current-password" placeholder="Enter your password" value={password} onChange={(event) => setPassword(event.target.value)} required />
             </Field>
           </FieldGroup>
-
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
           <Button type="submit" className="w-full" disabled={isSubmitting}>
             {isSubmitting ? "Signing in..." : "Sign in"}
@@ -143,5 +151,19 @@ export default function LoginPage() {
         New to MedHaven?&nbsp;<Link href="/register" className="font-medium text-primary underline-offset-4 hover:underline">Create an account</Link>
       </CardFooter>
     </Card>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <Card className="border-border shadow-xl shadow-primary/5">
+        <CardHeader>
+          <CardTitle className="text-2xl">Loading...</CardTitle>
+        </CardHeader>
+      </Card>
+    }>
+      <LoginContent />
+    </Suspense>
   )
 }
