@@ -1,8 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { FormEvent, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { FormEvent, useState, Suspense } from "react"
 
 import useAuth from "@/hooks/useAuth"
 import { supabase } from "@/lib/auth/supabaseClient"
@@ -12,8 +12,11 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 
-export default function RegisterPage() {
+function RegisterContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const errorQuery = searchParams ? searchParams.get("error") : null
+
   const { register } = useAuth()
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
@@ -114,10 +117,10 @@ export default function RegisterPage() {
         },
       })
       if (oauthError) {
-        setError("Google sign-in is not yet configured. Please use the registration form.")
+        setError(oauthError.message)
       }
-    } catch {
-      setError("Google sign-in is not available. Please use the registration form.")
+    } catch (oauthErr) {
+      setError(oauthErr instanceof Error ? oauthErr.message : "Google sign-up failed.")
     }
   }
 
@@ -129,6 +132,14 @@ export default function RegisterPage() {
       </CardHeader>
       <CardContent>
         <form aria-label="Register account" className="flex flex-col gap-6" onSubmit={handleSubmit}>
+          {/* LOUD ERROR ALERT BANNER */}
+          {(error || errorQuery) ? (
+            <div className="bg-destructive/15 border border-destructive/30 text-destructive text-sm rounded-lg p-4 flex flex-col gap-1 shadow-sm font-medium">
+              <span className="font-extrabold uppercase text-xs tracking-wider">Registration Error:</span>
+              <p>{error || errorQuery}</p>
+            </div>
+          ) : null}
+
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="register-name">Full name</FieldLabel>
@@ -147,8 +158,6 @@ export default function RegisterPage() {
               <Input id="register-confirm-password" type="password" autoComplete="new-password" placeholder="Re-enter your password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required />
             </Field>
           </FieldGroup>
-
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
           <Button type="submit" className="w-full" disabled={isSubmitting}>
             {isSubmitting ? "Creating account..." : "Create account"}
@@ -194,5 +203,19 @@ export default function RegisterPage() {
         Already have an account?&nbsp;<Link href="/login" className="font-medium text-primary underline-offset-4 hover:underline">Sign in</Link>
       </CardFooter>
     </Card>
+  )
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={
+      <Card className="border-border shadow-xl shadow-primary/5">
+        <CardHeader>
+          <CardTitle className="text-2xl">Loading...</CardTitle>
+        </CardHeader>
+      </Card>
+    }>
+      <RegisterContent />
+    </Suspense>
   )
 }
