@@ -805,12 +805,16 @@ export default function App() {
         return;
       }
       if (authData.user) {
-        await supabase.from("profiles").insert({
-          id: authData.user.id,
-          email: regForm.email,
-          full_name: regForm.name || "Student Scholar",
-          level: regForm.level,
-        });
+        try {
+          await supabase.from("profiles").upsert({
+            id: authData.user.id,
+            email: regForm.email,
+            full_name: regForm.name || "Student Scholar",
+            level: regForm.level,
+          }, { onConflict: "id" });
+        } catch (dbErr) {
+          console.warn("Gracefully handled profile insert warning:", dbErr);
+        }
       }
       setIsAuthenticated(true);
       showToast(`Welcome to MedHaven Hub, ${regForm.name || 'Scholar'}!`, "success");

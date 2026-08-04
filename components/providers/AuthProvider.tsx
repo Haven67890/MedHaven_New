@@ -29,16 +29,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let mounted = true
     let listener: { subscription: Subscription } | null = null
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return
-      setUser(sessionUser(data.session))
-      setLoading(false)
-    })
+    supabase.auth.getSession()
+      .then(({ data }) => {
+        if (!mounted) return
+        setUser(sessionUser(data.session))
+        setLoading(false)
+      })
+      .catch((err) => {
+        console.warn("Supabase getSession failed to fetch:", err)
+        if (mounted) setLoading(false)
+      })
 
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(sessionUser(session))
-    })
-    listener = data
+    try {
+      const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (mounted) {
+          setUser(sessionUser(session))
+        }
+      })
+      listener = data
+    } catch (err) {
+      console.warn("Supabase onAuthStateChange initialization error:", err)
+    }
 
     return () => {
       mounted = false
@@ -52,47 +63,70 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     setLoading(true)
-    const res = await supabase.auth.signInWithPassword({ email, password })
-    setLoading(false)
-    if (res.error) throw res.error
-    setUser(sessionUser(res.data.session))
-    return res
+    try {
+      const res = await supabase.auth.signInWithPassword({ email, password })
+      setLoading(false)
+      if (res.error) throw res.error
+      setUser(sessionUser(res.data.session))
+      return res
+    } catch (error) {
+      setLoading(false)
+      throw error
+    }
   }
 
   const register = async (email: string, password: string, fullName?: string) => {
     setLoading(true)
-    const res = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName ?? null,
+    try {
+      const res = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName ?? null,
+          },
         },
-      },
-    })
-    setLoading(false)
-    if (res.error) throw res.error
+      })
+      setLoading(false)
+      if (res.error) throw res.error
 
-    // Attempt to create profile row after signup
-    if (res.data.user) {
-      await supabase
-        .from("profiles")
-        .insert({
-          id: res.data.user.id,
-          email: email.trim().toLowerCase(),
-          full_name: fullName ?? null,
-        })
+      // Attempt to safely UPSERT profile row after signup without crashing
+      if (res.data.user) {
+        try {
+          const { error: profileError } = await supabase
+            .from("profiles")
+            .upsert({
+              id: res.data.user.id,
+              email: email.trim().toLowerCase(),
+              full_name: fullName ?? null,
+            }, { onConflict: "id" })
+          if (profileError) {
+            console.warn("Profile creation/upsert warning:", profileError.message)
+          }
+        } catch (dbErr) {
+          console.warn("Failed to create profile row gracefully:", dbErr)
+        }
+      }
+
+      return res
+    } catch (error) {
+      setLoading(false)
+      throw error
     }
-
-    return res
   }
 
   const logout = async () => {
     setLoading(true)
-    const res = await supabase.auth.signOut()
-    setUser(null)
-    setLoading(false)
-    return res
+    try {
+      const res = await supabase.auth.signOut()
+      setUser(null)
+      setLoading(false)
+      return res
+    } catch (error) {
+      setUser(null)
+      setLoading(false)
+      throw error
+    }
   }
 
   const resetPassword = async (email: string) => {
