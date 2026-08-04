@@ -65,18 +65,21 @@ export default function RegisterPage() {
         return
       }
 
-      // Step 2: Create the profile row in the profiles table
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .insert({
-          id: authData.user.id,
-          email: email.trim().toLowerCase(),
-          full_name: fullName.trim(),
-        })
+      // Step 2: Create the profile row in the profiles table safely via upsert
+      try {
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .upsert({
+            id: authData.user.id,
+            email: email.trim().toLowerCase(),
+            full_name: fullName.trim(),
+          }, { onConflict: "id" })
 
-      if (profileError) {
-        // Profile might already exist (e.g. trigger created it), so don't block
-        console.warn("Profile insert result:", profileError.message)
+        if (profileError) {
+          console.warn("Profile upsert result warning:", profileError.message)
+        }
+      } catch (dbErr) {
+        console.warn("Failed to create profile row gracefully:", dbErr)
       }
 
       // Step 3: Sign in automatically after registration

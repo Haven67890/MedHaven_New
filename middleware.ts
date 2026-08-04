@@ -1,8 +1,8 @@
+import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { getSupabaseConfig } from "@/lib/supabase/config"
 
 const PUBLIC_ROUTES = ["/", "/login", "/register"]
-
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -17,19 +17,49 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Public routes are always accessible
-  if (PUBLIC_ROUTES.includes(pathname)) {
-    return NextResponse.next()
+  // Create mutable response
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  })
+
+  // Get Supabase config
+  const { supabaseUrl, supabaseAnonKey } = getSupabaseConfig()
+
+  // Create Supabase server client
+  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll()
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+        response = NextResponse.next({
+          request,
+        })
+        cookiesToSet.forEach(({ name, value, options }) =>
+          response.cookies.set(name, value, options)
+        )
+      },
+    },
+  })
+
+  // Securely verify session by fetching user info
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  // Check route protection
+  const isPublicRoute = PUBLIC_ROUTES.includes(pathname)
+
+  // If already logged in and visiting login/register, redirect to dashboard
+  if (user && (pathname === "/login" || pathname === "/register")) {
+    return NextResponse.redirect(new URL("/dashboard", request.url))
   }
 
-  // Create Supabase server client to check session
-  const supabase = await createClient()
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  // If no session and route is protected, redirect to login
-  if (!session) {
+  // If no user and route is protected, redirect to login
+  if (!user && !isPublicRoute) {
     const isProtected =
       pathname.startsWith("/dashboard") ||
       pathname.startsWith("/library") ||
@@ -51,19 +81,18 @@ export async function middleware(request: NextRequest) {
       pathname.startsWith("/directory")
 
     if (isProtected) {
-      return NextResponse.redirect(new URL("/login", request.url))
+      const loginUrl = new URL("/login", request.url)
+      return NextResponse.redirect(loginUrl)
     }
-
-    return NextResponse.next()
   }
 
   // If authenticated, check admin access
-  if (pathname.startsWith("/admin")) {
+  if (user && pathname.startsWith("/admin")) {
     // Check if user has admin role
     const { data: profileData } = await supabase
       .from("profiles")
       .select("role, role_name, is_admin")
-      .eq("id", session.user.id)
+      .eq("id", user.id)
       .maybeSingle()
 
     const profile = profileData as Record<string, unknown> | null
@@ -80,12 +109,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // If already logged in and visiting login/register, redirect to dashboard
-  if (session && (pathname === "/login" || pathname === "/register")) {
-    return NextResponse.redirect(new URL("/dashboard", request.url))
-  }
-
-  return NextResponse.next()
+  return response
 }
 
 export const config = {
