@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { type EmailOtpType } from '@supabase/supabase-js'
+import { getSupabaseConfig } from '@/lib/supabase/config'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -17,9 +18,11 @@ export async function GET(request: Request) {
 
   // Initialize Supabase Client
   const cookieStore = await cookies()
+  const { supabaseUrl, supabaseAnonKey } = getSupabaseConfig()
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         getAll() { return cookieStore.getAll() },
@@ -28,7 +31,9 @@ export async function GET(request: Request) {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options)
             )
-          } catch {}
+          } catch (cookieErr) {
+            console.warn("Cookie set warning in auth callback:", cookieErr)
+          }
         },
       },
     }
@@ -38,7 +43,7 @@ export async function GET(request: Request) {
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      // Resolve first-time Google sign-in details completion check
+      // Resolve first-time Google sign-in details completion check AFTER session established
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (user) {
@@ -67,6 +72,8 @@ export async function GET(request: Request) {
 
       return NextResponse.redirect(`${finalOrigin}${next}`)
     }
+
+    console.error("Supabase exchangeCodeForSession failed:", error.message || error)
     return NextResponse.redirect(`${finalOrigin}/login?error=${encodeURIComponent(error.message)}`)
   }
 
@@ -77,8 +84,36 @@ export async function GET(request: Request) {
       token_hash,
     })
     if (!error) {
+      // Resolve first-time sign-in details completion check AFTER session established
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('department, level')
+            .eq('id', user.id)
+            .maybeSingle()
+
+          if (!profile || !profile.department || !profile.level) {
+            if (!profile) {
+              await supabase.from('profiles').upsert({
+                id: user.id,
+                email: user.email?.trim().toLowerCase(),
+                full_name: user.user_metadata?.full_name || '',
+                role: 'student'
+              }, { onConflict: 'id' })
+            }
+            return NextResponse.redirect(`${finalOrigin}/profile/complete`)
+          }
+        }
+      } catch (profileErr) {
+        console.warn("Profile checking gracefully ignored on callback:", profileErr)
+      }
+
       return NextResponse.redirect(`${finalOrigin}${next}`)
     }
+
+    console.error("Supabase verifyOtp failed:", error.message || error)
     return NextResponse.redirect(`${finalOrigin}/login?error=${encodeURIComponent(error.message)}`)
   }
 
