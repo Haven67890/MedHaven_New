@@ -428,7 +428,7 @@ export default function App() {
         if (userId || userEmail) {
           let query = supabase
             .from('profiles')
-            .select('id, full_name, email, role_id, level, department_id, faculty_id, university_id, avatar_url')
+            .select('*')
             .limit(1);
 
           if (userId) {
@@ -449,9 +449,9 @@ export default function App() {
               matric: String(data.id ?? userProfile.matric),
               gender: userProfile.gender,
               phone: userProfile.phone,
-              isAdmin: Boolean(userProfile.isAdmin),
+              isAdmin: Boolean(userProfile.isAdmin || data.role === 'admin' || data.role_name === 'admin' || data.is_admin),
               course: userProfile.course,
-              departmentName: userProfile.departmentName,
+              departmentName: data.department ?? userProfile.departmentName,
               facultyName: userProfile.facultyName,
               universityName: userProfile.universityName,
               avatarUrl: String(data.avatar_url ?? userProfile.avatarUrl),

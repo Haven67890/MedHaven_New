@@ -4,7 +4,6 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { FormEvent, useState, Suspense } from "react"
 
-import useAuth from "@/hooks/useAuth"
 import { supabase } from "@/lib/auth/supabaseClient"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,17 +11,11 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 
-function normalizeRole(value: unknown): string {
-  if (typeof value !== "string") return ""
-  return value.trim().toLowerCase()
-}
-
 function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const errorQuery = searchParams ? searchParams.get("error") : null
 
-  const { login } = useAuth()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -34,28 +27,17 @@ function LoginContent() {
     setIsSubmitting(true)
 
     try {
-      await login(email, password)
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
 
-      // After login, get user and check role for redirect
-      const { data: authUserData } = await supabase.auth.getUser()
-      const userId = authUserData?.user?.id ?? null
-
-      let role = "student"
-      if (userId) {
-        const { data: profileData } = await supabase
-          .from("profiles")
-          .select("role, role_name, is_admin")
-          .eq("id", userId)
-          .maybeSingle()
-
-        const profile = profileData as Record<string, unknown> | null
-        const detectedRole = normalizeRole(profile?.role ?? profile?.role_name ?? "")
-        if (detectedRole === "admin" || detectedRole === "super_admin" || Boolean(profile?.is_admin)) {
-          role = detectedRole
-        }
+      if (signInError) {
+        setError(signInError.message)
+        return
       }
 
-      router.replace(role === "admin" || role === "super_admin" ? "/admin" : "/dashboard")
+      router.replace("/dashboard")
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to sign in.")
     } finally {
