@@ -4,13 +4,14 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { FormEvent, useState, Suspense } from "react"
 
-import { supabase } from "@/lib/auth/supabaseClient"
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 
 function ResetPasswordContent() {
+  const supabase = createClient()
   const router = useRouter()
   const searchParams = useSearchParams()
   const errorQuery = searchParams ? searchParams.get("error") : null

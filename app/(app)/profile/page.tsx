@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageHeader } from "@/components/dashboard/page-header"
 import useAuth from "@/hooks/useAuth"
-import { supabase } from "@/lib/auth/supabaseClient"
+import { createClient } from "@/lib/supabase/client"
 import { useEffect, useState } from "react"
 
 type Profile = {
@@ -23,6 +23,7 @@ type Profile = {
 }
 
 function useProfile(userId: string | undefined) {
+  const supabase = createClient()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [departmentName, setDepartmentName] = useState("")
   const [facultyName, setFacultyName] = useState("")

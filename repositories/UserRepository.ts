@@ -1,4 +1,4 @@
-import { supabase } from '../services/db/supabaseService'
+import { getSupabase } from '../services/db/supabaseService'
 
 export type ProfileRecord = {
   id: string
@@ -28,6 +28,7 @@ function unwrap(result: QueryResult): { data: ProfileRecord | ProfileRecord[] | 
 
 export const UserRepository = {
   async getById(id: string): Promise<ProfileRecord | null> {
+    const supabase = getSupabase()
     const result = await supabase
       .from('profiles')
       .select('id, full_name, email, role_id, level, department_id, faculty_id, university_id, avatar_url')
@@ -40,6 +41,7 @@ export const UserRepository = {
   },
 
   async getByEmail(email: string): Promise<ProfileRecord | null> {
+    const supabase = getSupabase()
     const result = await supabase
       .from('profiles')
       .select('id, full_name, email, role_id, level, department_id, faculty_id, university_id, avatar_url')
@@ -52,6 +54,7 @@ export const UserRepository = {
   },
 
   async upsert(user: Partial<ProfileRecord>): Promise<ProfileRecord> {
+    const supabase = getSupabase()
     const result = await supabase
       .from('profiles')
       .upsert(user)
@@ -64,6 +67,7 @@ export const UserRepository = {
   },
 
   async list(limit = 20, offset = 0): Promise<ProfileRecord[]> {
+    const supabase = getSupabase()
     const result = await supabase
       .from('profiles')
       .select('id, full_name, email, role_id, level, department_id, faculty_id, university_id, avatar_url')

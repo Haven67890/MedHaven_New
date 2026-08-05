@@ -1,3 +1,5 @@
-import { supabase } from '../../lib/auth/supabaseClient'
+import { createClient } from '../../lib/supabase/client'
 
-export { supabase }
+export function getSupabase() {
+  return createClient()
+}
