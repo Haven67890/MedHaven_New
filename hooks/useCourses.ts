@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../services/db/supabaseService'
+import { getSupabase } from '../services/db/supabaseService'
 
 type CourseRecord = {
   id?: string
@@ -23,6 +23,7 @@ export function useCourses(level?: string) {
   const fetchCourses = useCallback(async (selectedLevel?: string) => {
     setLoading(true)
     setError(null)
+    const supabase = getSupabase()
 
     try {
       let query = supabase
@@ -51,6 +52,7 @@ export function useCourses(level?: string) {
 
   useEffect(() => {
     let mounted = true
+    const supabase = getSupabase()
 
     const load = async () => {
       try {
