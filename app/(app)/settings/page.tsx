@@ -12,7 +12,7 @@ import { PageHeader } from "@/components/dashboard/page-header"
 import { SectionHeading } from "@/components/dashboard/section-heading"
 import { cn } from "@/lib/utils"
 import useAuth from "@/hooks/useAuth"
-import { supabase } from "@/lib/auth/supabaseClient"
+import { createClient } from "@/lib/supabase/client"
 
 function Toggle({ checked, onChange, label, description }: { checked: boolean; onChange: (v: boolean) => void; label: string; description: string }) {
   return (
@@ -39,6 +39,7 @@ function Toggle({ checked, onChange, label, description }: { checked: boolean; o
 }
 
 export default function SettingsPage() {
+  const supabase = createClient()
   const { user } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
   const [notifications, setNotifications] = useState({ announcements: true, tutorials: true, marketplace: false, weekly: true })

@@ -3,12 +3,13 @@
 import { useRouter } from "next/navigation"
 import { FormEvent, useState, useEffect, Suspense } from "react"
 
-import { supabase } from "@/lib/auth/supabaseClient"
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 
 function ProfileCompleteContent() {
+  const supabase = createClient()
   const router = useRouter()
   const [department, setDepartment] = useState("Medicine & Surgery")
   const [level, setLevel] = useState("400L")
@@ -17,8 +18,9 @@ function ProfileCompleteContent() {
   const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
+    supabase.auth.getUser().then((response: any) => {
+      const data = response.data
+      if (data && data.user) {
         setUserId(data.user.id)
       } else {
         router.replace("/login")

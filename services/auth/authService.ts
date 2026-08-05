@@ -1,10 +1,12 @@
-import { supabase } from '../../lib/auth/supabaseClient'
+import { createClient } from '../../lib/supabase/client'
 
 export async function login(email: string, password: string) {
+  const supabase = createClient()
   return supabase.auth.signInWithPassword({ email, password })
 }
 
 export async function register(email: string, password: string, fullName?: string) {
+  const supabase = createClient()
   const res = await supabase.auth.signUp({
     email,
     password,
@@ -30,18 +32,22 @@ export async function register(email: string, password: string, fullName?: strin
 }
 
 export async function logout() {
+  const supabase = createClient()
   return supabase.auth.signOut()
 }
 
 export async function resetPassword(email: string, redirectTo?: string) {
+  const supabase = createClient()
   return supabase.auth.resetPasswordForEmail(email, { redirectTo })
 }
 
 export async function getSession() {
+  const supabase = createClient()
   return supabase.auth.getSession()
 }
 
 export async function signInWithGoogle() {
+  const supabase = createClient()
   return supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
