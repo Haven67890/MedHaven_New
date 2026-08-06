@@ -49,11 +49,11 @@ export async function GET(request: Request) {
         if (user) {
           const { data: profile } = await supabase
             .from('profiles')
-            .select('department, level')
+            .select('department, current_level')
             .eq('id', user.id)
             .maybeSingle()
 
-          if (!profile || !profile.department || !profile.level) {
+          if (!profile || !profile.department || !profile.current_level) {
             // Skeleton profile upsert to allow client RLS and updating
             if (!profile) {
               await supabase.from('profiles').upsert({
@@ -90,11 +90,11 @@ export async function GET(request: Request) {
         if (user) {
           const { data: profile } = await supabase
             .from('profiles')
-            .select('department, level')
+            .select('department, current_level')
             .eq('id', user.id)
             .maybeSingle()
 
-          if (!profile || !profile.department || !profile.level) {
+          if (!profile || !profile.department || !profile.current_level) {
             if (!profile) {
               await supabase.from('profiles').upsert({
                 id: user.id,
