@@ -5,8 +5,8 @@ export type ProfileRecord = {
   full_name?: string | null
   email?: string | null
   role_id?: string | number | null
-  level?: string | null
-  department_id?: string | number | null
+  current_level?: string | null
+  department?: string | null
   faculty_id?: string | number | null
   university_id?: string | number | null
   avatar_url?: string | null
@@ -31,7 +31,7 @@ export const UserRepository = {
     const supabase = getSupabase()
     const result = await supabase
       .from('profiles')
-      .select('id, full_name, email, role_id, level, department_id, faculty_id, university_id, avatar_url')
+      .select('id, full_name, email, role_id, current_level, department, faculty_id, university_id, avatar_url')
       .eq('id', id)
       .maybeSingle()
 
@@ -44,7 +44,7 @@ export const UserRepository = {
     const supabase = getSupabase()
     const result = await supabase
       .from('profiles')
-      .select('id, full_name, email, role_id, level, department_id, faculty_id, university_id, avatar_url')
+      .select('id, full_name, email, role_id, current_level, department, faculty_id, university_id, avatar_url')
       .eq('email', email)
       .maybeSingle()
 
@@ -58,7 +58,7 @@ export const UserRepository = {
     const result = await supabase
       .from('profiles')
       .upsert(user)
-      .select('id, full_name, email, role_id, level, department_id, faculty_id, university_id, avatar_url')
+      .select('id, full_name, email, role_id, current_level, department, faculty_id, university_id, avatar_url')
       .single()
 
     const { data, error } = unwrap(result as unknown as QueryResult)
@@ -70,7 +70,7 @@ export const UserRepository = {
     const supabase = getSupabase()
     const result = await supabase
       .from('profiles')
-      .select('id, full_name, email, role_id, level, department_id, faculty_id, university_id, avatar_url')
+      .select('id, full_name, email, role_id, current_level, department, faculty_id, university_id, avatar_url')
       .range(offset, offset + limit - 1)
 
     const { data, error } = unwrap(result as unknown as QueryResult)

@@ -15,8 +15,8 @@ import { useEffect, useState } from "react"
 type Profile = {
   full_name?: string | null
   email?: string | null
-  level?: string | null
-  department_id?: string | number | null
+  current_level?: string | null
+  department?: string | null
   faculty_id?: string | number | null
   university_id?: string | number | null
   avatar_url?: string | null
@@ -41,7 +41,7 @@ function useProfile(userId: string | undefined) {
 
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("full_name, email, level, department_id, faculty_id, university_id, avatar_url")
+        .select("full_name, email, current_level, department, faculty_id, university_id, avatar_url")
         .eq("id", userId)
         .maybeSingle()
 
@@ -52,9 +52,6 @@ function useProfile(userId: string | undefined) {
 
         // Fetch related names
         const requests = [
-          profileData.department_id
-            ? supabase.from("departments").select("name").eq("id", profileData.department_id).maybeSingle()
-            : Promise.resolve({ data: null, error: null }),
           profileData.faculty_id
             ? supabase.from("faculties").select("name").eq("id", profileData.faculty_id).maybeSingle()
             : Promise.resolve({ data: null, error: null }),
@@ -63,13 +60,11 @@ function useProfile(userId: string | undefined) {
             : Promise.resolve({ data: null, error: null }),
         ]
 
-        const [deptResult, facResult, uniResult] = await Promise.allSettled(requests)
+        const [facResult, uniResult] = await Promise.allSettled(requests)
 
         if (!mounted) return
 
-        const deptName = deptResult.status === "fulfilled" && deptResult.value.data
-          ? String((deptResult.value.data as { name?: string | null }).name ?? "")
-          : ""
+        const deptName = profileData.department || ""
         const facName = facResult.status === "fulfilled" && facResult.value.data
           ? String((facResult.value.data as { name?: string | null }).name ?? "")
           : ""
@@ -131,7 +126,7 @@ export default function ProfilePage() {
             <div className="flex flex-col gap-1 pb-2">
               <h2 className="text-xl font-semibold tracking-tight text-foreground">{displayName}</h2>
               <p className="text-sm text-muted-foreground">
-                {profile?.level ? `Level ${profile.level}` : "Academic level not set"}
+                {profile?.current_level ? `Level ${profile.current_level}` : "Academic level not set"}
               </p>
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 {departmentName && (
