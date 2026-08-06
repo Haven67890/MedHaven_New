@@ -85,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         password,
         options: {
           data: {
-            full_name: fullName ?? null,
+            full_name: fullName ?? "",
           },
         },
       })
@@ -100,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .upsert({
               id: res.data.user.id,
               email: email.trim().toLowerCase(),
-              full_name: fullName ?? null,
+              full_name: fullName ?? "",
             }, { onConflict: "id" })
           if (profileError) {
             console.warn("Profile creation/upsert warning:", profileError.message)

@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Input } from "@/components/ui/input"
 
 type University = {
   id: string
@@ -31,6 +32,7 @@ function ProfileCompleteContent() {
   const [selectedFacultyId, setSelectedFacultyId] = useState("")
   const [department, setDepartment] = useState("Medicine & Surgery")
   const [level, setLevel] = useState("400L")
+  const [fullName, setFullName] = useState("")
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [loadingMetadata, setLoadingMetadata] = useState(true)
@@ -38,10 +40,28 @@ function ProfileCompleteContent() {
   const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
-    supabase.auth.getUser().then((response: any) => {
+    supabase.auth.getUser().then(async (response: any) => {
       const data = response.data
       if (data && data.user) {
         setUserId(data.user.id)
+
+        // Fetch profile to see if full_name is already set
+        try {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("id", data.user.id)
+            .maybeSingle()
+
+          if (profile?.full_name) {
+            setFullName(profile.full_name)
+          } else {
+            setFullName(data.user.user_metadata?.full_name || data.user.email?.split("@")[0] || "")
+          }
+        } catch (profileErr) {
+          console.warn("Could not query existing profile details:", profileErr)
+          setFullName(data.user.user_metadata?.full_name || data.user.email?.split("@")[0] || "")
+        }
       } else {
         router.replace("/login")
       }
@@ -91,6 +111,11 @@ function ProfileCompleteContent() {
       return
     }
 
+    if (!fullName.trim()) {
+      setError("Full Name is required.")
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
@@ -98,6 +123,7 @@ function ProfileCompleteContent() {
         .from("profiles")
         .upsert({
           id: userId,
+          full_name: fullName.trim(),
           university_id: selectedUniversityId || null,
           faculty_id: selectedFacultyId || null,
           department: department,
@@ -142,6 +168,17 @@ function ProfileCompleteContent() {
             ) : null}
 
             <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="onboard-fullname">Full Name</FieldLabel>
+                <Input
+                  id="onboard-fullname"
+                  value={fullName}
+                  onChange={(event) => setFullName(event.target.value)}
+                  placeholder="Enter your full name"
+                  required
+                />
+              </Field>
+
               <Field>
                 <FieldLabel htmlFor="onboard-university">University</FieldLabel>
                 <select

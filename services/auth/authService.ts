@@ -12,7 +12,7 @@ export async function register(email: string, password: string, fullName?: strin
     password,
     options: {
       data: {
-        full_name: fullName ?? null,
+        full_name: fullName ?? "",
       },
     },
   })
@@ -24,7 +24,7 @@ export async function register(email: string, password: string, fullName?: strin
       .insert({
         id: res.data.user.id,
         email: email.trim().toLowerCase(),
-        full_name: fullName ?? null,
+        full_name: fullName ?? "",
       })
   }
 
