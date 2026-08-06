@@ -514,7 +514,7 @@ export default function App() {
         if (!mounted) return;
 
         if (!error && data && data.length > 0) {
-          const mappedLibrary = data.map((course: any, index: number) => ({
+          const mappedLibrary = data.map((course: Record<string, unknown>, index: number) => ({
             id: String(course.id ?? `course-${index}`),
             title: String(course.name ?? course.title ?? course.code ?? 'Course'),
             description: String(course.description ?? 'Live curriculum item from Supabase.'),

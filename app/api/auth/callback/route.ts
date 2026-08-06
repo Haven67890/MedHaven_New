@@ -56,10 +56,12 @@ export async function GET(request: Request) {
           if (!profile || !profile.department || !profile.current_level) {
             // Skeleton profile upsert to allow client RLS and updating
             if (!profile) {
+              const email = user.email || ""
+              const fallbackName = user.user_metadata?.full_name || user.user_metadata?.name || email.split("@")[0] || "User"
               await supabase.from('profiles').upsert({
                 id: user.id,
-                email: user.email?.trim().toLowerCase(),
-                full_name: user.user_metadata?.full_name || '',
+                email: email.trim().toLowerCase(),
+                full_name: fallbackName,
                 role: 'student'
               }, { onConflict: 'id' })
             }
@@ -96,10 +98,12 @@ export async function GET(request: Request) {
 
           if (!profile || !profile.department || !profile.current_level) {
             if (!profile) {
+              const email = user.email || ""
+              const fallbackName = user.user_metadata?.full_name || user.user_metadata?.name || email.split("@")[0] || "User"
               await supabase.from('profiles').upsert({
                 id: user.id,
-                email: user.email?.trim().toLowerCase(),
-                full_name: user.user_metadata?.full_name || '',
+                email: email.trim().toLowerCase(),
+                full_name: fallbackName,
                 role: 'student'
               }, { onConflict: 'id' })
             }
