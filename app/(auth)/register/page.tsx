@@ -84,7 +84,7 @@ function RegisterContent() {
             email: email.trim().toLowerCase(),
             full_name: fullName.trim(),
             department: department,
-            level: level,
+            current_level: level,
             role: "student"
           }, { onConflict: "id" })
 

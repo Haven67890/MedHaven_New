@@ -62,11 +62,11 @@ export async function middleware(request: NextRequest) {
   if (user && pathname !== "/profile/complete" && !pathname.startsWith("/api")) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("department, level")
+      .select("department, current_level")
       .eq("id", user.id)
       .maybeSingle()
 
-    if (!profile || !profile.department || !profile.level) {
+    if (!profile || !profile.department || !profile.current_level) {
       return NextResponse.redirect(new URL("/profile/complete", request.url))
     }
   }

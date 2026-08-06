@@ -122,7 +122,19 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
             <MedHavenLogo compact />
           </div>
           <p className="hidden text-sm font-medium lg:block">MedHaven workspace</p>
-          <ThemeToggle />
+          <div className="flex items-center gap-4">
+            <ThemeToggle />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                await supabase.auth.signOut()
+                window.location.href = "/login"
+              }}
+            >
+              Logout
+            </Button>
+          </div>
         </header>
         <main className="flex-1 p-4 sm:p-6">{children}</main>
       </div>
