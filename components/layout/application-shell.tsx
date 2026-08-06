@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 import useAuth from "@/hooks/useAuth"
-import { supabase } from "@/lib/auth/supabaseClient"
+import { createClient } from "@/lib/supabase/client"
 
 function normalizeRole(value: unknown): string {
   if (typeof value !== "string") return ""
@@ -75,6 +75,7 @@ function SidebarContent({ isAdmin, onNavigate }: { isAdmin: boolean; onNavigate?
 }
 
 export function ApplicationShell({ children }: { children: React.ReactNode }) {
+  const supabase = createClient()
   const { user } = useAuth()
   const [isAdmin, setIsAdmin] = useState(false)
 

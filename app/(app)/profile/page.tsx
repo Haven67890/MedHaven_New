@@ -9,20 +9,21 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageHeader } from "@/components/dashboard/page-header"
 import useAuth from "@/hooks/useAuth"
-import { supabase } from "@/lib/auth/supabaseClient"
+import { createClient } from "@/lib/supabase/client"
 import { useEffect, useState } from "react"
 
 type Profile = {
   full_name?: string | null
   email?: string | null
   current_level?: string | null
-  department_id?: string | number | null
+  department?: string | null
   faculty_id?: string | number | null
   university_id?: string | number | null
   avatar_url?: string | null
 }
 
 function useProfile(userId: string | undefined) {
+  const supabase = createClient()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [departmentName, setDepartmentName] = useState("")
   const [facultyName, setFacultyName] = useState("")
@@ -40,7 +41,7 @@ function useProfile(userId: string | undefined) {
 
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("full_name, email, current_level, department_id, faculty_id, university_id, avatar_url")
+        .select("full_name, email, current_level, department, faculty_id, university_id, avatar_url")
         .eq("id", userId)
         .maybeSingle()
 
@@ -51,9 +52,6 @@ function useProfile(userId: string | undefined) {
 
         // Fetch related names
         const requests = [
-          profileData.department_id
-            ? supabase.from("departments").select("name").eq("id", profileData.department_id).maybeSingle()
-            : Promise.resolve({ data: null, error: null }),
           profileData.faculty_id
             ? supabase.from("faculties").select("name").eq("id", profileData.faculty_id).maybeSingle()
             : Promise.resolve({ data: null, error: null }),
@@ -62,13 +60,11 @@ function useProfile(userId: string | undefined) {
             : Promise.resolve({ data: null, error: null }),
         ]
 
-        const [deptResult, facResult, uniResult] = await Promise.allSettled(requests)
+        const [facResult, uniResult] = await Promise.allSettled(requests)
 
         if (!mounted) return
 
-        const deptName = deptResult.status === "fulfilled" && deptResult.value.data
-          ? String((deptResult.value.data as { name?: string | null }).name ?? "")
-          : ""
+        const deptName = profileData.department || ""
         const facName = facResult.status === "fulfilled" && facResult.value.data
           ? String((facResult.value.data as { name?: string | null }).name ?? "")
           : ""
@@ -89,7 +85,7 @@ function useProfile(userId: string | undefined) {
     return () => {
       mounted = false
     }
-  }, [userId])
+  }, [userId, supabase])
 
   return { profile, departmentName, facultyName, universityName, loading }
 }

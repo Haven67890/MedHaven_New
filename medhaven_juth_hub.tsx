@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from './lib/auth/supabaseClient';
+import { createClient } from './lib/supabase/client';
 import { 
   BookOpen, Search, MessageSquare, Calendar, User, Folder, Upload, Plus, 
   Award, ShieldAlert, Trash, Eye, Download, Tag, ChevronRight, Sparkles, 
@@ -366,6 +366,7 @@ const PRE_MADE_QUIZZES = [
 
 
 export default function App() {
+  const supabase = createClient();
   // Authentication states
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
@@ -513,7 +514,7 @@ export default function App() {
         if (!mounted) return;
 
         if (!error && data && data.length > 0) {
-          const mappedLibrary = data.map((course, index) => ({
+          const mappedLibrary = data.map((course: any, index: number) => ({
             id: String(course.id ?? `course-${index}`),
             title: String(course.name ?? course.title ?? course.code ?? 'Course'),
             description: String(course.description ?? 'Live curriculum item from Supabase.'),

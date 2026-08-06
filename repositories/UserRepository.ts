@@ -1,12 +1,12 @@
-import { supabase } from '../services/db/supabaseService'
+import { getSupabase } from '../services/db/supabaseService'
 
 export type ProfileRecord = {
   id: string
   full_name?: string | null
   email?: string | null
   role_id?: string | number | null
-  level?: string | null
-  department_id?: string | number | null
+  current_level?: string | null
+  department?: string | null
   faculty_id?: string | number | null
   university_id?: string | number | null
   avatar_url?: string | null
@@ -28,9 +28,10 @@ function unwrap(result: QueryResult): { data: ProfileRecord | ProfileRecord[] | 
 
 export const UserRepository = {
   async getById(id: string): Promise<ProfileRecord | null> {
+    const supabase = getSupabase()
     const result = await supabase
       .from('profiles')
-      .select('id, full_name, email, role_id, level, department_id, faculty_id, university_id, avatar_url')
+      .select('id, full_name, email, role_id, current_level, department, faculty_id, university_id, avatar_url')
       .eq('id', id)
       .maybeSingle()
 
@@ -40,9 +41,10 @@ export const UserRepository = {
   },
 
   async getByEmail(email: string): Promise<ProfileRecord | null> {
+    const supabase = getSupabase()
     const result = await supabase
       .from('profiles')
-      .select('id, full_name, email, role_id, level, department_id, faculty_id, university_id, avatar_url')
+      .select('id, full_name, email, role_id, current_level, department, faculty_id, university_id, avatar_url')
       .eq('email', email)
       .maybeSingle()
 
@@ -52,10 +54,11 @@ export const UserRepository = {
   },
 
   async upsert(user: Partial<ProfileRecord>): Promise<ProfileRecord> {
+    const supabase = getSupabase()
     const result = await supabase
       .from('profiles')
       .upsert(user)
-      .select('id, full_name, email, role_id, level, department_id, faculty_id, university_id, avatar_url')
+      .select('id, full_name, email, role_id, current_level, department, faculty_id, university_id, avatar_url')
       .single()
 
     const { data, error } = unwrap(result as unknown as QueryResult)
@@ -64,9 +67,10 @@ export const UserRepository = {
   },
 
   async list(limit = 20, offset = 0): Promise<ProfileRecord[]> {
+    const supabase = getSupabase()
     const result = await supabase
       .from('profiles')
-      .select('id, full_name, email, role_id, level, department_id, faculty_id, university_id, avatar_url')
+      .select('id, full_name, email, role_id, current_level, department, faculty_id, university_id, avatar_url')
       .range(offset, offset + limit - 1)
 
     const { data, error } = unwrap(result as unknown as QueryResult)

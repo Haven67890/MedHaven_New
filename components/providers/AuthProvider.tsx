@@ -2,7 +2,7 @@
 
 import React, { createContext, useEffect, useMemo, useState } from 'react'
 import type { Session, Subscription } from '@supabase/supabase-js'
-import { supabase } from '../../lib/auth/supabaseClient'
+import { createClient } from '../../lib/supabase/client'
 
 type User = { id?: string; email?: string | null }
 
@@ -22,6 +22,7 @@ function sessionUser(session: Session | null): User | null {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const supabase = createClient()
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -30,23 +31,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let listener: { subscription: Subscription } | null = null
 
     supabase.auth.getSession()
-      .then(({ data }) => {
+      .then((response: any) => {
+        const data = response.data
         if (!mounted) return
-        setUser(sessionUser(data.session))
+        setUser(sessionUser(data?.session))
         setLoading(false)
       })
-      .catch((err) => {
+      .catch((err: any) => {
         console.warn("Supabase getSession failed to fetch:", err)
         if (mounted) setLoading(false)
       })
 
     try {
-      const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      const res: any = supabase.auth.onAuthStateChange((_event: any, session: any) => {
         if (mounted) {
           setUser(sessionUser(session))
         }
       })
-      listener = data
+      listener = res.data
     } catch (err) {
       console.warn("Supabase onAuthStateChange initialization error:", err)
     }
