@@ -446,7 +446,7 @@ export default function App() {
             const nextProfile = {
               name: getProfileDisplayName(data.full_name ?? null, userProfile.name || 'Scholar'),
               email: data.email ?? userProfile.email,
-              level: data.level ?? userProfile.level,
+              level: data.current_level ?? userProfile.level,
               matric: String(data.id ?? userProfile.matric),
               gender: userProfile.gender,
               phone: userProfile.phone,

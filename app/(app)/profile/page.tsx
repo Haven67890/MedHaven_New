@@ -85,7 +85,7 @@ function useProfile(userId: string | undefined) {
     return () => {
       mounted = false
     }
-  }, [userId])
+  }, [userId, supabase])
 
   return { profile, departmentName, facultyName, universityName, loading }
 }

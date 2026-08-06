@@ -36,12 +36,14 @@ function ProfileCompleteContent() {
   const [loadingMetadata, setLoadingMetadata] = useState(true)
   const [error, setError] = useState("")
   const [userId, setUserId] = useState<string | null>(null)
+  const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
     supabase.auth.getUser().then((response: any) => {
       const data = response.data
       if (data && data.user) {
         setUserId(data.user.id)
+        setUser(data.user)
       } else {
         router.replace("/login")
       }
@@ -93,11 +95,17 @@ function ProfileCompleteContent() {
 
     setIsSubmitting(true)
 
+    // Sourced user full name according to specified fallback logic
+    const userEmail = user?.email || ""
+    const emailPrefix = userEmail ? userEmail.split("@")[0] : "Scholar"
+    const fullName = user?.user_metadata?.full_name || user?.user_metadata?.name || emailPrefix
+
     try {
       const { error: updateError } = await supabase
         .from("profiles")
         .upsert({
           id: userId,
+          full_name: fullName,
           university_id: selectedUniversityId || null,
           faculty_id: selectedFacultyId || null,
           department: department,
