@@ -36,16 +36,39 @@ function ProfileCompleteContent() {
   const [loadingMetadata, setLoadingMetadata] = useState(true)
   const [error, setError] = useState("")
   const [userId, setUserId] = useState<string | null>(null)
+  const [userFullName, setUserFullName] = useState("")
 
   useEffect(() => {
-    supabase.auth.getUser().then((response: any) => {
+    const checkUser = async () => {
+      const response = await supabase.auth.getUser()
       const data = response.data
       if (data && data.user) {
         setUserId(data.user.id)
+        const metadata = data.user.user_metadata || {}
+        const email = data.user.email || ""
+        const nameFallback = metadata.full_name || metadata.name || email.split("@")[0] || "User"
+
+        try {
+          const { data: existingProfile } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("id", data.user.id)
+            .maybeSingle()
+
+          if (existingProfile && existingProfile.full_name) {
+            setUserFullName(existingProfile.full_name)
+          } else {
+            setUserFullName(nameFallback)
+          }
+        } catch (e) {
+          console.warn("Could not load existing profile name:", e)
+          setUserFullName(nameFallback)
+        }
       } else {
         router.replace("/login")
       }
-    })
+    }
+    void checkUser()
   }, [router, supabase])
 
   useEffect(() => {
@@ -94,10 +117,27 @@ function ProfileCompleteContent() {
     setIsSubmitting(true)
 
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setError("User session not found. Please log in.")
+        setIsSubmitting(false)
+        return
+      }
+
+      const metadata = user.user_metadata || {}
+      const email = user.email || ""
+      const fallbackName = metadata.full_name || metadata.name || email.split("@")[0] || "User"
+
+      let finalFullName = userFullName || fallbackName
+      if (!finalFullName) {
+        finalFullName = fallbackName
+      }
+
       const { error: updateError } = await supabase
         .from("profiles")
         .upsert({
           id: userId,
+          full_name: finalFullName,
           university_id: selectedUniversityId || null,
           faculty_id: selectedFacultyId || null,
           department: department,

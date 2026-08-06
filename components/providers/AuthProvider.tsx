@@ -1,7 +1,7 @@
 "use client"
 
 import React, { createContext, useEffect, useMemo, useState } from 'react'
-import type { Session, Subscription } from '@supabase/supabase-js'
+import type { Session, Subscription, AuthChangeEvent } from '@supabase/supabase-js'
 import { createClient } from '../../lib/supabase/client'
 
 type User = { id?: string; email?: string | null }
@@ -30,20 +30,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let mounted = true
     let listener: { subscription: Subscription } | null = null
 
-    supabase.auth.getSession()
-      .then((response: any) => {
-        const data = response.data
+    const fetchSession = async () => {
+      try {
+        const response = await supabase.auth.getSession()
         if (!mounted) return
-        setUser(sessionUser(data?.session))
-        setLoading(false)
-      })
-      .catch((err: any) => {
+        setUser(sessionUser(response.data?.session))
+      } catch (err: unknown) {
         console.warn("Supabase getSession failed to fetch:", err)
+      } finally {
         if (mounted) setLoading(false)
-      })
+      }
+    }
+
+    void fetchSession()
 
     try {
-      const res: any = supabase.auth.onAuthStateChange((_event: any, session: any) => {
+      const res = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
         if (mounted) {
           setUser(sessionUser(session))
         }
