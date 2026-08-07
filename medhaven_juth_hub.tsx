@@ -368,7 +368,7 @@ const PRE_MADE_QUIZZES = [
 export default function App() {
   const supabase = createClient();
   // Authentication states
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [isRegistering, setIsRegistering] = useState(false);
 
   // Gemini API configuration
@@ -514,6 +514,7 @@ export default function App() {
         if (!mounted) return;
 
         if (!error && data && data.length > 0) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const mappedLibrary = data.map((course: any, index: number) => ({
             id: String(course.id ?? `course-${index}`),
             title: String(course.name ?? course.title ?? course.code ?? 'Course'),
@@ -864,237 +865,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ================= AUTH SPLASH PORTAL ================= */}
-      {!isAuthenticated ? (
-        <div className="flex-grow flex flex-col lg:flex-row items-stretch justify-center min-h-screen bg-slate-900">
-          
-          {/* Left Column - Graphic features highlighting sunny ambulance block driveway */}
-          <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 overflow-hidden bg-slate-950">
-            <div className="absolute inset-0 bg-cover bg-center opacity-40 z-0" style={{ backgroundImage: `url(${JUTH_IMAGES.ambulanceDriveway})` }} />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-slate-950/10 z-10" />
-            
-            <div className="relative z-20 flex items-center gap-3">
-              <div className="bg-gradient-to-tr from-cyan-500 to-blue-600 p-2.5 rounded-xl">
-                <HeartPulse className="w-7 h-7 text-white" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-black tracking-tight text-white">MedHaven Hub</h2>
-                <p className="text-xs text-slate-400">Jos University Teaching Hospital Academic Suite</p>
-              </div>
-            </div>
-
-            <div className="relative z-20 space-y-4">
-              <div className="inline-flex items-center gap-2 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 px-3 py-1 rounded-full text-xs font-bold">
-                <Sparkles className="w-3.5 h-3.5" /> 2026 Medical Training Systems Live
-              </div>
-              <h1 className="text-4xl font-extrabold tracking-tight text-white leading-tight">
-                Empowering JUTH Clinical Scholars with Grounded Intelligence
-              </h1>
-              <p className="text-sm text-slate-300 max-w-md">
-                Find lecture slides, verified diagnostic checklists, medical gear listings, and our interactive clinical reasoning companion in one responsive workspace.
-              </p>
-            </div>
-
-            <div className="relative z-20 text-xs text-slate-500 font-bold">
-              <span>© 2026 Jos University Medical Students Association (JUMSA)</span>
-            </div>
-          </div>
-
-          {/* Right Column - Authentication forms */}
-          <div className="flex-grow lg:w-1/2 flex items-center justify-center p-6 sm:p-12 bg-slate-950 relative">
-            <div className="w-full max-w-md space-y-8">
-              
-              <div className="text-center lg:text-left space-y-2">
-                <div className="lg:hidden flex justify-center mb-4">
-                  <div className="bg-cyan-600 p-3 rounded-xl">
-                    <HeartPulse className="w-8 h-8 text-white" />
-                  </div>
-                </div>
-                <h3 className="text-2xl font-extrabold text-white">
-                  {isRegistering ? "Create your Scholar Account" : "Access MedHaven JUTH Hub"}
-                </h3>
-                <p className="text-xs text-slate-400">
-                  {isRegistering ? "Register your level details to customize study filters" : "Enter your academic credentials to proceed to materials"}
-                </p>
-              </div>
-
-              {isRegistering ? (
-                /* Registration Screen Form fields matching phase criteria */
-                <form onSubmit={handleRegFormSubmit} className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">Full Name *</label>
-                      <input 
-                        type="text" 
-                        required 
-                        value={regForm.name}
-                        onChange={(e) => setRegForm({ ...regForm, name: e.target.value })}
-                        placeholder="e.g. Your Name" 
-                        className="w-full bg-slate-900 border border-slate-800 focus:border-cyan-500 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">Matric Number *</label>
-                      <input 
-                        type="text" 
-                        required 
-                        value={regForm.matric}
-                        onChange={(e) => setRegForm({ ...regForm, matric: e.target.value })}
-                        placeholder="e.g. UJT/2022/MBBS/014" 
-                        className="w-full bg-slate-900 border border-slate-800 focus:border-cyan-500 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">University Email Address *</label>
-                    <input 
-                      type="email" 
-                      required 
-                      value={regForm.email}
-                      onChange={(e) => setRegForm({ ...regForm, email: e.target.value })}
-                      placeholder="e.g. john.doe@juth.edu.ng" 
-                      className="w-full bg-slate-900 border border-slate-800 focus:border-cyan-500 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">Course of Study</label>
-                      <select 
-                        value={regForm.course}
-                        onChange={(e) => setRegForm({ ...regForm, course: e.target.value })}
-                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none"
-                      >
-                        <option value="Medicine and Surgery (MBBS)">MBBS (Medicine & Surgery)</option>
-                        <option value="Dental Surgery (BDS)">BDS (Dental Surgery)</option>
-                        <option value="Nursing Sciences">Nursing Sciences</option>
-                        <option value="Pharmacy">Pharmacy</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">Current Level</label>
-                      <select 
-                        value={regForm.level}
-                        onChange={(e) => setRegForm({ ...regForm, level: e.target.value })}
-                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none"
-                      >
-                        {LEVELS.map(lvl => <option key={lvl} value={lvl}>{lvl}</option>)}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">Password *</label>
-                      <input 
-                        type="password" 
-                        required 
-                        minLength={8}
-                        value={regForm.password}
-                        onChange={(e) => setRegForm({ ...regForm, password: e.target.value })}
-                        placeholder="••••••••" 
-                        className="w-full bg-slate-900 border border-slate-800 focus:border-cyan-500 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">Confirm Password *</label>
-                      <input 
-                        type="password" 
-                        required 
-                        minLength={8}
-                        value={regForm.confirmPassword}
-                        onChange={(e) => setRegForm({ ...regForm, confirmPassword: e.target.value })}
-                        placeholder="••••••••" 
-                        className="w-full bg-slate-900 border border-slate-800 focus:border-cyan-500 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <button 
-                    type="submit"
-                    className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold py-2.5 rounded-lg shadow-lg shadow-cyan-500/10 transition-all duration-300 mt-2"
-                  >
-                    Register Scholar Profile
-                  </button>
-                </form>
-              ) : (
-                <form onSubmit={handleLoginFormSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">University Email Address</label>
-                    <input 
-                      type="email" 
-                      required 
-                      value={loginForm.email}
-                      onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                      placeholder="e.g. your.name@juth.edu.ng" 
-                      className="w-full bg-slate-900 border border-slate-800 focus:border-cyan-500 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between items-center mb-1">
-                      <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wide">Password</label>
-                      <button type="button" onClick={() => showToast("Diagnostic reset query sent to JUTH server directory.", "info")} className="text-[10px] text-cyan-400 hover:underline">Forgot password?</button>
-                    </div>
-                    <input 
-                      type="password" 
-                      required 
-                      value={loginForm.password}
-                      onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                      placeholder="••••••••" 
-                      className="w-full bg-slate-900 border border-slate-800 focus:border-cyan-500 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none"
-                    />
-                  </div>
-
-                  <button 
-                    type="submit"
-                    className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold py-2.5 rounded-lg shadow-lg shadow-cyan-500/10 transition-all duration-300"
-                  >
-                    Proceed to Hub
-                  </button>
-
-                  <div className="relative flex py-2 items-center">
-                    <div className="flex-grow border-t border-slate-850"></div>
-                    <span className="flex-shrink mx-4 text-slate-600 text-[10px] uppercase font-black tracking-wider">or verify directory</span>
-                    <div className="flex-grow border-t border-slate-850"></div>
-                  </div>
-
-                  <button 
-                    type="button"
-                    onClick={async () => {
-                      const { error } = await supabase.auth.signInWithOAuth({
-                        provider: "google",
-                        options: {
-                          redirectTo: typeof window !== "undefined" ? `${window.location.origin}/api/auth/callback` : undefined,
-                        },
-                      });
-                      if (error) {
-                        showToast("Google sign-in is not yet configured. Please use email and password.", "info");
-                      }
-                    }}
-                    className="w-full bg-slate-900 border border-slate-800 hover:bg-slate-855 text-slate-300 text-xs font-semibold py-2 rounded-lg flex items-center justify-center gap-2 transition"
-                  >
-                    <Globe className="w-4 h-4 text-cyan-400" /> Continue with Google
-                  </button>
-                </form>
-              )}
-
-              <div className="text-center">
-                <button 
-                  onClick={() => setIsRegistering(!isRegistering)}
-                  className="text-xs text-slate-400 hover:text-cyan-400 transition font-medium"
-                >
-                  {isRegistering ? "Already have a scholar file? Sign in here" : "New JUTH Clinical Student? Create a Free Profile"}
-                </button>
-              </div>
-
-            </div>
-          </div>
-
-        </div>
-      ) : (
-        /* ================= MAIN APPLICATION shell ================= */
+      {/* ================= MAIN APPLICATION shell ================= */}
         <div className="flex flex-col min-h-screen">
           
           {/* Main Top Header Bar */}
@@ -1147,7 +918,10 @@ export default function App() {
                 <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] px-2.5 py-0.5 rounded-full font-bold">Admin</span>
               )}
               <button 
-                onClick={() => { setIsAuthenticated(false); showToast("Logged out of session safely.", "info"); }}
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                  window.location.href = "/login";
+                }}
                 className="text-slate-500 hover:text-rose-400 transition ml-2"
                 title="Sign out of system"
               >
@@ -2403,7 +2177,6 @@ export default function App() {
           </footer>
 
         </div>
-      )}
 
     </div>
   );

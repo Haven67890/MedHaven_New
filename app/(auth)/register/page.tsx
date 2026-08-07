@@ -67,7 +67,7 @@ function RegisterContent() {
       })
 
       if (authError) {
-        setError(authError.message)
+        setError(authError.message || (typeof authError === 'string' ? authError : JSON.stringify(authError)))
         return
       }
 
@@ -98,8 +98,9 @@ function RegisterContent() {
 
       // Show OTP Step instead of hiding form or resetting
       setShowOtpStep(true)
-    } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Unable to create account.")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (submitError: any) {
+      setError(submitError?.message || (typeof submitError === 'string' ? submitError : JSON.stringify(submitError)))
     } finally {
       setIsSubmitting(false)
     }
@@ -118,13 +119,14 @@ function RegisterContent() {
       })
 
       if (otpError) {
-        setError(otpError.message)
+        setError(otpError.message || (typeof otpError === 'string' ? otpError : JSON.stringify(otpError)))
         return
       }
 
       router.replace("/dashboard")
-    } catch (verifyError) {
-      setError(verifyError instanceof Error ? verifyError.message : "Unable to verify OTP code.")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (verifyError: any) {
+      setError(verifyError?.message || (typeof verifyError === 'string' ? verifyError : JSON.stringify(verifyError)))
     } finally {
       setIsSubmitting(false)
     }
@@ -140,10 +142,11 @@ function RegisterContent() {
         },
       })
       if (oauthError) {
-        setError(oauthError.message)
+        setError(oauthError.message || (typeof oauthError === 'string' ? oauthError : JSON.stringify(oauthError)))
       }
-    } catch (oauthErr) {
-      setError(oauthErr instanceof Error ? oauthErr.message : "Google sign-in failed.")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (oauthErr: any) {
+      setError(oauthErr?.message || (typeof oauthErr === 'string' ? oauthErr : JSON.stringify(oauthErr)))
     }
   }
 
