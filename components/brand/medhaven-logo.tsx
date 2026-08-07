@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { PlusIcon } from "lucide-react"
+import { HeartPulse } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -22,7 +22,7 @@ export function MedHavenLogo({ compact = false, className, href = "/", inverse =
       aria-label="MedHaven home"
     >
       <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-        <PlusIcon aria-hidden="true" />
+        <HeartPulse className="size-5" aria-hidden="true" />
       </span>
       {!compact && <span className="text-lg font-semibold tracking-tight">MedHaven</span>}
     </Link>
