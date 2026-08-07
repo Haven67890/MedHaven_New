@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation"
 import { FormEvent, useState, useEffect, Suspense } from "react"
 
+import { type User } from "@supabase/supabase-js"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -36,10 +37,10 @@ function ProfileCompleteContent() {
   const [loadingMetadata, setLoadingMetadata] = useState(true)
   const [error, setError] = useState("")
   const [userId, setUserId] = useState<string | null>(null)
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<User | null>(null)
 
   useEffect(() => {
-    supabase.auth.getUser().then((response: any) => {
+    supabase.auth.getUser().then((response: { data: { user: User | null } }) => {
       const data = response.data
       if (data && data.user) {
         setUserId(data.user.id)
