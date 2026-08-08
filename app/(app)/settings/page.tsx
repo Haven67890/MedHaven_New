@@ -50,9 +50,19 @@ export default function SettingsPage() {
     if (!user?.id) return
 
     const loadProfile = async () => {
+      let sessionEmail = user.email ?? ""
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser()
+        if (authUser?.email) {
+          sessionEmail = authUser.email
+        }
+      } catch (err) {
+        console.warn("Failed to fetch user auth session details in settings:", err)
+      }
+
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("full_name, email")
+        .select("full_name")
         .eq("id", user.id)
         .maybeSingle()
 
@@ -61,13 +71,19 @@ export default function SettingsPage() {
         setProfile({
           first_name: names[0] || "",
           last_name: names.slice(1).join(" ") || "",
-          email: profileData.email ?? user.email ?? "",
+          email: sessionEmail,
+        })
+      } else {
+        setProfile({
+          first_name: "",
+          last_name: "",
+          email: sessionEmail,
         })
       }
     }
 
     void loadProfile()
-  }, [user?.id, user?.email])
+  }, [user?.id, user?.email, supabase])
 
   return (
     <div className="flex flex-col gap-8">
