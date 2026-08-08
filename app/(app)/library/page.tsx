@@ -29,7 +29,6 @@ interface Faculty {
 interface Course {
   id: string
   code?: string | null
-  name?: string | null
   title?: string | null
   level?: string | number | null
   parent_id?: string | null
@@ -116,7 +115,7 @@ export default function SmartLibraryPage() {
         // 1. Fetch courses
         const { data: coursesData, error: coursesError } = await supabase
           .from("courses")
-          .select("id, code, name, title, level, parent_id")
+          .select("id, code, title, level, parent_id")
           .order("code", { ascending: true })
 
         if (coursesError) throw coursesError
@@ -138,7 +137,6 @@ export default function SmartLibraryPage() {
             courses (
               id,
               code,
-              name,
               title,
               level,
               parent_id,
@@ -181,7 +179,7 @@ export default function SmartLibraryPage() {
     return {
       id: course.id,
       code: course.code || "",
-      name: course.name || course.title || course.code || "Curriculum",
+      name: course.title || course.code || "Curriculum",
       count: courseMaterialsCount,
       icon: index % 3 === 0 ? "BookOpen" : index % 3 === 1 ? "BookMarked" : "Library",
       color: index % 3 === 0 ? "primary" : index % 3 === 1 ? "secondary" : "accent",
@@ -196,7 +194,7 @@ export default function SmartLibraryPage() {
       const titleMatch = material.title?.toLowerCase().includes(q)
       const descMatch = material.description?.toLowerCase().includes(q)
       const courseCodeMatch = material.courses?.code?.toLowerCase().includes(q)
-      const courseNameMatch = material.courses?.name?.toLowerCase().includes(q)
+      const courseNameMatch = material.courses?.title?.toLowerCase().includes(q)
       const facultyMatch = material.courses?.faculties?.name?.toLowerCase().includes(q)
 
       if (!titleMatch && !descMatch && !courseCodeMatch && !courseNameMatch && !facultyMatch) {
@@ -395,7 +393,7 @@ export default function SmartLibraryPage() {
                           {material.courses && (
                             <CardDescription className="font-semibold text-primary">
                               {material.courses.code ? `${material.courses.code} · ` : ""}
-                              {material.courses.name || material.courses.title}
+                              {material.courses.title}
                             </CardDescription>
                           )}
                           {material.description && (
