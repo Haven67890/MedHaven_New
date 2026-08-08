@@ -14,17 +14,16 @@ import { useEffect, useState } from "react"
 
 type Profile = {
   full_name?: string | null
-  email?: string | null
   current_level?: string | null
   department?: string | null
   faculty_id?: string | number | null
   university_id?: string | number | null
-  avatar_url?: string | null
 }
 
 function useProfile(userId: string | undefined) {
   const supabase = createClient()
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [email, setEmail] = useState<string | null>(null)
   const [departmentName, setDepartmentName] = useState("")
   const [facultyName, setFacultyName] = useState("")
   const [universityName, setUniversityName] = useState("")
@@ -39,9 +38,18 @@ function useProfile(userId: string | undefined) {
         return
       }
 
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser()
+        if (mounted && authUser) {
+          setEmail(authUser.email ?? null)
+        }
+      } catch (err) {
+        console.warn("Failed to fetch user auth session details:", err)
+      }
+
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("full_name, email, current_level, department, faculty_id, university_id, avatar_url")
+        .select("full_name, current_level, department, faculty_id, university_id")
         .eq("id", userId)
         .maybeSingle()
 
@@ -87,12 +95,12 @@ function useProfile(userId: string | undefined) {
     }
   }, [userId, supabase])
 
-  return { profile, departmentName, facultyName, universityName, loading }
+  return { profile, email, departmentName, facultyName, universityName, loading }
 }
 
 export default function ProfilePage() {
   const { user } = useAuth()
-  const { profile, departmentName, facultyName, universityName, loading } = useProfile(user?.id)
+  const { profile, email, departmentName, facultyName, universityName, loading } = useProfile(user?.id)
 
   const displayName = profile?.full_name ?? user?.email ?? "Your Account"
   const initials = displayName
@@ -153,7 +161,7 @@ export default function ProfilePage() {
           <CardContent className="flex flex-col gap-3 text-sm">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Mail className="size-4" aria-hidden="true" />
-              {profile?.email ?? user?.email ?? "Not available"}
+              {email ?? user?.email ?? "Not available"}
             </div>
             {departmentName && (
               <div className="flex items-center gap-2 text-muted-foreground">

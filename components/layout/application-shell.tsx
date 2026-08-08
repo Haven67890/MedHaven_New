@@ -85,13 +85,13 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
     const checkAdmin = async () => {
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("role, role_name, is_admin")
+        .select("role")
         .eq("id", user.id)
         .maybeSingle()
 
       const profile = profileData as Record<string, unknown> | null
-      const role = normalizeRole(profile?.role ?? profile?.role_name ?? "")
-      const admin = role === "admin" || role === "super_admin" || Boolean(profile?.is_admin)
+      const role = normalizeRole(profile?.role ?? "")
+      const admin = role === "admin" || role === "super_admin"
       setIsAdmin(admin)
     }
 
