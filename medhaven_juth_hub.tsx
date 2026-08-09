@@ -569,6 +569,8 @@ export default function App() {
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('All');
   const [globalSearch, setGlobalSearch] = useState('');
 
+  const userIsClinical = ['400L', '500L', '600L', 'Final Year'].includes(userProfile.level || '');
+
   // Toast feedback state
   const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' | 'info' }>({
     show: false,
@@ -1014,7 +1016,7 @@ export default function App() {
                     <h3 className="font-extrabold text-base text-slate-100">Personalized Course Folders</h3>
                   </div>
 
-                  {userProfile.level === '400L' ? (
+                  {userIsClinical ? (
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       
                       <div className="p-4 rounded-xl bg-slate-900 border border-slate-850 space-y-3">
@@ -1048,49 +1050,65 @@ export default function App() {
                 </div>
 
                 {/* Ward 11 Spotlight containing stethoscope photograph */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  
-                  <div className="lg:col-span-2 bg-slate-950 border border-slate-850 rounded-2xl overflow-hidden p-6 relative">
-                    <div className="flex flex-col md:flex-row gap-6 items-center">
-                      
-                      <div className="space-y-3 flex-grow">
-                        <div className="inline-flex items-center gap-1 bg-teal-500/10 text-teal-400 px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-teal-500/20">
-                          <MapPin className="w-3.5 h-3.5" /> JUTH Clinical Spotlight
+                {userIsClinical ? (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                    <div className="lg:col-span-2 bg-slate-950 border border-slate-850 rounded-2xl overflow-hidden p-6 relative">
+                      <div className="flex flex-col md:flex-row gap-6 items-center">
+
+                        <div className="space-y-3 flex-grow">
+                          <div className="inline-flex items-center gap-1 bg-teal-500/10 text-teal-400 px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-teal-500/20">
+                            <MapPin className="w-3.5 h-3.5" /> JUTH Clinical Spotlight
+                          </div>
+                          <h4 className="text-lg font-black text-white leading-tight">Ward 11 - Male Medical Ward rounds</h4>
+                          <p className="text-xs text-slate-400 leading-relaxed">
+                            Review Framingham clinical markers, fluid charts, and drug mechanisms prior to embarking on rounds with consultants. Always ensure your diagnostic stethoscope is packed.
+                          </p>
+                          <div className="flex flex-wrap gap-2 pt-2">
+                            <button onClick={() => { setActiveTab('library'); setSelectedDeptFilter('Medicine'); }} className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold px-3 py-2 rounded-lg transition shadow-md shadow-cyan-600/10">Read clinical slides</button>
+                            <button onClick={() => { setActiveTab('staff'); }} className="bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800 text-xs font-bold px-3 py-2 rounded-lg transition">Staff directory</button>
+                          </div>
                         </div>
-                        <h4 className="text-lg font-black text-white leading-tight">Ward 11 - Male Medical Ward rounds</h4>
-                        <p className="text-xs text-slate-400 leading-relaxed">
-                          Review Framingham clinical markers, fluid charts, and drug mechanisms prior to embarking on rounds with consultants. Always ensure your diagnostic stethoscope is packed.
-                        </p>
-                        <div className="flex flex-wrap gap-2 pt-2">
-                          <button onClick={() => { setActiveTab('library'); setSelectedDeptFilter('Medicine'); }} className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold px-3 py-2 rounded-lg transition shadow-md shadow-cyan-600/10">Read clinical slides</button>
-                          <button onClick={() => { setActiveTab('staff'); }} className="bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800 text-xs font-bold px-3 py-2 rounded-lg transition">Staff directory</button>
+
+                        {/* Stethoscope in front of Ward 11 exactly registered */}
+                        <div className="w-full md:w-56 h-36 rounded-xl overflow-hidden border border-slate-800 relative shadow-lg shrink-0 group">
+                          <img src={JUTH_IMAGES.ward11Entrance} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" alt="Ward 11 door with stethoscope" />
+                          <div className="absolute inset-0 bg-slate-950/60 flex items-end p-2.5">
+                            <span className="text-[10px] font-bold text-white bg-slate-950/80 px-2 py-0.5 rounded border border-slate-800">Ward 11 Entry Gateway</span>
+                          </div>
                         </div>
+
+                      </div>
+                    </div>
+
+                    {/* Courtyard flowering tree display panel */}
+                    <div className="bg-slate-950 border border-slate-850 rounded-2xl p-4 flex flex-col justify-between gap-4">
+                      <div>
+                        <h4 className="font-extrabold text-slate-200 text-xs uppercase tracking-wider flex items-center gap-1.5"><HeartPulse className="w-4 h-4 text-cyan-400" /> Morning Fellowship</h4>
+                        <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">Join standard student prayer groups in the administrative courtyard before lecture blocks.</p>
                       </div>
 
-                      {/* Stethoscope in front of Ward 11 exactly registered */}
-                      <div className="w-full md:w-56 h-36 rounded-xl overflow-hidden border border-slate-800 relative shadow-lg shrink-0 group">
-                        <img src={JUTH_IMAGES.ward11Entrance} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" alt="Ward 11 door with stethoscope" />
-                        <div className="absolute inset-0 bg-slate-950/60 flex items-end p-2.5">
-                          <span className="text-[10px] font-bold text-white bg-slate-950/80 px-2 py-0.5 rounded border border-slate-800">Ward 11 Entry Gateway</span>
-                        </div>
+                      <div className="h-28 rounded-lg overflow-hidden relative border border-slate-850">
+                        <img src={JUTH_IMAGES.courtyardTree} className="w-full h-full object-cover" alt="Administrative garden" />
+                      </div>
+                    </div>
+
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-6">
+                    {/* Courtyard flowering tree display panel */}
+                    <div className="bg-slate-950 border border-slate-850 rounded-2xl p-4 flex flex-col justify-between gap-4">
+                      <div>
+                        <h4 className="font-extrabold text-slate-200 text-xs uppercase tracking-wider flex items-center gap-1.5"><HeartPulse className="w-4 h-4 text-cyan-400" /> Morning Fellowship</h4>
+                        <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">Join standard student prayer groups in the administrative courtyard before lecture blocks.</p>
                       </div>
 
+                      <div className="h-28 rounded-lg overflow-hidden relative border border-slate-850">
+                        <img src={JUTH_IMAGES.courtyardTree} className="w-full h-full object-cover" alt="Administrative garden" />
+                      </div>
                     </div>
                   </div>
-
-                  {/* Courtyard flowering tree display panel */}
-                  <div className="bg-slate-950 border border-slate-850 rounded-2xl p-4 flex flex-col justify-between gap-4">
-                    <div>
-                      <h4 className="font-extrabold text-slate-200 text-xs uppercase tracking-wider flex items-center gap-1.5"><HeartPulse className="w-4 h-4 text-cyan-400" /> Morning Fellowship</h4>
-                      <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">Join standard student prayer groups in the administrative courtyard before lecture blocks.</p>
-                    </div>
-
-                    <div className="h-28 rounded-lg overflow-hidden relative border border-slate-850">
-                      <img src={JUTH_IMAGES.courtyardTree} className="w-full h-full object-cover" alt="Administrative garden" />
-                    </div>
-                  </div>
-
-                </div>
+                )}
 
                 {/* Quick actions links */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -1277,7 +1295,7 @@ export default function App() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   
                   {/* Calendar schedule panels */}
-                  <div className="lg:col-span-2 space-y-4">
+                  <div className={`${userIsClinical ? 'lg:col-span-2' : 'lg:col-span-3'} space-y-4`}>
                     <h4 className="font-bold text-xs uppercase tracking-wider text-slate-400">Dynamic Class Rotation Matrix ({userProfile.level})</h4>
                     
                     <div className="bg-slate-950 border border-slate-850 rounded-2xl divide-y divide-slate-850 overflow-hidden">
@@ -1316,27 +1334,29 @@ export default function App() {
                   </div>
 
                   {/* Ward round reminders & Emergency unit photo */}
-                  <div className="bg-slate-950 border border-slate-850 p-6 rounded-2xl space-y-4 h-fit">
-                    <h4 className="font-bold text-slate-200 text-xs flex items-center gap-1.5"><HeartPulse className="w-4 h-4 text-rose-400 animate-pulse" /> Emergency Unit Protocols</h4>
-                    <p className="text-xs text-slate-400 leading-relaxed">Prior to entering hospital blocks or starting clinical rotations, review DKA resuscitation charts and make sure to have your stethoscopes.</p>
-                    
-                    <ul className="space-y-3 text-xs text-slate-300">
-                      <li className="flex gap-2.5 items-start">
-                        <CheckSquare className="w-4.5 h-4.5 text-emerald-400 shrink-0 mt-0.5" />
-                        <span>Bring your diagnostics stethoscope (as shown in Ward 11 rounds).</span>
-                      </li>
-                      <li className="flex gap-2.5 items-start">
-                        <CheckSquare className="w-4.5 h-4.5 text-emerald-400 shrink-0 mt-0.5" />
-                        <span>Read DKA resus fluid guidelines in Endocrinology folders.</span>
-                      </li>
-                    </ul>
+                  {userIsClinical && (
+                    <div className="bg-slate-950 border border-slate-850 p-6 rounded-2xl space-y-4 h-fit">
+                      <h4 className="font-bold text-slate-200 text-xs flex items-center gap-1.5"><HeartPulse className="w-4 h-4 text-rose-400 animate-pulse" /> Emergency Unit Protocols</h4>
+                      <p className="text-xs text-slate-400 leading-relaxed">Prior to entering hospital blocks or starting clinical rotations, review DKA resuscitation charts and make sure to have your stethoscopes.</p>
 
-                    {/* LED ticker sign from clinical emergencies matched */}
-                    <div className="rounded-xl overflow-hidden border border-slate-800 relative h-36">
-                      <img src={JUTH_IMAGES.emergencyTicker} className="w-full h-full object-cover" alt="Red LED emergency ticker board" />
-                      <div className="absolute inset-0 bg-slate-950/20" />
+                      <ul className="space-y-3 text-xs text-slate-300">
+                        <li className="flex gap-2.5 items-start">
+                          <CheckSquare className="w-4.5 h-4.5 text-emerald-400 shrink-0 mt-0.5" />
+                          <span>Bring your diagnostics stethoscope (as shown in Ward 11 rounds).</span>
+                        </li>
+                        <li className="flex gap-2.5 items-start">
+                          <CheckSquare className="w-4.5 h-4.5 text-emerald-400 shrink-0 mt-0.5" />
+                          <span>Read DKA resus fluid guidelines in Endocrinology folders.</span>
+                        </li>
+                      </ul>
+
+                      {/* LED ticker sign from clinical emergencies matched */}
+                      <div className="rounded-xl overflow-hidden border border-slate-800 relative h-36">
+                        <img src={JUTH_IMAGES.emergencyTicker} className="w-full h-full object-cover" alt="Red LED emergency ticker board" />
+                        <div className="absolute inset-0 bg-slate-950/20" />
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                 </div>
 

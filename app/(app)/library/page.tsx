@@ -188,6 +188,7 @@ export default function SmartLibraryPage() {
 
   const [materials, setMaterials] = useState<Material[]>([])
   const [courses, setCourses] = useState<Course[]>([])
+  const [userLevel, setUserLevel] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [failedSlideShareEmbeds, setFailedSlideShareEmbeds] = useState<Record<string, boolean>>({})
@@ -213,6 +214,20 @@ export default function SmartLibraryPage() {
       try {
         setIsLoading(true)
         setError(null)
+
+        // 0. Fetch user session and level
+        const { data: { user } } = await supabase.auth.getUser()
+        let level: string | null = null
+        if (user) {
+          const { data: profileData } = await supabase
+            .from("profiles")
+            .select("current_level")
+            .eq("id", user.id)
+            .maybeSingle()
+          if (profileData) {
+            level = profileData.current_level
+          }
+        }
 
         // 1. Fetch courses
         const { data: coursesData, error: coursesError } = await supabase
@@ -253,6 +268,7 @@ export default function SmartLibraryPage() {
         if (mError) throw mError
 
         if (mounted) {
+          setUserLevel(level)
           setCourses((coursesData as Course[]) || [])
           setMaterials((mData as unknown as Material[]) || [])
         }
@@ -275,9 +291,52 @@ export default function SmartLibraryPage() {
     }
   }, [supabase])
 
+  const isPreclinicalLevel = (lvl: string | number | null | undefined): boolean => {
+    if (lvl === null || lvl === undefined) return false
+    const s = String(lvl).trim().toUpperCase()
+    if (s.startsWith("100") || s.startsWith("200") || s.startsWith("300")) return true
+    const n = parseInt(s, 10)
+    if (!isNaN(n) && n >= 100 && n <= 300) return true
+    return false
+  }
+
+  const isClinicalLevel = (lvl: string | number | null | undefined): boolean => {
+    if (lvl === null || lvl === undefined) return false
+    const s = String(lvl).trim().toUpperCase()
+    if (s.startsWith("400") || s.startsWith("500") || s.startsWith("600") || s.includes("FINAL")) return true
+    const n = parseInt(s, 10)
+    if (!isNaN(n) && n >= 400) return true
+    return false
+  }
+
+  const isPreclinicalUser = userLevel ? isPreclinicalLevel(userLevel) : false
+  const isClinicalUser = userLevel ? isClinicalLevel(userLevel) : true
+
+  // Level-based filtered arrays
+  const levelFilteredCourses = courses.filter((course) => {
+    if (isPreclinicalUser) {
+      return isPreclinicalLevel(course.level)
+    }
+    if (isClinicalUser) {
+      return isClinicalLevel(course.level)
+    }
+    return true
+  })
+
+  const levelFilteredMaterials = materials.filter((material) => {
+    const courseLevel = material.courses?.level
+    if (isPreclinicalUser) {
+      return isPreclinicalLevel(courseLevel)
+    }
+    if (isClinicalUser) {
+      return isClinicalLevel(courseLevel)
+    }
+    return true
+  })
+
   // Get dynamic collection statistics & display
-  const collectionData = courses.slice(0, 6).map((course, index) => {
-    const courseMaterialsCount = materials.filter((m) => m.course_id === course.id).length
+  const collectionData = levelFilteredCourses.slice(0, 6).map((course, index) => {
+    const courseMaterialsCount = levelFilteredMaterials.filter((m) => m.course_id === course.id).length
     return {
       id: course.id,
       code: course.code || "",
@@ -289,7 +348,7 @@ export default function SmartLibraryPage() {
   })
 
   // Filtering Logic
-  const filteredMaterials = materials.filter((material) => {
+  const filteredMaterials = levelFilteredMaterials.filter((material) => {
     // 1. Search Query Filter
     if (searchQuery.trim() !== "") {
       const q = searchQuery.toLowerCase()
@@ -322,9 +381,9 @@ export default function SmartLibraryPage() {
     return true
   })
 
-  const totalTitles = materials.length
-  const recommendedCount = materials.filter((m) => m.tier?.toLowerCase() === "recommended").length
-  const studyCount = materials.filter((m) => m.tier?.toLowerCase() === "study").length
+  const totalTitles = levelFilteredMaterials.length
+  const recommendedCount = levelFilteredMaterials.filter((m) => m.tier?.toLowerCase() === "recommended").length
+  const studyCount = levelFilteredMaterials.filter((m) => m.tier?.toLowerCase() === "study").length
 
   return (
     <div className="flex flex-col gap-8">
