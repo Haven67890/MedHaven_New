@@ -90,6 +90,18 @@ function getMaterialUrl(material: Material): string {
   return "#"
 }
 
+// Helper to get file extension from URL
+function getFileExtension(url: string | null | undefined): string {
+  if (!url) return ""
+  try {
+    const path = url.split('?')[0]
+    const parts = path.split('.')
+    return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : ""
+  } catch (e) {
+    return ""
+  }
+}
+
 interface SlideShareEmbedProps {
   url: string
   title: string
@@ -179,6 +191,14 @@ export default function SmartLibraryPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [failedSlideShareEmbeds, setFailedSlideShareEmbeds] = useState<Record<string, boolean>>({})
+
+  // Preview Modal State
+  const [previewModal, setPreviewModal] = useState<{
+    isOpen: boolean
+    title: string
+    url: string
+    type: "pdf" | "office" | null
+  } | null>(null)
 
   // Filters State
   const [searchQuery, setSearchQuery] = useState("")
@@ -529,22 +549,61 @@ export default function SmartLibraryPage() {
                           </Badge>
 
                           <div className="flex items-center gap-1.5">
-                            {isVideo ? (
-                              !embedUrl && downloadUrl !== "#" ? (
-                                <Button size="sm" variant="outline" asChild>
-                                  <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
-                                    Play Video <ExternalLink className="size-3.5 ml-1" />
-                                  </a>
-                                </Button>
-                              ) : null
-                            ) : (
-                              downloadUrl !== "#" && (
-                                <Button size="sm" variant="outline" asChild>
-                                  <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
-                                    Open Link <ExternalLink className="size-3.5 ml-1" />
-                                  </a>
-                                </Button>
-                              )
+                            {downloadUrl !== "#" && (
+                              <>
+                                {(() => {
+                                  const ext = getFileExtension(downloadUrl)
+                                  const isPdf = ext === "pdf"
+                                  const isOffice = ["pptx", "ppt", "docx", "doc", "xlsx", "xls"].includes(ext)
+                                  const isSupabaseStorage = downloadUrl.includes("supabase.co/storage")
+                                  const isStudyTier = material.tier?.toLowerCase() === "study"
+                                  const isExternalLinkOnly = !isSupabaseStorage
+                                  const isYouTube = downloadUrl.includes("youtube.com") || downloadUrl.includes("youtu.be")
+                                  const isSlideShare = downloadUrl.includes("slideshare.net")
+                                  const hasEmbed = isVideo ? !!embedUrl : isSlideShare && !failedSlideShareEmbeds[material.id]
+
+                                  const showViewButton = isPdf || isOffice
+                                  const showDownloadButton = isSupabaseStorage
+                                  const showOpenLinkButton = (!showViewButton && !hasEmbed) || (isStudyTier && isExternalLinkOnly && !hasEmbed)
+
+                                  return (
+                                    <>
+                                      {showViewButton && (
+                                        <Button
+                                          size="sm"
+                                          onClick={() =>
+                                            setPreviewModal({
+                                              isOpen: true,
+                                              title: material.title,
+                                              url: downloadUrl,
+                                              type: isPdf ? "pdf" : "office",
+                                            })
+                                          }
+                                        >
+                                          View
+                                        </Button>
+                                      )}
+
+                                      {showDownloadButton && (
+                                        <Button size="sm" variant="outline" asChild>
+                                          <a href={downloadUrl} download>
+                                            Download
+                                          </a>
+                                        </Button>
+                                      )}
+
+                                      {showOpenLinkButton && (
+                                        <Button size="sm" variant="outline" asChild>
+                                          <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
+                                            {isVideo ? "Play Video" : "Open Link"}{" "}
+                                            <ExternalLink className="size-3.5 ml-1" />
+                                          </a>
+                                        </Button>
+                                      )}
+                                    </>
+                                  )
+                                })()}
+                              </>
                             )}
                           </div>
                         </div>
@@ -579,6 +638,42 @@ export default function SmartLibraryPage() {
             )}
           </section>
         </>
+      )}
+
+      {/* Preview Modal */}
+      {previewModal && previewModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="relative w-full max-w-5xl h-[85vh] bg-background rounded-xl border border-border shadow-2xl flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="font-semibold text-lg text-foreground truncate max-w-[80%]" title={previewModal.title}>
+                Preview: {previewModal.title}
+              </h3>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setPreviewModal(null)}
+                className="size-8 rounded-full"
+              >
+                <X className="size-4" />
+                <span className="sr-only">Close</span>
+              </Button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 bg-muted relative">
+              <iframe
+                src={
+                  previewModal.type === "office"
+                    ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewModal.url)}`
+                    : previewModal.url
+                }
+                className="absolute inset-0 w-full h-full border-0"
+                title={previewModal.title}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
