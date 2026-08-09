@@ -10,7 +10,7 @@ import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTi
 import useAuth from "@/hooks/useAuth"
 
 export function TopNavigation() {
-  const { user, loading } = useAuth()
+  const { user, loading, logout } = useAuth()
 
   return (
     <header className="sticky top-0 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -27,9 +27,20 @@ export function TopNavigation() {
               </Button>
             </>
           ) : (
-            <Button variant="ghost" asChild>
-              <Link href="/dashboard">Dashboard</Link>
-            </Button>
+            <>
+              <Button variant="ghost" asChild>
+                <Link href="/dashboard">Dashboard</Link>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  await logout()
+                  window.location.href = "/login"
+                }}
+              >
+                Logout
+              </Button>
+            </>
           )}
           <ThemeToggle />
         </nav>
@@ -61,11 +72,25 @@ export function TopNavigation() {
                     </SheetClose>
                   </>
                 ) : (
-                  <SheetClose asChild>
-                    <Button className="mt-2" asChild>
-                      <Link href="/dashboard">Dashboard</Link>
-                    </Button>
-                  </SheetClose>
+                  <>
+                    <SheetClose asChild>
+                      <Button className="mt-2" asChild>
+                        <Link href="/dashboard">Dashboard</Link>
+                      </Button>
+                    </SheetClose>
+                    <SheetClose asChild>
+                      <Button
+                        variant="outline"
+                        className="mt-2"
+                        onClick={async () => {
+                          await logout()
+                          window.location.href = "/login"
+                        }}
+                      >
+                        Logout
+                      </Button>
+                    </SheetClose>
+                  </>
                 )}
               </nav>
             </SheetContent>

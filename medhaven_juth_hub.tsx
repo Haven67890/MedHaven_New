@@ -555,13 +555,6 @@ export default function App() {
   const [blogPosts, setBlogPosts] = useState(INITIAL_BLOGS);
   const [announcements, setAnnouncements] = useState([
     { 
-      id: "ann-1", 
-      title: "URGENT: Re-scheduled 400L Pharmacology Continuous Assessment", 
-      content: "The continuous assessment scheduled for Thursday has been shifted to Friday 9:00 AM at Lecture Hall B. Kindly adjust your preparation schedule accordingly.", 
-      priority: "High", 
-      level: "400L" 
-    },
-    { 
       id: "ann-2", 
       title: "Morning Devotional & Prayer Fellowship Invitation", 
       content: "May your minds remain sharp and your clinical hands compassionate today. Join the community fellowship inside Lamingto Hall at 7:30 AM before postings.", 
