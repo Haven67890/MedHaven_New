@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import {
   BookMarked,
   BookOpen,
@@ -90,6 +90,87 @@ function getMaterialUrl(material: Material): string {
   return "#"
 }
 
+interface SlideShareEmbedProps {
+  url: string
+  title: string
+  onError: () => void
+}
+
+function SlideShareEmbed({ url, title, onError }: SlideShareEmbedProps) {
+  const [embedSrc, setEmbedSrc] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const onErrorRef = useRef(onError)
+
+  useEffect(() => {
+    onErrorRef.current = onError
+  }, [onError])
+
+  useEffect(() => {
+    let active = true
+    async function fetchEmbed() {
+      try {
+        const res = await fetch(`/api/slideshare-embed?url=${encodeURIComponent(url)}`)
+        if (!res.ok) {
+          throw new Error("Failed to fetch")
+        }
+        const data = await res.json()
+        if (!data.html) {
+          throw new Error("No HTML field in response")
+        }
+
+        const parser = new DOMParser()
+        const doc = parser.parseFromString(data.html, "text/html")
+        const iframe = doc.querySelector("iframe")
+        const src = iframe ? iframe.getAttribute("src") : null
+
+        if (src && active) {
+          setEmbedSrc(src)
+        } else {
+          throw new Error("Could not extract iframe src")
+        }
+      } catch (err) {
+        console.error("SlideShare embed failed:", err)
+        if (active) {
+          onErrorRef.current()
+        }
+      } finally {
+        if (active) {
+          setLoading(false)
+        }
+      }
+    }
+
+    void fetchEmbed()
+
+    return () => {
+      active = false
+    }
+  }, [url])
+
+  if (loading) {
+    return (
+      <div className="relative aspect-video w-full overflow-hidden rounded-lg border bg-muted flex items-center justify-center">
+        <p className="text-xs text-muted-foreground animate-pulse">Loading slide embed...</p>
+      </div>
+    )
+  }
+
+  if (!embedSrc) {
+    return null
+  }
+
+  return (
+    <div className="relative aspect-video w-full overflow-hidden rounded-lg border bg-muted">
+      <iframe
+        src={embedSrc}
+        title={title}
+        allowFullScreen
+        className="absolute inset-0 h-full w-full border-0"
+      />
+    </div>
+  )
+}
+
 export default function SmartLibraryPage() {
   const supabase = createClient()
 
@@ -97,6 +178,7 @@ export default function SmartLibraryPage() {
   const [courses, setCourses] = useState<Course[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [failedSlideShareEmbeds, setFailedSlideShareEmbeds] = useState<Record<string, boolean>>({})
 
   // Filters State
   const [searchQuery, setSearchQuery] = useState("")
@@ -422,6 +504,24 @@ export default function SmartLibraryPage() {
                             />
                           </div>
                         )}
+
+                        {/* SlideShare embeds */}
+                        {!isVideo &&
+                          material.type?.toLowerCase() === "lecture_slide" &&
+                          material.source_url &&
+                          material.source_url.includes("slideshare.net") &&
+                          !failedSlideShareEmbeds[material.id] && (
+                            <SlideShareEmbed
+                              url={material.source_url}
+                              title={material.title}
+                              onError={() => {
+                                setFailedSlideShareEmbeds((prev) => ({
+                                  ...prev,
+                                  [material.id]: true,
+                                }))
+                              }}
+                            />
+                          )}
 
                         <div className="flex items-center justify-between gap-2 border-t pt-3">
                           <Badge variant="outline" className="text-[10px] uppercase">
