@@ -15,10 +15,10 @@ import {
 
 // Reliable placeholder imagery for the hospital dashboard without broken asset references.
 const JUTH_IMAGES = {
-  mainGate: "https://images.unsplash.com/photo-1584515933487-779824d29309?auto=format&fit=crop&w=1200&q=80",
+  mainGate: "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/Snapchat-1489759066.jpg",
   ambulanceDriveway: "https://images.unsplash.com/photo-1538108149393-fbbd81895907?auto=format&fit=crop&w=1200&q=80",
-  ward11Entrance: "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=1200&q=80",
-  courtyardTree: "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=1200&q=80",
+  ward11Entrance: "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/e36b68e4f40e44f88f4cfdd0a8ae6fbb.jpg",
+  courtyardTree: "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/IMG-20250627-WA0038.jpg",
   emergencyTicker: "https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=1200&q=80"
 };
 
@@ -1004,10 +1004,6 @@ export default function App() {
                       alt="JUTH Main admission gate"
                       className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-transparent flex flex-col justify-end p-3">
-                      <p className="text-[10px] font-black text-white uppercase tracking-wider">Lamingo Campus Entrance</p>
-                      <p className="text-[10px] text-slate-400">Clouds over main admission arches</p>
-                    </div>
                   </div>
                 </div>
 
@@ -1091,9 +1087,6 @@ export default function App() {
 
                     <div className="h-28 rounded-lg overflow-hidden relative border border-slate-850">
                       <img src={JUTH_IMAGES.courtyardTree} className="w-full h-full object-cover" alt="Administrative garden" />
-                      <div className="absolute inset-0 bg-slate-950/30 flex items-end p-2">
-                        <span className="text-[9px] text-slate-200 uppercase font-black tracking-wider">Courtyard Flowering Tree</span>
-                      </div>
                     </div>
                   </div>
 
