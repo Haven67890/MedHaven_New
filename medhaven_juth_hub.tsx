@@ -364,6 +364,37 @@ const PRE_MADE_QUIZZES = [
   }
 ];
 
+const getActivityReminder = (level: string) => {
+  const hour = new Date().getHours();
+  const isMorning = hour < 12;
+
+  const lvl = (level || '100L').toUpperCase().trim();
+
+  if (lvl.startsWith('100')) {
+    return {
+      title: isMorning ? "Morning Reminder" : "Afternoon/Evening Reminder",
+      message: isMorning
+        ? "Prepare for today's lectures."
+        : "Prepare for Physics, Chemistry, and Biology practicals, and don't forget your practical report submissions."
+    };
+  } else if (lvl.startsWith('200') || lvl.startsWith('300')) {
+    return {
+      title: isMorning ? "Morning Reminder" : "Afternoon/Evening Reminder",
+      message: isMorning
+        ? "Prepare for today's lectures."
+        : "Prepare for Anatomy, Biochemistry, and Physiology practicals, and don't forget your practical report submissions."
+    };
+  } else {
+    // 400L and above (Clinical)
+    return {
+      title: isMorning ? "Morning Reminder" : "Afternoon/Evening Reminder",
+      message: isMorning
+        ? "Prepare for ward rounds, clinic, and theatre."
+        : "Prepare for duty posting and tutorials."
+    };
+  }
+};
+
 
 export default function App() {
   const supabase = createClient();
@@ -975,6 +1006,27 @@ export default function App() {
             {activeTab === 'dashboard' && (
               <div className="space-y-6">
                 
+                {/* Dynamic Level-and-Time-Aware Activity Reminder Banner */}
+                {(() => {
+                  const reminder = getActivityReminder(userProfile.level);
+                  return (
+                    <div className="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-4 flex items-start gap-3.5 animate-pulse">
+                      <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-[10px] font-bold tracking-wider uppercase text-rose-400 bg-rose-950/40 px-2.5 py-0.5 rounded-full">
+                          {reminder.title} • {userProfile.level}
+                        </span>
+                        <h4 className="font-extrabold text-rose-100 text-sm mt-1.5">
+                          Daily Activity Guidance
+                        </h4>
+                        <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
+                          {reminder.message}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* Hero section featuring JUTH main admission gate */}
                 <div className="relative rounded-2xl overflow-hidden bg-slate-950 border border-slate-850 p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                   <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/70 to-cyan-950/10 z-0" />
