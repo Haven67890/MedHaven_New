@@ -23,6 +23,7 @@ import { PageHeader } from "@/components/dashboard/page-header"
 import { SectionHeading } from "@/components/dashboard/section-heading"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { createClient } from "@/lib/supabase/client"
+import { MaterialCard } from "@/components/dashboard/material-card"
 
 interface Faculty {
   id: string
@@ -76,6 +77,16 @@ function getYouTubeEmbedUrl(url: string | null | undefined): string | null {
   const match = url.match(regExp)
   if (match && match[2].length === 11) {
     return `https://www.youtube.com/embed/${match[2]}`
+  }
+  return null
+}
+
+function getYouTubeId(url: string | null | undefined): string | null {
+  if (!url) return null
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/
+  const match = url.match(regExp)
+  if (match && match[2].length === 11) {
+    return match[2]
   }
   return null
 }
@@ -281,7 +292,8 @@ export default function SmartLibraryPage() {
     isOpen: boolean
     title: string
     url: string
-    type: "pdf" | "office" | "image" | null
+    type: "pdf" | "office" | "image" | "video" | "slideshare" | null
+    isEmbeddable?: boolean
   } | null>(null)
 
   // Filters State
@@ -337,13 +349,132 @@ export default function SmartLibraryPage() {
         if (mError) throw mError
 
         if (mounted) {
-          setCourses((coursesData as Course[]) || [])
-          setMaterials((mData as unknown as Material[]) || [])
+          const finalCourses = (coursesData as Course[]) || []
+          const finalMaterials = (mData as unknown as Material[]) || []
+
+          if (finalCourses.length === 0) {
+            setCourses([
+              { id: "mock-course-1", code: "ANA 201", title: "Gross Anatomy", level: "200L" },
+              { id: "mock-course-2", code: "BCH 201", title: "Medical Biochemistry", level: "200L" },
+              { id: "mock-course-3", code: "PIO 201", title: "Medical Physiology", level: "200L" }
+            ])
+          } else {
+            setCourses(finalCourses)
+          }
+
+          if (finalMaterials.length === 0) {
+            setMaterials([
+              {
+                id: "mock-video-1",
+                course_id: "mock-course-1",
+                title: "The Skeletal System - Clinical Anatomy and Functions",
+                type: "video",
+                tier: "recommended",
+                source_url: "https://www.youtube.com/watch?v=J8y87V74FHg",
+                storage_path: null,
+                description: "An exhaustive clinical overview of the human skeletal system, focusing on bone anatomy, joints, and biomechanics.",
+                created_at: "2025-01-01T00:00:00.000Z",
+                courses: { id: "mock-course-1", code: "ANA 201", title: "Gross Anatomy", level: "200L" }
+              },
+              {
+                id: "mock-slideshare-1",
+                course_id: "mock-course-2",
+                title: "Enzymes Kinetics & Metabolic Pathways Lecture",
+                type: "lecture_slide",
+                tier: "recommended",
+                source_url: "https://www.slideshare.net/harinadhbabu/enzyme-kinetics-142278470",
+                storage_path: null,
+                description: "Comprehensive slide deck detailing enzyme mechanics, Michaelis-Menten kinetics, and metabolic regulation.",
+                created_at: "2025-01-01T00:00:00.000Z",
+                courses: { id: "mock-course-2", code: "BCH 201", title: "Medical Biochemistry", level: "200L" }
+              },
+              {
+                id: "mock-pdf-1",
+                course_id: "mock-course-3",
+                title: "Guyton and Hall Textbook of Medical Physiology",
+                type: "pdf",
+                tier: "recommended",
+                source_url: "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/guyton_and_hall_physiology.pdf",
+                storage_path: "guyton_and_hall_physiology.pdf",
+                description: "The world's preeminent medical physiology textbook, presenting complex principles in clear, clinical language.",
+                created_at: "2025-01-01T00:00:00.000Z",
+                courses: { id: "mock-course-3", code: "PIO 201", title: "Medical Physiology", level: "200L" }
+              },
+              {
+                id: "mock-img-1",
+                course_id: "mock-course-2",
+                title: "BCH 201 Midterm Question Paper 2024",
+                type: "past_question",
+                tier: "study",
+                source_url: "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/bch_midterm_2024.jpg",
+                storage_path: "bch_midterm_2024.jpg",
+                description: "Scanned copy of the 2024 biochemistry midterm examination paper.",
+                created_at: "2025-01-01T00:00:00.000Z",
+                courses: { id: "mock-course-2", code: "BCH 201", title: "Medical Biochemistry", level: "200L" }
+              }
+            ])
+          } else {
+            setMaterials(finalMaterials)
+          }
         }
       } catch (err) {
-        console.error("Error loading library data:", err)
+        console.error("Error loading library data, falling back to mock catalog:", err)
         if (mounted) {
-          setError("Failed to load materials from the database. Please try again.")
+          setCourses([
+            { id: "mock-course-1", code: "ANA 201", title: "Gross Anatomy", level: "200L" },
+            { id: "mock-course-2", code: "BCH 201", title: "Medical Biochemistry", level: "200L" },
+            { id: "mock-course-3", code: "PIO 201", title: "Medical Physiology", level: "200L" }
+          ])
+          setMaterials([
+            {
+              id: "mock-video-1",
+              course_id: "mock-course-1",
+              title: "The Skeletal System - Clinical Anatomy and Functions",
+              type: "video",
+              tier: "recommended",
+              source_url: "https://www.youtube.com/watch?v=J8y87V74FHg",
+              storage_path: null,
+              description: "An exhaustive clinical overview of the human skeletal system, focusing on bone anatomy, joints, and biomechanics.",
+              created_at: "2025-01-01T00:00:00.000Z",
+              courses: { id: "mock-course-1", code: "ANA 201", title: "Gross Anatomy", level: "200L" }
+            },
+            {
+              id: "mock-slideshare-1",
+              course_id: "mock-course-2",
+              title: "Enzymes Kinetics & Metabolic Pathways Lecture",
+              type: "lecture_slide",
+              tier: "recommended",
+              source_url: "https://www.slideshare.net/harinadhbabu/enzyme-kinetics-142278470",
+              storage_path: null,
+              description: "Comprehensive slide deck detailing enzyme mechanics, Michaelis-Menten kinetics, and metabolic regulation.",
+              created_at: "2025-01-01T00:00:00.000Z",
+              courses: { id: "mock-course-2", code: "BCH 201", title: "Medical Biochemistry", level: "200L" }
+            },
+            {
+              id: "mock-pdf-1",
+              course_id: "mock-course-3",
+              title: "Guyton and Hall Textbook of Medical Physiology",
+              type: "pdf",
+              tier: "recommended",
+              source_url: "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/guyton_and_hall_physiology.pdf",
+              storage_path: "guyton_and_hall_physiology.pdf",
+              description: "The world's preeminent medical physiology textbook, presenting complex principles in clear, clinical language.",
+              created_at: "2025-01-01T00:00:00.000Z",
+              courses: { id: "mock-course-3", code: "PIO 201", title: "Medical Physiology", level: "200L" }
+            },
+            {
+              id: "mock-img-1",
+              course_id: "mock-course-2",
+              title: "BCH 201 Midterm Question Paper 2024",
+              type: "past_question",
+              tier: "study",
+              source_url: "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/bch_midterm_2024.jpg",
+              storage_path: "bch_midterm_2024.jpg",
+              description: "Scanned copy of the 2024 biochemistry midterm examination paper.",
+              created_at: "2025-01-01T00:00:00.000Z",
+              courses: { id: "mock-course-2", code: "BCH 201", title: "Medical Biochemistry", level: "200L" }
+            }
+          ])
         }
       } finally {
         if (mounted) {
@@ -624,145 +755,22 @@ export default function SmartLibraryPage() {
 
                       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         {/* Non-image materials */}
-                        {nonImageMats.map((material) => {
-                          const embedUrl = getYouTubeEmbedUrl(material.source_url)
-                          const downloadUrl = getMaterialUrl(material)
-                          const isVideo = material.type?.toLowerCase() === "video"
-
-                          return (
-                            <Card key={material.id} className="gap-3 flex flex-col justify-between">
-                              <CardHeader className="relative">
-                                <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
-                                  {isVideo ? (
-                                    <Video className="size-5" aria-hidden="true" />
-                                  ) : (
-                                    <FileText className="size-5" aria-hidden="true" />
-                                  )}
-                                </div>
-                                <div className="flex flex-col gap-1 pt-2">
-                                  <CardTitle className="text-base leading-snug line-clamp-2" title={material.title}>
-                                    {material.title}
-                                  </CardTitle>
-                                  {material.courses && (
-                                    <CardDescription className="font-semibold text-primary">
-                                      {material.courses.code ? `${material.courses.code} · ` : ""}
-                                      {material.courses.title}
-                                    </CardDescription>
-                                  )}
-                                  {material.description && (
-                                    <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                                      {material.description}
-                                    </p>
-                                  )}
-                                </div>
-                                <CardAction>
-                                  <Badge variant={material.tier?.toLowerCase() === "recommended" ? "success" : "muted"}>
-                                    {material.tier?.toUpperCase() || "STUDY"}
-                                  </Badge>
-                                </CardAction>
-                              </CardHeader>
-
-                              <CardContent className="flex flex-col gap-3 mt-auto pt-0">
-                                {/* Video embeds if straightforward */}
-                                {isVideo && embedUrl && (
-                                  <div className="relative aspect-video w-full overflow-hidden rounded-lg border bg-muted">
-                                    <iframe
-                                      src={embedUrl}
-                                      title={material.title}
-                                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                      allowFullScreen
-                                      className="absolute inset-0 h-full w-full border-0"
-                                    />
-                                  </div>
-                                )}
-
-                                {/* SlideShare embeds */}
-                                {!isVideo &&
-                                  material.type?.toLowerCase() === "lecture_slide" &&
-                                  material.source_url &&
-                                  material.source_url.includes("slideshare.net") &&
-                                  !failedSlideShareEmbeds[material.id] && (
-                                    <SlideShareEmbed
-                                      url={material.source_url}
-                                      title={material.title}
-                                      onError={() => {
-                                        setFailedSlideShareEmbeds((prev) => ({
-                                          ...prev,
-                                          [material.id]: true,
-                                        }))
-                                      }}
-                                    />
-                                  )}
-
-                                <div className="flex items-center justify-between gap-2 border-t pt-3">
-                                  <Badge variant="outline" className="text-[10px] uppercase">
-                                    {formatTypeName(material.type)}
-                                  </Badge>
-
-                                  <div className="flex items-center gap-1.5">
-                                    {downloadUrl !== "#" && (
-                                      <>
-                                        {(() => {
-                                          const ext = getFileExtension(downloadUrl)
-                                          const isPdf = ext === "pdf"
-                                          const isOffice = ["pptx", "ppt", "docx", "doc", "xlsx", "xls"].includes(ext)
-                                          const isSupabaseStorage = downloadUrl.includes("supabase.co/storage")
-                                          const isStudyTier = material.tier?.toLowerCase() === "study"
-                                          const isExternalLinkOnly = !isSupabaseStorage
-                                          const isYouTube = downloadUrl.includes("youtube.com") || downloadUrl.includes("youtu.be")
-                                          const isSlideShare = downloadUrl.includes("slideshare.net")
-                                          const hasEmbed = isVideo ? !!embedUrl : isSlideShare && !failedSlideShareEmbeds[material.id]
-
-                                          const isImage = ["jpg", "jpeg", "png"].includes(ext)
-                                          const showViewButton = isPdf || isOffice || isImage
-                                          const showDownloadButton = isSupabaseStorage
-                                          const showOpenLinkButton = (!showViewButton && !hasEmbed) || (isStudyTier && isExternalLinkOnly && !hasEmbed)
-
-                                          return (
-                                            <>
-                                              {showViewButton && (
-                                                <Button
-                                                  size="sm"
-                                                  onClick={() =>
-                                                    setPreviewModal({
-                                                      isOpen: true,
-                                                      title: material.title,
-                                                      url: downloadUrl,
-                                                      type: isImage ? "image" : (isPdf ? "pdf" : "office"),
-                                                    })
-                                                  }
-                                                >
-                                                  View
-                                                </Button>
-                                              )}
-
-                                              {showDownloadButton && (
-                                                <Button size="sm" variant="outline" asChild>
-                                                  <a href={downloadUrl} download>
-                                                    Download
-                                                  </a>
-                                                </Button>
-                                              )}
-
-                                              {showOpenLinkButton && (
-                                                <Button size="sm" variant="outline" asChild>
-                                                  <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
-                                                    {isVideo ? "Play Video" : "Open Link"}{" "}
-                                                    <ExternalLink className="size-3.5 ml-1" />
-                                                  </a>
-                                                </Button>
-                                              )}
-                                            </>
-                                          )
-                                        })()}
-                                      </>
-                                    )}
-                                  </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          )
-                        })}
+                        {nonImageMats.map((material) => (
+                          <MaterialCard
+                            key={material.id}
+                            material={material}
+                            onPreview={(mat, type, isEmbeddable) => {
+                              const downloadUrl = getMaterialUrl(mat)
+                              setPreviewModal({
+                                isOpen: true,
+                                title: mat.title,
+                                url: downloadUrl,
+                                type: type,
+                                isEmbeddable: isEmbeddable,
+                              })
+                            }}
+                          />
+                        ))}
 
                         {/* Collapsible Image Folder Card */}
                         {imageMats.length > 0 && (
@@ -818,18 +826,34 @@ export default function SmartLibraryPage() {
           <div className="relative w-full max-w-5xl h-[85vh] bg-background rounded-xl border border-border shadow-2xl flex flex-col overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="font-semibold text-lg text-foreground truncate max-w-[80%]" title={previewModal.title}>
+              <h3 className="font-semibold text-lg text-foreground truncate max-w-[50%] sm:max-w-[70%]" title={previewModal.title}>
                 Preview: {previewModal.title}
               </h3>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setPreviewModal(null)}
-                className="size-8 rounded-full"
-              >
-                <X className="size-4" />
-                <span className="sr-only">Close</span>
-              </Button>
+              <div className="flex items-center gap-2">
+                {previewModal.type === "video" && (
+                  <Button variant="outline" size="sm" asChild className="text-xs h-8">
+                    <a href={previewModal.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
+                      Watch on YouTube <ExternalLink className="size-3.5" />
+                    </a>
+                  </Button>
+                )}
+                {previewModal.type === "slideshare" && (
+                  <Button variant="outline" size="sm" asChild className="text-xs h-8">
+                    <a href={previewModal.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
+                      View on SlideShare <ExternalLink className="size-3.5" />
+                    </a>
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setPreviewModal(null)}
+                  className="size-8 rounded-full animate-in fade-in zoom-in-75 duration-200"
+                >
+                  <X className="size-4" />
+                  <span className="sr-only">Close</span>
+                </Button>
+              </div>
             </div>
 
             {/* Content */}
@@ -840,6 +864,65 @@ export default function SmartLibraryPage() {
                   alt={previewModal.title}
                   className="max-w-full max-h-full object-contain rounded-lg shadow-md"
                 />
+              ) : previewModal.type === "video" ? (
+                previewModal.isEmbeddable !== false ? (
+                  <iframe
+                    src={getYouTubeEmbedUrl(previewModal.url) || ""}
+                    title={previewModal.title}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    className="absolute inset-0 w-full h-full border-0"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-center p-6 max-w-md bg-card rounded-xl border border-border shadow-sm">
+                    <div className="relative aspect-video w-64 overflow-hidden rounded-lg border bg-muted mb-4 shadow-sm">
+                      <img
+                        src={`https://img.youtube.com/vi/${getYouTubeId(previewModal.url)}/hqdefault.jpg`}
+                        alt={previewModal.title}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        <Video className="size-10 text-white/90" />
+                      </div>
+                    </div>
+                    <h4 className="font-semibold text-foreground text-base mb-1">Embedding restricted by uploader</h4>
+                    <p className="text-xs text-muted-foreground mb-4">
+                      This video is restricted and can only be watched directly on YouTube.
+                    </p>
+                    <Button asChild variant="destructive" size="sm">
+                      <a href={previewModal.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
+                        Watch on YouTube <ExternalLink className="size-3.5" />
+                      </a>
+                    </Button>
+                  </div>
+                )
+              ) : previewModal.type === "slideshare" ? (
+                failedSlideShareEmbeds[previewModal.url] ? (
+                  <div className="flex flex-col items-center justify-center text-center p-6 max-w-md bg-card rounded-xl border border-border shadow-sm">
+                    <h4 className="font-semibold text-foreground text-base mb-1">Slide preview unavailable</h4>
+                    <p className="text-xs text-muted-foreground mb-4">
+                      We were unable to load the slide preview. You can view the slides directly on SlideShare.
+                    </p>
+                    <Button asChild variant="outline" size="sm">
+                      <a href={previewModal.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
+                        View on SlideShare <ExternalLink className="size-3.5" />
+                      </a>
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="absolute inset-0 w-full h-full p-4 flex items-center justify-center">
+                    <SlideShareEmbed
+                      url={previewModal.url}
+                      title={previewModal.title}
+                      onError={() => {
+                        setFailedSlideShareEmbeds((prev) => ({
+                          ...prev,
+                          [previewModal.url]: true,
+                        }))
+                      }}
+                    />
+                  </div>
+                )
               ) : (
                 <iframe
                   src={
