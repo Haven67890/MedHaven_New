@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import {
   BookMarked,
   BookOpen,
@@ -9,7 +9,10 @@ import {
   Video,
   ExternalLink,
   FileText,
-  X
+  X,
+  ChevronDown,
+  ChevronUp,
+  Folder
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -102,6 +105,13 @@ function getFileExtension(url: string | null | undefined): string {
   }
 }
 
+function isImageMaterial(material: Material): boolean {
+  const url = material.source_url || (material.storage_path ? getMaterialUrl(material) : null)
+  if (!url) return false
+  const ext = getFileExtension(url)
+  return ["jpg", "jpeg", "png"].includes(ext)
+}
+
 interface SlideShareEmbedProps {
   url: string
   title: string
@@ -183,6 +193,80 @@ function SlideShareEmbed({ url, title, onError }: SlideShareEmbedProps) {
   )
 }
 
+interface CollapsibleImageGroupCardProps {
+  images: Material[]
+  onViewImage: (material: Material) => void
+}
+
+function CollapsibleImageGroupCard({
+  images,
+  onViewImage,
+}: CollapsibleImageGroupCardProps) {
+  const [isOpen, setIsOpen] = useState(false)
+
+  if (images.length === 0) return null
+
+  return (
+    <Card className="gap-3 flex flex-col justify-between overflow-hidden border-primary/20 hover:border-primary/40 transition-colors duration-200">
+      <CardHeader
+        className="relative cursor-pointer select-none pb-3"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
+            <Folder className="size-5" aria-hidden="true" />
+          </div>
+          <div className="flex flex-col gap-0.5 overflow-hidden pr-8">
+            <CardTitle className="text-base leading-snug truncate">
+              Scanned Past Questions ({images.length})
+            </CardTitle>
+            <CardDescription className="text-xs text-muted-foreground">
+              {images.length} scan{images.length > 1 ? "s" : ""} available
+            </CardDescription>
+          </div>
+        </div>
+        <CardAction className="flex items-center gap-2">
+          <Badge variant="success">IMAGE GROUP</Badge>
+          <div className="text-muted-foreground p-1">
+            {isOpen ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+          </div>
+        </CardAction>
+      </CardHeader>
+
+      <CardContent className="pt-0 flex flex-col gap-3">
+        {isOpen && (
+          <div className="border-t pt-3 animate-in fade-in duration-200">
+            <div className="grid grid-cols-3 gap-2">
+              {images.map((img) => {
+                const imgUrl = getMaterialUrl(img)
+                return (
+                  <button
+                    key={img.id}
+                    onClick={() => onViewImage(img)}
+                    className="group relative aspect-square overflow-hidden rounded-lg border bg-muted hover:border-primary transition-all duration-200 text-left focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
+                    title={img.title}
+                  >
+                    <img
+                      src={imgUrl}
+                      alt={img.title}
+                      className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-end p-1.5">
+                      <p className="text-[10px] font-medium text-white line-clamp-2 leading-tight">
+                        {img.title}
+                      </p>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 export default function SmartLibraryPage() {
   const supabase = createClient()
 
@@ -197,7 +281,7 @@ export default function SmartLibraryPage() {
     isOpen: boolean
     title: string
     url: string
-    type: "pdf" | "office" | null
+    type: "pdf" | "office" | "image" | null
   } | null>(null)
 
   // Filters State
@@ -325,6 +409,51 @@ export default function SmartLibraryPage() {
 
     return true
   })
+
+  // Grouping logic for materials per course
+  const courseGroups = useMemo(() => {
+    // 1. Group materials by course_id
+    const groupsMap = new Map<string | null, Material[]>()
+    filteredMaterials.forEach((material) => {
+      const cid = material.course_id || null
+      if (!groupsMap.has(cid)) {
+        groupsMap.set(cid, [])
+      }
+      groupsMap.get(cid)!.push(material)
+    })
+
+    const groupsList: {
+      courseId: string | null
+      courseTitle: string
+      courseCode?: string | null
+      materials: Material[]
+    }[] = []
+
+    // 2. Iterate courses to maintain the course order
+    courses.forEach((course) => {
+      if (groupsMap.has(course.id)) {
+        groupsList.push({
+          courseId: course.id,
+          courseTitle: course.title || "",
+          courseCode: course.code,
+          materials: groupsMap.get(course.id)!,
+        })
+        groupsMap.delete(course.id)
+      }
+    })
+
+    // 3. Add remaining unmatched/general groups
+    groupsMap.forEach((mats, cid) => {
+      groupsList.push({
+        courseId: cid,
+        courseTitle: "General Materials",
+        courseCode: null,
+        materials: mats,
+      })
+    })
+
+    return groupsList
+  }, [filteredMaterials, courses])
 
   const totalTitles = levelFilteredMaterials.length
   const recommendedCount = levelFilteredMaterials.filter((m) => m.tier?.toLowerCase() === "recommended").length
@@ -476,143 +605,182 @@ export default function SmartLibraryPage() {
             </div>
 
             {filteredMaterials.length > 0 ? (
-              <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredMaterials.map((material) => {
-                  const embedUrl = getYouTubeEmbedUrl(material.source_url)
-                  const downloadUrl = getMaterialUrl(material)
-                  const isVideo = material.type?.toLowerCase() === "video"
+              <div className="flex flex-col gap-8">
+                {courseGroups.map((group) => {
+                  const imageMats = group.materials.filter(isImageMaterial)
+                  const nonImageMats = group.materials.filter((m) => !isImageMaterial(m))
+
+                  if (group.materials.length === 0) return null
 
                   return (
-                    <Card key={material.id} className="gap-3 flex flex-col justify-between">
-                      <CardHeader className="relative">
-                        <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
-                          {isVideo ? (
-                            <Video className="size-5" aria-hidden="true" />
-                          ) : (
-                            <FileText className="size-5" aria-hidden="true" />
-                          )}
-                        </div>
-                        <div className="flex flex-col gap-1 pt-2">
-                          <CardTitle className="text-base leading-snug line-clamp-2" title={material.title}>
-                            {material.title}
-                          </CardTitle>
-                          {material.courses && (
-                            <CardDescription className="font-semibold text-primary">
-                              {material.courses.code ? `${material.courses.code} · ` : ""}
-                              {material.courses.title}
-                            </CardDescription>
-                          )}
-                          {material.description && (
-                            <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                              {material.description}
-                            </p>
-                          )}
-                        </div>
-                        <CardAction>
-                          <Badge variant={material.tier?.toLowerCase() === "recommended" ? "success" : "muted"}>
-                            {material.tier?.toUpperCase() || "STUDY"}
-                          </Badge>
-                        </CardAction>
-                      </CardHeader>
+                    <div key={group.courseId || "general"} className="flex flex-col gap-4">
+                      <div className="border-b border-border pb-2 mt-2">
+                        <h3 className="font-semibold text-base text-foreground flex items-center gap-2">
+                          <BookOpen className="size-4 text-primary" />
+                          {group.courseCode ? `${group.courseCode}: ` : ""}
+                          {group.courseTitle}
+                        </h3>
+                      </div>
 
-                      <CardContent className="flex flex-col gap-3 mt-auto pt-0">
-                        {/* Video embeds if straightforward */}
-                        {isVideo && embedUrl && (
-                          <div className="relative aspect-video w-full overflow-hidden rounded-lg border bg-muted">
-                            <iframe
-                              src={embedUrl}
-                              title={material.title}
-                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                              allowFullScreen
-                              className="absolute inset-0 h-full w-full border-0"
-                            />
-                          </div>
+                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {/* Non-image materials */}
+                        {nonImageMats.map((material) => {
+                          const embedUrl = getYouTubeEmbedUrl(material.source_url)
+                          const downloadUrl = getMaterialUrl(material)
+                          const isVideo = material.type?.toLowerCase() === "video"
+
+                          return (
+                            <Card key={material.id} className="gap-3 flex flex-col justify-between">
+                              <CardHeader className="relative">
+                                <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
+                                  {isVideo ? (
+                                    <Video className="size-5" aria-hidden="true" />
+                                  ) : (
+                                    <FileText className="size-5" aria-hidden="true" />
+                                  )}
+                                </div>
+                                <div className="flex flex-col gap-1 pt-2">
+                                  <CardTitle className="text-base leading-snug line-clamp-2" title={material.title}>
+                                    {material.title}
+                                  </CardTitle>
+                                  {material.courses && (
+                                    <CardDescription className="font-semibold text-primary">
+                                      {material.courses.code ? `${material.courses.code} · ` : ""}
+                                      {material.courses.title}
+                                    </CardDescription>
+                                  )}
+                                  {material.description && (
+                                    <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
+                                      {material.description}
+                                    </p>
+                                  )}
+                                </div>
+                                <CardAction>
+                                  <Badge variant={material.tier?.toLowerCase() === "recommended" ? "success" : "muted"}>
+                                    {material.tier?.toUpperCase() || "STUDY"}
+                                  </Badge>
+                                </CardAction>
+                              </CardHeader>
+
+                              <CardContent className="flex flex-col gap-3 mt-auto pt-0">
+                                {/* Video embeds if straightforward */}
+                                {isVideo && embedUrl && (
+                                  <div className="relative aspect-video w-full overflow-hidden rounded-lg border bg-muted">
+                                    <iframe
+                                      src={embedUrl}
+                                      title={material.title}
+                                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                      allowFullScreen
+                                      className="absolute inset-0 h-full w-full border-0"
+                                    />
+                                  </div>
+                                )}
+
+                                {/* SlideShare embeds */}
+                                {!isVideo &&
+                                  material.type?.toLowerCase() === "lecture_slide" &&
+                                  material.source_url &&
+                                  material.source_url.includes("slideshare.net") &&
+                                  !failedSlideShareEmbeds[material.id] && (
+                                    <SlideShareEmbed
+                                      url={material.source_url}
+                                      title={material.title}
+                                      onError={() => {
+                                        setFailedSlideShareEmbeds((prev) => ({
+                                          ...prev,
+                                          [material.id]: true,
+                                        }))
+                                      }}
+                                    />
+                                  )}
+
+                                <div className="flex items-center justify-between gap-2 border-t pt-3">
+                                  <Badge variant="outline" className="text-[10px] uppercase">
+                                    {formatTypeName(material.type)}
+                                  </Badge>
+
+                                  <div className="flex items-center gap-1.5">
+                                    {downloadUrl !== "#" && (
+                                      <>
+                                        {(() => {
+                                          const ext = getFileExtension(downloadUrl)
+                                          const isPdf = ext === "pdf"
+                                          const isOffice = ["pptx", "ppt", "docx", "doc", "xlsx", "xls"].includes(ext)
+                                          const isSupabaseStorage = downloadUrl.includes("supabase.co/storage")
+                                          const isStudyTier = material.tier?.toLowerCase() === "study"
+                                          const isExternalLinkOnly = !isSupabaseStorage
+                                          const isYouTube = downloadUrl.includes("youtube.com") || downloadUrl.includes("youtu.be")
+                                          const isSlideShare = downloadUrl.includes("slideshare.net")
+                                          const hasEmbed = isVideo ? !!embedUrl : isSlideShare && !failedSlideShareEmbeds[material.id]
+
+                                          const isImage = ["jpg", "jpeg", "png"].includes(ext)
+                                          const showViewButton = isPdf || isOffice || isImage
+                                          const showDownloadButton = isSupabaseStorage
+                                          const showOpenLinkButton = (!showViewButton && !hasEmbed) || (isStudyTier && isExternalLinkOnly && !hasEmbed)
+
+                                          return (
+                                            <>
+                                              {showViewButton && (
+                                                <Button
+                                                  size="sm"
+                                                  onClick={() =>
+                                                    setPreviewModal({
+                                                      isOpen: true,
+                                                      title: material.title,
+                                                      url: downloadUrl,
+                                                      type: isImage ? "image" : (isPdf ? "pdf" : "office"),
+                                                    })
+                                                  }
+                                                >
+                                                  View
+                                                </Button>
+                                              )}
+
+                                              {showDownloadButton && (
+                                                <Button size="sm" variant="outline" asChild>
+                                                  <a href={downloadUrl} download>
+                                                    Download
+                                                  </a>
+                                                </Button>
+                                              )}
+
+                                              {showOpenLinkButton && (
+                                                <Button size="sm" variant="outline" asChild>
+                                                  <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
+                                                    {isVideo ? "Play Video" : "Open Link"}{" "}
+                                                    <ExternalLink className="size-3.5 ml-1" />
+                                                  </a>
+                                                </Button>
+                                              )}
+                                            </>
+                                          )
+                                        })()}
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )
+                        })}
+
+                        {/* Collapsible Image Folder Card */}
+                        {imageMats.length > 0 && (
+                          <CollapsibleImageGroupCard
+                            images={imageMats}
+                            onViewImage={(img) => {
+                              const downloadUrl = getMaterialUrl(img)
+                              setPreviewModal({
+                                isOpen: true,
+                                title: img.title,
+                                url: downloadUrl,
+                                type: "image",
+                              })
+                            }}
+                          />
                         )}
-
-                        {/* SlideShare embeds */}
-                        {!isVideo &&
-                          material.type?.toLowerCase() === "lecture_slide" &&
-                          material.source_url &&
-                          material.source_url.includes("slideshare.net") &&
-                          !failedSlideShareEmbeds[material.id] && (
-                            <SlideShareEmbed
-                              url={material.source_url}
-                              title={material.title}
-                              onError={() => {
-                                setFailedSlideShareEmbeds((prev) => ({
-                                  ...prev,
-                                  [material.id]: true,
-                                }))
-                              }}
-                            />
-                          )}
-
-                        <div className="flex items-center justify-between gap-2 border-t pt-3">
-                          <Badge variant="outline" className="text-[10px] uppercase">
-                            {formatTypeName(material.type)}
-                          </Badge>
-
-                          <div className="flex items-center gap-1.5">
-                            {downloadUrl !== "#" && (
-                              <>
-                                {(() => {
-                                  const ext = getFileExtension(downloadUrl)
-                                  const isPdf = ext === "pdf"
-                                  const isOffice = ["pptx", "ppt", "docx", "doc", "xlsx", "xls"].includes(ext)
-                                  const isSupabaseStorage = downloadUrl.includes("supabase.co/storage")
-                                  const isStudyTier = material.tier?.toLowerCase() === "study"
-                                  const isExternalLinkOnly = !isSupabaseStorage
-                                  const isYouTube = downloadUrl.includes("youtube.com") || downloadUrl.includes("youtu.be")
-                                  const isSlideShare = downloadUrl.includes("slideshare.net")
-                                  const hasEmbed = isVideo ? !!embedUrl : isSlideShare && !failedSlideShareEmbeds[material.id]
-
-                                  const showViewButton = isPdf || isOffice
-                                  const showDownloadButton = isSupabaseStorage
-                                  const showOpenLinkButton = (!showViewButton && !hasEmbed) || (isStudyTier && isExternalLinkOnly && !hasEmbed)
-
-                                  return (
-                                    <>
-                                      {showViewButton && (
-                                        <Button
-                                          size="sm"
-                                          onClick={() =>
-                                            setPreviewModal({
-                                              isOpen: true,
-                                              title: material.title,
-                                              url: downloadUrl,
-                                              type: isPdf ? "pdf" : "office",
-                                            })
-                                          }
-                                        >
-                                          View
-                                        </Button>
-                                      )}
-
-                                      {showDownloadButton && (
-                                        <Button size="sm" variant="outline" asChild>
-                                          <a href={downloadUrl} download>
-                                            Download
-                                          </a>
-                                        </Button>
-                                      )}
-
-                                      {showOpenLinkButton && (
-                                        <Button size="sm" variant="outline" asChild>
-                                          <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
-                                            {isVideo ? "Play Video" : "Open Link"}{" "}
-                                            <ExternalLink className="size-3.5 ml-1" />
-                                          </a>
-                                        </Button>
-                                      )}
-                                    </>
-                                  )
-                                })()}
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </div>
                   )
                 })}
               </div>
@@ -665,16 +833,24 @@ export default function SmartLibraryPage() {
             </div>
 
             {/* Content */}
-            <div className="flex-1 bg-muted relative">
-              <iframe
-                src={
-                  previewModal.type === "office"
-                    ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewModal.url)}`
-                    : `https://docs.google.com/viewer?url=${encodeURIComponent(previewModal.url)}&embedded=true`
-                }
-                className="absolute inset-0 w-full h-full border-0"
-                title={previewModal.title}
-              />
+            <div className="flex-1 bg-muted relative flex items-center justify-center p-4 overflow-auto">
+              {previewModal.type === "image" ? (
+                <img
+                  src={previewModal.url}
+                  alt={previewModal.title}
+                  className="max-w-full max-h-full object-contain rounded-lg shadow-md"
+                />
+              ) : (
+                <iframe
+                  src={
+                    previewModal.type === "office"
+                      ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewModal.url)}`
+                      : `https://docs.google.com/viewer?url=${encodeURIComponent(previewModal.url)}&embedded=true`
+                  }
+                  className="absolute inset-0 w-full h-full border-0"
+                  title={previewModal.title}
+                />
+              )}
             </div>
           </div>
         </div>
