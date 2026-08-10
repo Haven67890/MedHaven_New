@@ -1,6 +1,21 @@
-import type { Metadata } from "next"
-import Link from "next/link"
-import { ArrowRight, Download, FileQuestionMark as FileQuestion, ListFilter as Filter, Search, Star } from "lucide-react"
+"use client"
+
+import { useState, useEffect, useRef, useMemo } from "react"
+import {
+  BookMarked,
+  BookOpen,
+  Library,
+  Search,
+  Video,
+  ExternalLink,
+  FileText,
+  X,
+  ChevronDown,
+  ChevronUp,
+  Folder,
+  Download,
+  Star
+} from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -9,103 +24,823 @@ import { Input } from "@/components/ui/input"
 import { PageHeader } from "@/components/dashboard/page-header"
 import { SectionHeading } from "@/components/dashboard/section-heading"
 import { StatCard } from "@/components/dashboard/stat-card"
+import { createClient } from "@/lib/supabase/client"
+import { MaterialCard } from "@/components/dashboard/material-card"
 
-export const metadata: Metadata = {
-  title: "Past Questions",
-  description: "Practice with past examination papers.",
+interface Faculty {
+  id: string
+  name: string
 }
 
-const subjects = [
-  { id: "s1", name: "Pharmacology", papers: 24, questions: 960 },
-  { id: "s2", name: "Pathology", papers: 18, questions: 720 },
-  { id: "s3", name: "Physiology", papers: 20, questions: 800 },
-  { id: "s4", name: "Anatomy", papers: 22, questions: 880 },
-  { id: "s5", name: "Community Medicine", papers: 12, questions: 480 },
-  { id: "s6", name: "Clinical Skills", papers: 10, questions: 400 },
-] as const
+interface Course {
+  id: string
+  code?: string | null
+  title?: string | null
+  level?: string | number | null
+  parent_id?: string | null
+  faculties?: Faculty | null
+}
 
-const papers = [
-  { id: "p1", title: "Pharmacology — 2025 First Semester", subject: "Pharmacology", year: 2025, questions: 40, difficulty: "Medium", rating: 4.5, attempts: 312 },
-  { id: "p2", title: "Pathology — 2024 End of Year", subject: "Pathology", year: 2024, questions: 50, difficulty: "Hard", rating: 4.7, attempts: 284 },
-  { id: "p3", title: "Physiology — 2025 Mock Exam", subject: "Physiology", year: 2025, questions: 35, difficulty: "Easy", rating: 4.2, attempts: 198 },
-  { id: "p4", title: "Anatomy — 2024 Spot Test", subject: "Anatomy", year: 2024, questions: 25, difficulty: "Medium", rating: 4.4, attempts: 256 },
-  { id: "p5", title: "Community Medicine — 2025 Mid-term", subject: "Community Medicine", year: 2025, questions: 30, difficulty: "Easy", rating: 4.1, attempts: 142 },
-  { id: "p6", title: "Clinical Skills — 2024 OSCE Bank", subject: "Clinical Skills", year: 2024, questions: 45, difficulty: "Hard", rating: 4.8, attempts: 301 },
-] as const
+interface Material {
+  id: string
+  course_id: string | null
+  title: string
+  type: string
+  tier: string
+  source_url?: string | null
+  storage_path?: string | null
+  description?: string | null
+  uploaded_by?: string | null
+  created_at: string
+  courses?: Course | null
+}
 
-const difficultyVariant: Record<string, "success" | "warning" | "destructive"> = {
-  Easy: "success",
-  Medium: "warning",
-  Hard: "destructive",
+const colorMap: Record<string, string> = {
+  primary: "bg-primary/10 text-primary",
+  secondary: "bg-secondary/15 text-secondary dark:text-secondary/90",
+  accent: "bg-accent text-accent-foreground",
+}
+
+const collectionIcons = { BookOpen, BookMarked, Library } as const
+
+// Helper to format type names neatly
+function formatTypeName(type: string): string {
+  if (!type) return "Material"
+  return type
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ")
+}
+
+// Helper to extract YouTube ID and build embed URL
+function getYouTubeEmbedUrl(url: string | null | undefined): string | null {
+  if (!url) return null
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/
+  const match = url.match(regExp)
+  if (match && match[2].length === 11) {
+    return `https://www.youtube.com/embed/${match[2]}`
+  }
+  return null
+}
+
+function getYouTubeId(url: string | null | undefined): string | null {
+  if (!url) return null
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/
+  const match = url.match(regExp)
+  if (match && match[2].length === 11) {
+    return match[2]
+  }
+  return null
+}
+
+// Helper to resolve material URL
+function getMaterialUrl(material: Material): string {
+  if (material.source_url) return material.source_url
+  if (material.storage_path) {
+    if (material.storage_path.startsWith("http://") || material.storage_path.startsWith("https://")) {
+      return material.storage_path
+    }
+    return `https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/${material.storage_path}`
+  }
+  return "#"
+}
+
+// Helper to get file extension from URL
+function getFileExtension(url: string | null | undefined): string {
+  if (!url) return ""
+  try {
+    const path = url.split('?')[0]
+    const parts = path.split('.')
+    return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : ""
+  } catch (e) {
+    return ""
+  }
+}
+
+function isImageMaterial(material: Material): boolean {
+  const url = material.source_url || (material.storage_path ? getMaterialUrl(material) : null)
+  if (!url) return false
+  const ext = getFileExtension(url)
+  return ["jpg", "jpeg", "png"].includes(ext)
+}
+
+interface SlideShareEmbedProps {
+  url: string
+  title: string
+  onError: () => void
+}
+
+function SlideShareEmbed({ url, title, onError }: SlideShareEmbedProps) {
+  const [embedSrc, setEmbedSrc] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const onErrorRef = useRef(onError)
+
+  useEffect(() => {
+    onErrorRef.current = onError
+  }, [onError])
+
+  useEffect(() => {
+    let active = true
+    async function fetchEmbed() {
+      try {
+        const res = await fetch(`/api/slideshare-embed?url=${encodeURIComponent(url)}`)
+        if (!res.ok) {
+          throw new Error("Failed to fetch")
+        }
+        const data = await res.json()
+        if (!data.html) {
+          throw new Error("No HTML field in response")
+        }
+
+        const parser = new DOMParser()
+        const doc = parser.parseFromString(data.html, "text/html")
+        const iframe = doc.querySelector("iframe")
+        const src = iframe ? iframe.getAttribute("src") : null
+
+        if (src && active) {
+          setEmbedSrc(src)
+        } else {
+          throw new Error("Could not extract iframe src")
+        }
+      } catch (err) {
+        console.error("SlideShare embed failed:", err)
+        if (active) {
+          onErrorRef.current()
+        }
+      } finally {
+        if (active) {
+          setLoading(false)
+        }
+      }
+    }
+
+    void fetchEmbed()
+
+    return () => {
+      active = false
+    }
+  }, [url])
+
+  if (loading) {
+    return (
+      <div className="relative aspect-video w-full overflow-hidden rounded-lg border bg-muted flex items-center justify-center">
+        <p className="text-xs text-muted-foreground animate-pulse">Loading slide embed...</p>
+      </div>
+    )
+  }
+
+  if (!embedSrc) {
+    return null
+  }
+
+  return (
+    <div className="relative aspect-video w-full overflow-hidden rounded-lg border bg-muted">
+      <iframe
+        src={embedSrc}
+        title={title}
+        allowFullScreen
+        className="absolute inset-0 h-full w-full border-0"
+      />
+    </div>
+  )
+}
+
+interface CollapsibleImageGroupCardProps {
+  images: Material[]
+  onViewImage: (material: Material) => void
+}
+
+function CollapsibleImageGroupCard({
+  images,
+  onViewImage,
+}: CollapsibleImageGroupCardProps) {
+  const [isOpen, setIsOpen] = useState(false)
+
+  if (images.length === 0) return null
+
+  return (
+    <Card className="gap-3 flex flex-col justify-between overflow-hidden border-primary/20 hover:border-primary/40 transition-colors duration-200">
+      <CardHeader
+        className="relative cursor-pointer select-none pb-3"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
+            <Folder className="size-5" aria-hidden="true" />
+          </div>
+          <div className="flex flex-col gap-0.5 overflow-hidden pr-8">
+            <CardTitle className="text-base leading-snug truncate">
+              Scanned Past Questions ({images.length})
+            </CardTitle>
+            <CardDescription className="text-xs text-muted-foreground">
+              {images.length} scan${images.length > 1 ? "s" : ""} available
+            </CardDescription>
+          </div>
+        </div>
+        <CardAction className="flex items-center gap-2">
+          <Badge variant="success">IMAGE GROUP</Badge>
+          <div className="text-muted-foreground p-1">
+            {isOpen ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+          </div>
+        </CardAction>
+      </CardHeader>
+
+      <CardContent className="pt-0 flex flex-col gap-3">
+        {isOpen && (
+          <div className="border-t pt-3 animate-in fade-in duration-200">
+            <div className="grid grid-cols-3 gap-2">
+              {images.map((img) => {
+                const imgUrl = getMaterialUrl(img)
+                return (
+                  <button
+                    key={img.id}
+                    onClick={() => onViewImage(img)}
+                    className="group relative aspect-square overflow-hidden rounded-lg border bg-muted hover:border-primary transition-all duration-200 text-left focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
+                    title={img.title}
+                  >
+                    <img
+                      src={imgUrl}
+                      alt={img.title}
+                      className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-end p-1.5">
+                      <p className="text-[10px] font-medium text-white line-clamp-2 leading-tight">
+                        {img.title}
+                      </p>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
 }
 
 export default function PastQuestionsPage() {
+  const supabase = createClient()
+
+  const [materials, setMaterials] = useState<Material[]>([])
+  const [courses, setCourses] = useState<Course[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [failedSlideShareEmbeds, setFailedSlideShareEmbeds] = useState<Record<string, boolean>>({})
+
+  // Preview Modal State
+  const [previewModal, setPreviewModal] = useState<{
+    isOpen: boolean
+    title: string
+    url: string
+    type: "pdf" | "office" | "image" | "video" | "slideshare" | null
+    isEmbeddable?: boolean
+  } | null>(null)
+
+  // Filters State
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedCourseId, setSelectedCourseId] = useState<string>("all")
+  const [selectedTier, setSelectedTier] = useState<string>("all")
+
+  useEffect(() => {
+    let mounted = true
+
+    const fetchData = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+
+        // 1. Fetch courses
+        const { data: coursesData, error: coursesError } = await supabase
+          .from("courses")
+          .select("id, code, title, level, parent_id")
+          .order("code", { ascending: true })
+
+        if (coursesError) throw coursesError
+
+        // 2. Fetch materials joined with courses and faculties (pre-filtered to type = 'past_question')
+        const { data: mData, error: mError } = await supabase
+          .from("materials")
+          .select(`
+            id,
+            course_id,
+            title,
+            type,
+            tier,
+            source_url,
+            storage_path,
+            description,
+            uploaded_by,
+            created_at,
+            courses (
+              id,
+              code,
+              title,
+              level,
+              parent_id,
+              faculties (
+                id,
+                name
+              )
+            )
+          `)
+          .eq("type", "past_question")
+          .order("created_at", { ascending: false })
+
+        if (mError) throw mError
+
+        if (mounted) {
+          const finalCourses = (coursesData as Course[]) || []
+          const finalMaterials = (mData as unknown as Material[]) || []
+
+          if (finalCourses.length === 0) {
+            setCourses([
+              { id: "mock-course-1", code: "ANA 201", title: "Gross Anatomy", level: "200L" },
+              { id: "mock-course-2", code: "BCH 201", title: "Medical Biochemistry", level: "200L" },
+              { id: "mock-course-3", code: "PIO 201", title: "Medical Physiology", level: "200L" }
+            ])
+          } else {
+            setCourses(finalCourses)
+          }
+
+          if (finalMaterials.length === 0) {
+            setMaterials([
+              {
+                id: "mock-img-1",
+                course_id: "mock-course-2",
+                title: "BCH 201 Midterm Question Paper 2024",
+                type: "past_question",
+                tier: "study",
+                source_url: "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/bch_midterm_2024.jpg",
+                storage_path: "bch_midterm_2024.jpg",
+                description: "Scanned copy of the 2024 biochemistry midterm examination paper.",
+                created_at: "2025-01-01T00:00:00.000Z",
+                courses: { id: "mock-course-2", code: "BCH 201", title: "Medical Biochemistry", level: "200L" }
+              }
+            ])
+          } else {
+            setMaterials(finalMaterials)
+          }
+        }
+      } catch (err) {
+        console.error("Error loading past questions data:", err)
+        if (mounted) {
+          setCourses([
+            { id: "mock-course-1", code: "ANA 201", title: "Gross Anatomy", level: "200L" },
+            { id: "mock-course-2", code: "BCH 201", title: "Medical Biochemistry", level: "200L" },
+            { id: "mock-course-3", code: "PIO 201", title: "Medical Physiology", level: "200L" }
+          ])
+          setMaterials([
+            {
+              id: "mock-img-1",
+              course_id: "mock-course-2",
+              title: "BCH 201 Midterm Question Paper 2024",
+              type: "past_question",
+              tier: "study",
+              source_url: "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/bch_midterm_2024.jpg",
+              storage_path: "bch_midterm_2024.jpg",
+              description: "Scanned copy of the 2024 biochemistry midterm examination paper.",
+              created_at: "2025-01-01T00:00:00.000Z",
+              courses: { id: "mock-course-2", code: "BCH 201", title: "Medical Biochemistry", level: "200L" }
+            }
+          ])
+        }
+      } finally {
+        if (mounted) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    void fetchData()
+
+    return () => {
+      mounted = false
+    }
+  }, [supabase])
+
+  const levelFilteredCourses = courses
+  const levelFilteredMaterials = materials
+
+  // Get dynamic collection statistics & display subjects
+  const subjectData = useMemo(() => {
+    const groupsMap = new Map<string, { papers: number; questions: number }>()
+    levelFilteredMaterials.forEach((m) => {
+      const subj = m.courses?.title || m.courses?.code || "General"
+      const prev = groupsMap.get(subj) || { papers: 0, questions: 0 }
+      groupsMap.set(subj, {
+        papers: prev.papers + 1,
+        questions: prev.questions + (isImageMaterial(m) ? 1 : 25), // mock count for questions
+      })
+    })
+    return Array.from(groupsMap.entries()).slice(0, 6).map(([name, stats], index) => ({
+      id: `subj-${index}`,
+      name,
+      papers: stats.papers,
+      questions: stats.questions,
+    }))
+  }, [levelFilteredMaterials])
+
+  // Filtering Logic
+  const filteredMaterials = levelFilteredMaterials.filter((material) => {
+    // 1. Search Query Filter
+    if (searchQuery.trim() !== "") {
+      const q = searchQuery.toLowerCase()
+      const titleMatch = material.title?.toLowerCase().includes(q)
+      const descMatch = material.description?.toLowerCase().includes(q)
+      const courseCodeMatch = material.courses?.code?.toLowerCase().includes(q)
+      const courseNameMatch = material.courses?.title?.toLowerCase().includes(q)
+      const facultyMatch = material.courses?.faculties?.name?.toLowerCase().includes(q)
+
+      if (!titleMatch && !descMatch && !courseCodeMatch && !courseNameMatch && !facultyMatch) {
+        return false
+      }
+    }
+
+    // 2. Course Filter
+    if (selectedCourseId !== "all" && material.course_id !== selectedCourseId) {
+      return false
+    }
+
+    // 3. Tier Filter
+    if (selectedTier !== "all" && material.tier?.toLowerCase() !== selectedTier.toLowerCase()) {
+      return false
+    }
+
+    return true
+  })
+
+  // Grouping logic for materials per course
+  const courseGroups = useMemo(() => {
+    const groupsMap = new Map<string | null, Material[]>()
+    filteredMaterials.forEach((material) => {
+      const cid = material.course_id || null
+      if (!groupsMap.has(cid)) {
+        groupsMap.set(cid, [])
+      }
+      groupsMap.get(cid)!.push(material)
+    })
+
+    const groupsList: {
+      courseId: string | null
+      courseTitle: string
+      courseCode?: string | null
+      materials: Material[]
+    }[] = []
+
+    courses.forEach((course) => {
+      if (groupsMap.has(course.id)) {
+        groupsList.push({
+          courseId: course.id,
+          courseTitle: course.title || "",
+          courseCode: course.code,
+          materials: groupsMap.get(course.id)!,
+        })
+        groupsMap.delete(course.id)
+      }
+    })
+
+    groupsMap.forEach((mats, cid) => {
+      groupsList.push({
+        courseId: cid,
+        courseTitle: "General Materials",
+        courseCode: null,
+        materials: mats,
+      })
+    })
+
+    return groupsList
+  }, [filteredMaterials, courses])
+
+  const totalPapers = levelFilteredMaterials.length
+  const totalQuestionsMock = useMemo(() => {
+    return levelFilteredMaterials.reduce((acc, m) => acc + (isImageMaterial(m) ? 1 : 25), 0)
+  }, [levelFilteredMaterials])
+
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title="Past Questions" description="Practice with real past papers, track your attempts, and sharpen your exam technique.">
-        <Button variant="outline"><Filter data-icon="inline-start" />Filter</Button>
-        <Button>Start random quiz</Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Tier Filter */}
+          <select
+            id="tier-filter"
+            aria-label="Filter by tier"
+            value={selectedTier}
+            onChange={(e) => setSelectedTier(e.target.value)}
+            className="flex h-9 w-36 rounded-md border border-input bg-background px-3 py-1 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            <option value="all">All Tiers</option>
+            <option value="recommended">Recommended</option>
+            <option value="study">Study</option>
+          </select>
+
+          {/* Reset Filters */}
+          {(selectedTier !== "all" || selectedCourseId !== "all" || searchQuery !== "") && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSearchQuery("")
+                setSelectedCourseId("all")
+                setSelectedTier("all")
+              }}
+            >
+              <X className="size-3.5 mr-1" /> Reset
+            </Button>
+          )}
+        </div>
       </PageHeader>
 
+      {/* Stats Cards */}
       <section className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Past papers" value="106" icon={FileQuestion} accent="primary" />
-        <StatCard label="Total questions" value="4,240" icon={FileQuestion} accent="secondary" />
+        <StatCard label="Past papers" value={String(totalPapers)} icon={Library} accent="primary" />
+        <StatCard label="Total questions" value={String(totalQuestionsMock)} icon={BookOpen} accent="secondary" />
         <StatCard label="Your attempts" value="32" icon={Star} accent="accent" />
       </section>
 
+      {/* Search Bar */}
       <section>
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-          <Input type="search" placeholder="Search papers by subject or year…" className="pl-9" aria-label="Search past questions" />
+          <Input
+            type="search"
+            placeholder="Search past questions by title, description, or subject…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+            aria-label="Search past questions"
+          />
         </div>
       </section>
 
+      {/* Browse by subject section */}
       <section>
         <SectionHeading title="Browse by subject" description="Pick a subject to see available papers." />
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {subjects.map((subject) => (
-            <Link key={subject.id} href="/past-questions" className="group flex flex-col items-start gap-2 rounded-xl border border-border bg-card p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
-              <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <FileQuestion className="size-5" aria-hidden="true" />
-              </span>
-              <span className="text-sm font-medium text-foreground">{subject.name}</span>
-              <span className="text-xs text-muted-foreground">{subject.papers} papers · {subject.questions} Qs</span>
-            </Link>
-          ))}
-        </div>
+        {subjectData.length > 0 ? (
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {subjectData.map((subject) => (
+              <button
+                key={subject.id}
+                onClick={() => {
+                  // Fallback course finder
+                  const matched = courses.find(c => c.title === subject.name || c.code === subject.name)
+                  if (matched) {
+                    setSelectedCourseId(matched.id)
+                  }
+                }}
+                className="group flex flex-col items-start gap-2 rounded-xl border border-border bg-card p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md text-left w-full"
+              >
+                <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Library className="size-5" aria-hidden="true" />
+                </span>
+                <span className="text-sm font-medium text-foreground truncate w-full block" title={subject.name}>
+                  {subject.name}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {subject.papers} paper{subject.papers > 1 ? "s" : ""} · {subject.questions} Qs
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-4 rounded-xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
+            No subjects with past questions are available to browse.
+          </div>
+        )}
       </section>
 
-      <section>
-        <SectionHeading title="Available papers" description="Recently added and popular past papers." />
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {papers.map((paper) => (
-            <Card key={paper.id} className="gap-3">
-              <CardHeader>
-                <CardTitle className="text-base">{paper.title}</CardTitle>
-                <CardDescription>{paper.subject} · {paper.year}</CardDescription>
-                <CardAction>
-                  <Badge variant={difficultyVariant[paper.difficulty]}>{paper.difficulty}</Badge>
-                </CardAction>
-              </CardHeader>
-              <CardContent className="flex items-center justify-between">
-                <div className="flex flex-col gap-1 text-xs text-muted-foreground">
-                  <span>{paper.questions} questions</span>
-                  <span className="flex items-center gap-1">
-                    <Star className="size-3 fill-amber-500 text-amber-500" aria-hidden="true" />
-                    {paper.rating} · {paper.attempts} attempts
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm"><Download data-icon="inline-start" /></Button>
-                  <Button size="sm" asChild>
-                    <Link href="/quizzes">Start <ArrowRight data-icon="inline-end" /></Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+      {/* Error and Loading States */}
+      {error && (
+        <div className="bg-destructive/15 border border-destructive/30 text-destructive text-sm rounded-lg p-4 font-medium">
+          <span className="font-extrabold uppercase text-xs tracking-wider block">Error:</span>
+          <p>{error}</p>
         </div>
-      </section>
+      )}
+
+      {isLoading ? (
+        <div className="flex min-h-[20vh] items-center justify-center">
+          <p className="text-sm text-muted-foreground">Loading past questions...</p>
+        </div>
+      ) : (
+        <section>
+          <div className="flex items-center justify-between">
+            <SectionHeading
+              title={selectedCourseId !== "all" ? "Filtered past questions" : "Available papers"}
+              description="Recently added and popular past papers."
+            />
+            {selectedCourseId !== "all" && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedCourseId("all")}
+                className="text-xs"
+              >
+                Clear Course Filter
+              </Button>
+            )}
+          </div>
+
+          {filteredMaterials.length > 0 ? (
+            <div className="flex flex-col gap-8 mt-4">
+              {courseGroups.map((group) => {
+                const imageMats = group.materials.filter(isImageMaterial)
+                const nonImageMats = group.materials.filter((m) => !isImageMaterial(m))
+
+                if (group.materials.length === 0) return null
+
+                return (
+                  <div key={group.courseId || "general"} className="flex flex-col gap-4">
+                    <div className="border-b border-border pb-2 mt-2">
+                      <h3 className="font-semibold text-base text-foreground flex items-center gap-2">
+                        <BookOpen className="size-4 text-primary" />
+                        {group.courseCode ? `${group.courseCode}: ` : ""}
+                        {group.courseTitle}
+                      </h3>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {/* Non-image materials */}
+                      {nonImageMats.map((material) => (
+                        <MaterialCard
+                          key={material.id}
+                          material={material}
+                          onPreview={(mat, type, isEmbeddable) => {
+                            const downloadUrl = getMaterialUrl(mat)
+                            setPreviewModal({
+                              isOpen: true,
+                              title: mat.title,
+                              url: downloadUrl,
+                              type: type,
+                              isEmbeddable: isEmbeddable,
+                            })
+                          }}
+                        />
+                      ))}
+
+                      {/* Collapsible Image Folder Card */}
+                      {imageMats.length > 0 && (
+                        <CollapsibleImageGroupCard
+                          images={imageMats}
+                          onViewImage={(img) => {
+                            const downloadUrl = getMaterialUrl(img)
+                            setPreviewModal({
+                              isOpen: true,
+                              title: img.title,
+                              url: downloadUrl,
+                              type: "image",
+                            })
+                          }}
+                        />
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="mt-4 rounded-xl border border-dashed border-border bg-card p-12 text-center text-sm text-muted-foreground">
+              <Library className="size-8 mx-auto mb-3 text-muted-foreground/60" />
+              <p className="font-semibold text-foreground text-base mb-1">No past questions yet</p>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                No past questions found matching this search or tier selection. Select another option or clear filters.
+              </p>
+              {(selectedTier !== "all" || selectedCourseId !== "all" || searchQuery !== "") && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="mt-3 text-primary"
+                  onClick={() => {
+                    setSearchQuery("")
+                    setSelectedCourseId("all")
+                    setSelectedTier("all")
+                  }}
+                >
+                  Clear all active filters
+                </Button>
+              )}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Preview Modal */}
+      {previewModal && previewModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="relative w-full max-w-5xl h-[85vh] bg-background rounded-xl border border-border shadow-2xl flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="font-semibold text-lg text-foreground truncate max-w-[50%] sm:max-w-[70%]" title={previewModal.title}>
+                Preview: {previewModal.title}
+              </h3>
+              <div className="flex items-center gap-2">
+                {previewModal.type === "video" && (
+                  <Button variant="outline" size="sm" asChild className="text-xs h-8">
+                    <a href={previewModal.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
+                      Watch on YouTube <ExternalLink className="size-3.5" />
+                    </a>
+                  </Button>
+                )}
+                {previewModal.type === "slideshare" && (
+                  <Button variant="outline" size="sm" asChild className="text-xs h-8">
+                    <a href={previewModal.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
+                      View on SlideShare <ExternalLink className="size-3.5" />
+                    </a>
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setPreviewModal(null)}
+                  className="size-8 rounded-full animate-in fade-in zoom-in-75 duration-200"
+                >
+                  <X className="size-4" />
+                  <span className="sr-only">Close</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 bg-muted relative flex items-center justify-center p-4 overflow-auto">
+              {previewModal.type === "image" ? (
+                <img
+                  src={previewModal.url}
+                  alt={previewModal.title}
+                  className="max-w-full max-h-full object-contain rounded-lg shadow-md"
+                />
+              ) : previewModal.type === "video" ? (
+                previewModal.isEmbeddable !== false ? (
+                  <iframe
+                    src={getYouTubeEmbedUrl(previewModal.url) || ""}
+                    title={previewModal.title}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    className="absolute inset-0 w-full h-full border-0"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-center p-6 max-w-md bg-card rounded-xl border border-border shadow-sm">
+                    <div className="relative aspect-video w-64 overflow-hidden rounded-lg border bg-muted mb-4 shadow-sm">
+                      <img
+                        src={`https://img.youtube.com/vi/${getYouTubeId(previewModal.url)}/hqdefault.jpg`}
+                        alt={previewModal.title}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        <Video className="size-10 text-white/90" />
+                      </div>
+                    </div>
+                    <h4 className="font-semibold text-foreground text-base mb-1">Embedding restricted by uploader</h4>
+                    <p className="text-xs text-muted-foreground mb-4">
+                      This video is restricted and can only be watched directly on YouTube.
+                    </p>
+                    <Button asChild variant="destructive" size="sm">
+                      <a href={previewModal.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
+                        Watch on YouTube <ExternalLink className="size-3.5" />
+                      </a>
+                    </Button>
+                  </div>
+                )
+              ) : previewModal.type === "slideshare" ? (
+                failedSlideShareEmbeds[previewModal.url] ? (
+                  <div className="flex flex-col items-center justify-center text-center p-6 max-w-md bg-card rounded-xl border border-border shadow-sm">
+                    <h4 className="font-semibold text-foreground text-base mb-1">Slide preview unavailable</h4>
+                    <p className="text-xs text-muted-foreground mb-4">
+                      We were unable to load the slide preview. You can view the slides directly on SlideShare.
+                    </p>
+                    <Button asChild variant="outline" size="sm">
+                      <a href={previewModal.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
+                        View on SlideShare <ExternalLink className="size-3.5" />
+                      </a>
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="absolute inset-0 w-full h-full p-4 flex items-center justify-center">
+                    <SlideShareEmbed
+                      url={previewModal.url}
+                      title={previewModal.title}
+                      onError={() => {
+                        setFailedSlideShareEmbeds((prev) => ({
+                          ...prev,
+                          [previewModal.url]: true,
+                        }))
+                      }}
+                    />
+                  </div>
+                )
+              ) : (
+                <iframe
+                  src={
+                    previewModal.type === "office"
+                      ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewModal.url)}`
+                      : `https://docs.google.com/viewer?url=${encodeURIComponent(previewModal.url)}&embedded=true`
+                  }
+                  className="absolute inset-0 w-full h-full border-0"
+                  title={previewModal.title}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
