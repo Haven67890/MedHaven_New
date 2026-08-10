@@ -1,10 +1,15 @@
+"use client"
+
 import Link from "next/link"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { SiteShell } from "@/components/layout/site-shell"
+import useAuth from "@/hooks/useAuth"
 
 export default function HomePage() {
+  const { user, loading } = useAuth()
+
   return (
     <SiteShell>
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-12 px-4 py-12 sm:px-6 lg:py-20">
@@ -22,12 +27,20 @@ export default function HomePage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Button asChild size="lg">
-                <Link href="/login">Sign in</Link>
-              </Button>
-              <Button asChild variant="outline" size="lg">
-                <Link href="/register">Register</Link>
-              </Button>
+              {!loading && user ? (
+                <Button asChild size="lg">
+                  <Link href="/dashboard">Go to Dashboard</Link>
+                </Button>
+              ) : (
+                <>
+                  <Button asChild size="lg">
+                    <Link href="/login">Sign in</Link>
+                  </Button>
+                  <Button asChild variant="outline" size="lg">
+                    <Link href="/register">Register</Link>
+                  </Button>
+                </>
+              )}
             </div>
           </div>
 
