@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from './lib/supabase/client';
 import { 
   BookOpen, Search, MessageSquare, Calendar, User, Folder, Upload, Plus, 
@@ -16,10 +17,10 @@ import {
 // Reliable placeholder imagery for the hospital dashboard without broken asset references.
 const JUTH_IMAGES = {
   mainGate: "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/Snapchat-1489759066.jpg",
-  ambulanceDriveway: "https://images.unsplash.com/photo-1538108149393-fbbd81895907?auto=format&fit=crop&w=1200&q=80",
+  ambulanceDriveway: "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/20260622_130116.jpg",
   ward11Entrance: "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/e36b68e4f40e44f88f4cfdd0a8ae6fbb.jpg",
   courtyardTree: "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/IMG-20250627-WA0038.jpg",
-  emergencyTicker: "https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=1200&q=80"
+  emergencyTicker: "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/20260622_130116.jpg"
 };
 
 const LEVELS = ['100L', '200L', '300L', '400L', '500L', '600L', 'Final Year'];
@@ -397,6 +398,7 @@ const getActivityReminder = (level: string) => {
 
 
 export default function App() {
+  const router = useRouter();
   const supabase = createClient();
   // Authentication states
   const [isAuthenticated, setIsAuthenticated] = useState(true);
@@ -911,7 +913,7 @@ export default function App() {
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
               <input
                 type="text"
-                placeholder="Search cardiology slides, DKA guides, past medical boards..."
+                placeholder="Search materials, past questions, videos..."
                 value={globalSearch}
                 onChange={(e) => setGlobalSearch(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 bg-slate-900/60 border border-slate-850 rounded-lg text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition focus:ring-1 focus:ring-cyan-500"
@@ -1165,10 +1167,10 @@ export default function App() {
                 {/* Quick actions links */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   {[
-                    { label: 'Study Library Repository', desc: 'Lecture slides & notes', action: () => { setActiveTab('library'); }, icon: BookOpen, color: 'text-cyan-400' },
-                    { label: 'Rotation Timetables', desc: 'Ward rounds schedule', action: () => { setActiveTab('timetable'); }, icon: Calendar, color: 'text-indigo-400' },
-                    { label: 'Practice MCQ Exams', desc: 'Prepare for boards', action: () => { setActiveTab('quizzes'); }, icon: Award, color: 'text-emerald-400' },
-                    { label: 'Equipment Marketplace', desc: 'Buy/trade scrubs & gear', action: () => { setActiveTab('marketplace'); }, icon: ShoppingBag, color: 'text-rose-400' },
+                    { label: 'Study Library Repository', desc: 'Lecture slides & notes', action: () => { router.push('/library'); }, icon: BookOpen, color: 'text-cyan-400' },
+                    { label: 'Rotation Timetables', desc: 'Ward rounds schedule', action: () => { router.push('/timetable'); }, icon: Calendar, color: 'text-indigo-400' },
+                    { label: 'Practice MCQ Exams', desc: 'Prepare for boards', action: () => { router.push('/quizzes'); }, icon: Award, color: 'text-emerald-400' },
+                    { label: 'Equipment Marketplace', desc: 'Buy/trade scrubs & gear', action: () => { router.push('/marketplace'); }, icon: ShoppingBag, color: 'text-rose-400' },
                   ].map((act, index) => {
                     const Icon = act.icon;
                     return (
@@ -1828,7 +1830,7 @@ export default function App() {
               className="bg-gradient-to-tr from-cyan-500 to-blue-600 text-white p-4 rounded-full shadow-2xl hover:scale-105 transition flex items-center gap-2"
             >
               <Sparkles className="w-6 h-6 animate-pulse" />
-              <span className="text-xs font-black pr-1 hidden sm:inline">Ask JUTH AI Tutor</span>
+              <span className="text-xs font-black pr-1 hidden sm:inline">Ask MedHaven AI</span>
             </button>
 
             {showAITutor && (
