@@ -1,6 +1,8 @@
 "use client"
 
-import { useState, useEffect, useRef, useMemo } from "react"
+import { useState, useEffect, useRef, useMemo, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
+import useAuth from "@/hooks/useAuth"
 import {
   BookMarked,
   BookOpen,
@@ -279,13 +281,29 @@ function CollapsibleImageGroupCard({
 }
 
 export default function SmartLibraryPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-[20vh] items-center justify-center">
+        <p className="text-sm text-muted-foreground">Loading study library...</p>
+      </div>
+    }>
+      <SmartLibraryPageContent />
+    </Suspense>
+  )
+}
+
+function SmartLibraryPageContent() {
   const supabase = createClient()
+  const { user } = useAuth()
+  const searchParams = useSearchParams()
 
   const [materials, setMaterials] = useState<Material[]>([])
   const [courses, setCourses] = useState<Course[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [failedSlideShareEmbeds, setFailedSlideShareEmbeds] = useState<Record<string, boolean>>({})
+  const [userLevel, setUserLevel] = useState<string | null>(null)
+  const [selectedCourseIds, setSelectedCourseIds] = useState<string[] | null>(null)
 
   // Preview Modal State
   const [previewModal, setPreviewModal] = useState<{
@@ -301,6 +319,46 @@ export default function SmartLibraryPage() {
   const [selectedCourseId, setSelectedCourseId] = useState<string>("all")
   const [selectedTier, setSelectedTier] = useState<string>("all")
   const [selectedType, setSelectedType] = useState<string>("all")
+
+  // Fetch logged in student level
+  useEffect(() => {
+    const userId = user?.id
+    if (!userId) return
+    let active = true
+    async function fetchUserLevel() {
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("current_level")
+          .eq("id", userId)
+          .maybeSingle()
+        if (active && !error && data) {
+          setUserLevel(data.current_level)
+        }
+      } catch (err) {
+        console.error("Failed to fetch user level:", err)
+      }
+    }
+    void fetchUserLevel()
+    return () => {
+      active = false
+    }
+  }, [user?.id, supabase])
+
+  // Sync course pre-filtering from query params
+  useEffect(() => {
+    const courseIdParam = searchParams?.get("course_id")
+    const courseIdsParam = searchParams?.get("course_ids")?.split(",")
+    if (courseIdParam) {
+      setSelectedCourseId(courseIdParam)
+      setSelectedCourseIds(null)
+    } else if (courseIdsParam && courseIdsParam.length > 0) {
+      setSelectedCourseIds(courseIdsParam)
+      setSelectedCourseId("all")
+    } else {
+      setSelectedCourseIds(null)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     let mounted = true
@@ -524,7 +582,11 @@ export default function SmartLibraryPage() {
     }
 
     // 2. Course Filter
-    if (selectedCourseId !== "all" && material.course_id !== selectedCourseId) {
+    if (selectedCourseIds && selectedCourseIds.length > 0) {
+      if (!material.course_id || !selectedCourseIds.includes(material.course_id)) {
+        return false
+      }
+    } else if (selectedCourseId !== "all" && material.course_id !== selectedCourseId) {
       return false
     }
 
@@ -541,11 +603,25 @@ export default function SmartLibraryPage() {
     return true
   })
 
+  // Rank materials so student's own level appears first
+  const rankedMaterials = useMemo(() => {
+    if (!userLevel) return filteredMaterials
+    return [...filteredMaterials].sort((a, b) => {
+      const aLevel = a.courses?.level ?? null
+      const bLevel = b.courses?.level ?? null
+      const aMatch = String(aLevel) === String(userLevel)
+      const bMatch = String(bLevel) === String(userLevel)
+      if (aMatch && !bMatch) return -1
+      if (!aMatch && bMatch) return 1
+      return 0
+    })
+  }, [filteredMaterials, userLevel])
+
   // Grouping logic for materials per course
   const courseGroups = useMemo(() => {
     // 1. Group materials by course_id
     const groupsMap = new Map<string | null, Material[]>()
-    filteredMaterials.forEach((material) => {
+    rankedMaterials.forEach((material) => {
       const cid = material.course_id || null
       if (!groupsMap.has(cid)) {
         groupsMap.set(cid, [])
@@ -557,6 +633,7 @@ export default function SmartLibraryPage() {
       courseId: string | null
       courseTitle: string
       courseCode?: string | null
+      level?: string | number | null
       materials: Material[]
     }[] = []
 
@@ -567,6 +644,7 @@ export default function SmartLibraryPage() {
           courseId: course.id,
           courseTitle: course.title || "",
           courseCode: course.code,
+          level: course.level,
           materials: groupsMap.get(course.id)!,
         })
         groupsMap.delete(course.id)
@@ -575,16 +653,29 @@ export default function SmartLibraryPage() {
 
     // 3. Add remaining unmatched/general groups
     groupsMap.forEach((mats, cid) => {
+      const firstMatLevel = mats[0]?.courses?.level ?? null
       groupsList.push({
         courseId: cid,
         courseTitle: "General Materials",
         courseCode: null,
+        level: firstMatLevel,
         materials: mats,
       })
     })
 
+    // 4. Sort courseGroups so that courses at the student's level appear first!
+    if (userLevel) {
+      groupsList.sort((a, b) => {
+        const aMatch = String(a.level) === String(userLevel)
+        const bMatch = String(b.level) === String(userLevel)
+        if (aMatch && !bMatch) return -1
+        if (!aMatch && bMatch) return 1
+        return 0
+      })
+    }
+
     return groupsList
-  }, [filteredMaterials, courses])
+  }, [rankedMaterials, courses, userLevel])
 
   const totalTitles = levelFilteredMaterials.length
   const recommendedCount = levelFilteredMaterials.filter((m) => m.tier?.toLowerCase() === "recommended").length
@@ -625,13 +716,14 @@ export default function SmartLibraryPage() {
           </select>
 
           {/* Reset Filters */}
-          {(selectedTier !== "all" || selectedType !== "all" || selectedCourseId !== "all" || searchQuery !== "") && (
+          {(selectedTier !== "all" || selectedType !== "all" || selectedCourseId !== "all" || searchQuery !== "" || (selectedCourseIds && selectedCourseIds.length > 0)) && (
             <Button
               variant="outline"
               size="sm"
               onClick={() => {
                 setSearchQuery("")
                 setSelectedCourseId("all")
+                setSelectedCourseIds(null)
                 setSelectedTier("all")
                 setSelectedType("all")
               }}

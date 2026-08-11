@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from './lib/supabase/client';
 import { 
@@ -654,7 +654,7 @@ export default function App() {
     return sRank >= rRank;
   };
 
-  // Filter study items based on global search & dynamic level logic
+  // Filter study items based on global search & dynamic level logic, sorted so student's own level is ranked first
   const filteredLibrary = library.filter(item => {
     const matchQuery = item.title.toLowerCase().includes(globalSearch.toLowerCase()) || 
                        item.description.toLowerCase().includes(globalSearch.toLowerCase()) ||
@@ -662,7 +662,127 @@ export default function App() {
     const matchLevel = selectedLevelFilter === 'All' ? canAccessLevel(userProfile.level, item.level) : item.level === selectedLevelFilter;
     const matchDept = selectedDeptFilter === 'All' ? true : item.department.toLowerCase() === selectedDeptFilter.toLowerCase();
     return matchQuery && matchLevel && matchDept;
+  }).sort((a, b) => {
+    const aMatch = String(a.level) === String(userProfile.level);
+    const bMatch = String(b.level) === String(userProfile.level);
+    if (aMatch && !bMatch) return -1;
+    if (!aMatch && bMatch) return 1;
+    return 0;
   });
+
+  // Dynamic state for real courses matching student's current level
+  interface DashboardCourse {
+    id: string;
+    code?: string | null;
+    title?: string | null;
+    level?: string | number | null;
+    faculty_id?: string | null;
+    description?: string | null;
+  }
+
+  interface CourseFolder {
+    id: string;
+    tag: string;
+    title: string;
+    description: string;
+    color: string;
+    link: string;
+  }
+
+  const [dashboardCourses, setDashboardCourses] = useState<DashboardCourse[]>([]);
+
+  useEffect(() => {
+    if (!userProfile.level) return;
+    let active = true;
+    const fetchDashboardCourses = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('courses')
+          .select('id, code, title, level, faculty_id, description')
+          .eq('level', userProfile.level)
+          .order('code', { ascending: true });
+        if (active && !error && data) {
+          setDashboardCourses(data as DashboardCourse[]);
+        }
+      } catch (err) {
+        console.error("Failed to fetch dashboard courses:", err);
+      }
+    };
+    void fetchDashboardCourses();
+    return () => {
+      active = false;
+    };
+  }, [userProfile.level]);
+
+  // Sensible grouping of the queried level-specific courses
+  const personalizedFolders = useMemo<CourseFolder[]>(() => {
+    if (dashboardCourses.length === 0) {
+      return [];
+    }
+
+    // If <= 4 courses, make 1 tile per course
+    if (dashboardCourses.length <= 4) {
+      const colors = ['cyan', 'indigo', 'emerald', 'amber'];
+      return dashboardCourses.map((course, idx) => ({
+        id: course.id,
+        tag: course.code || 'COURSE',
+        title: course.title || 'Course Folder',
+        description: course.description || 'Access and search library materials for this course.',
+        color: colors[idx % colors.length],
+        link: `/library?course_id=${course.id}`
+      }));
+    }
+
+    // If > 4 courses, group into logical clusters by faculty_id
+    const groupsByFaculty: Record<string, DashboardCourse[]> = {};
+    dashboardCourses.forEach(c => {
+      const key = c.faculty_id || 'general';
+      if (!groupsByFaculty[key]) {
+        groupsByFaculty[key] = [];
+      }
+      groupsByFaculty[key].push(c);
+    });
+
+    const colors = ['cyan', 'indigo', 'emerald', 'amber', 'rose'];
+    const grouped: CourseFolder[] = [];
+
+    Object.entries(groupsByFaculty).forEach(([facId, facultyCourses], idx) => {
+      const color = colors[idx % colors.length];
+      if (facultyCourses.length === 1) {
+        const course = facultyCourses[0];
+        grouped.push({
+          id: course.id,
+          tag: course.code || 'COURSE',
+          title: course.title || 'Course Folder',
+          description: course.description || 'Access and search library materials for this course.',
+          color,
+          link: `/library?course_id=${course.id}`
+        });
+      } else {
+        const codesList = facultyCourses.map(c => c.code).filter(Boolean).join(', ');
+        const courseIdsList = facultyCourses.map(c => c.id).join(',');
+
+        let blockTitle = 'Clinical/Academic Block';
+        if (facId === 'general') {
+          blockTitle = 'General Study Block';
+        } else {
+          const firstWord = facultyCourses[0].title ? facultyCourses[0].title.split(' ')[0] : 'Subject';
+          blockTitle = `${firstWord} & Specialty Block`;
+        }
+
+        grouped.push({
+          id: `fac-group-${facId}`,
+          tag: `BLOCK ${idx + 1}`,
+          title: blockTitle,
+          description: `Consolidated repository containing ${facultyCourses.length} courses: ${codesList}`,
+          color,
+          link: `/library?course_ids=${courseIdsList}`
+        });
+      }
+    });
+
+    return grouped;
+  }, [dashboardCourses]);
 
   // Action methods
   const handleDocUploadSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -1070,30 +1190,27 @@ export default function App() {
                     <h3 className="font-extrabold text-base text-slate-100">Personalized Course Folders</h3>
                   </div>
 
-                  {userIsClinical ? (
+                  {personalizedFolders.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      
-                      <div className="p-4 rounded-xl bg-slate-900 border border-slate-850 space-y-3">
-                        <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest bg-cyan-950/40 w-fit px-2 py-0.5 rounded">Medicine Block (M1/M2)</span>
-                        <h4 className="font-bold text-slate-200 text-xs">Cardiology, Endocrinology & Renal</h4>
-                        <p className="text-[11px] text-slate-400 leading-normal">DKA resuscitating flowcharts, heart failure guidelines, and neurology slide sets.</p>
-                        <button onClick={() => { setActiveTab('library'); setSelectedDeptFilter('Medicine'); }} className="text-[11px] text-cyan-400 hover:underline flex items-center gap-1 font-bold">Open repository <ChevronRight className="w-3.5 h-3.5" /></button>
-                      </div>
+                      {personalizedFolders.map((folder: CourseFolder) => {
+                        const colorClasses: Record<string, { tag: string; bg: string }> = {
+                          cyan: { tag: 'text-cyan-400 bg-cyan-950/40', bg: 'border-slate-850' },
+                          indigo: { tag: 'text-indigo-400 bg-indigo-950/40', bg: 'border-slate-850' },
+                          emerald: { tag: 'text-emerald-400 bg-emerald-950/40', bg: 'border-slate-850' },
+                          amber: { tag: 'text-amber-400 bg-amber-950/40', bg: 'border-slate-850' },
+                          rose: { tag: 'text-rose-400 bg-rose-950/40', bg: 'border-slate-850' }
+                        };
+                        const cls = colorClasses[folder.color] || colorClasses.cyan;
 
-                      <div className="p-4 rounded-xl bg-slate-900 border border-slate-850 space-y-3">
-                        <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest bg-indigo-950/40 w-fit px-2 py-0.5 rounded">Surgery Block (S1/S2)</span>
-                        <h4 className="font-bold text-slate-200 text-xs">General Surgery, Plastics & Trauma</h4>
-                        <p className="text-[11px] text-slate-400 leading-normal">Acute abdomen parameters, subdiaphragmatic diagnostics, and neurosurgical notes.</p>
-                        <button onClick={() => { setActiveTab('library'); setSelectedDeptFilter('Surgery'); }} className="text-[11px] text-indigo-400 hover:underline flex items-center gap-1 font-bold">Open repository <ChevronRight className="w-3.5 h-3.5" /></button>
-                      </div>
-
-                      <div className="p-4 rounded-xl bg-slate-900 border border-slate-850 space-y-3">
-                        <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest bg-emerald-950/40 w-fit px-2 py-0.5 rounded">Pathology & Pharmacology</span>
-                        <h4 className="font-bold text-slate-200 text-xs">Haematology & Chempath Runs</h4>
-                        <p className="text-[11px] text-slate-400 leading-normal">Blood film interpretations, bacteriology slide summaries, and drug formulas.</p>
-                        <button onClick={() => { setActiveTab('library'); setSelectedDeptFilter('Pathology and Pharmacology'); }} className="text-[11px] text-emerald-400 hover:underline flex items-center gap-1 font-bold">Open repository <ChevronRight className="w-3.5 h-3.5" /></button>
-                      </div>
-
+                        return (
+                          <div key={folder.id} className="p-4 rounded-xl bg-slate-900 border border-slate-850 space-y-3">
+                            <span className={`text-[10px] font-bold uppercase tracking-widest w-fit px-2 py-0.5 rounded ${cls.tag}`}>{folder.tag}</span>
+                            <h4 className="font-bold text-slate-200 text-xs">{folder.title}</h4>
+                            <p className="text-[11px] text-slate-400 leading-normal">{folder.description}</p>
+                            <button onClick={() => { router.push(folder.link); }} className={`text-[11px] hover:underline flex items-center gap-1 font-bold ${folder.color === 'cyan' ? 'text-cyan-400' : folder.color === 'indigo' ? 'text-indigo-400' : folder.color === 'emerald' ? 'text-emerald-400' : folder.color === 'amber' ? 'text-amber-400' : 'text-rose-400'}`}>Open repository <ChevronRight className="w-3.5 h-3.5" /></button>
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="p-6 bg-slate-900 border border-slate-850 rounded-xl text-center space-y-2">
