@@ -13,21 +13,27 @@ export async function POST(request: NextRequest) {
 
     // 2. Parse request body
     const body = await request.json().catch(() => ({}))
-    const { course_id, topic } = body
+    const { course_id } = body
+    let { topic, format, count } = body
 
-    if (!course_id || !topic) {
-      return NextResponse.json({ error: "Missing course_id or topic in request body" }, { status: 400 })
+    if (!course_id) {
+      return NextResponse.json({ error: "Missing course_id in request body" }, { status: 400 })
     }
 
-    const trimmedTopic = topic.trim()
+    // Define defaults
+    const chosenFormat = format ? String(format).trim() : "MCQ"
+    const limitCount = count ? parseInt(count, 10) : 10
+    const trimmedTopic = topic && String(topic).trim() !== "" ? String(topic).trim() : "General Course Review"
 
     // 3. Query existing quizzes & questions in Supabase
+    // Caching matches course_id, topic (case insensitive), and format
     const { data: existingQuiz, error: fetchError } = await supabase
       .from("quizzes")
       .select(`
         id,
         course_id,
         topic,
+        format,
         quiz_questions (
           id,
           question_text,
@@ -38,6 +44,7 @@ export async function POST(request: NextRequest) {
       `)
       .eq("course_id", course_id)
       .ilike("topic", trimmedTopic)
+      .eq("format", chosenFormat)
       .limit(1)
       .maybeSingle()
 
@@ -46,14 +53,14 @@ export async function POST(request: NextRequest) {
     }
 
     if (existingQuiz && existingQuiz.quiz_questions && existingQuiz.quiz_questions.length > 0) {
-      // Map questions to standard response format
+      // Map questions to standard response format, sliced to requested count
       const formattedQuestions = existingQuiz.quiz_questions.map((q: any) => ({
         id: q.id,
         question: q.question_text,
-        options: q.options,
+        options: q.options || [],
         correct_answer: q.correct_answer,
         explanation: q.explanation,
-      }))
+      })).slice(0, limitCount)
 
       return NextResponse.json({
         quiz_id: existingQuiz.id,
@@ -79,21 +86,52 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Groq API configuration missing on the server" }, { status: 500 })
     }
 
-    const systemPrompt = `You are an expert medical educator. Your task is to generate a quiz on the specified medical course and topic.
+    // Determine how many questions we should ask Groq to generate.
+    // If it's a default quiz (e.g. "General Course Review"), generate 15 questions to build a robust cache.
+    // Otherwise, generate the requested count.
+    const countToGenerate = trimmedTopic === "General Course Review" ? 15 : limitCount
+
+    let systemPrompt = `You are an expert medical educator. Your task is to generate a quiz on the specified medical course and topic.
 You must return strictly valid JSON. Do not include any markdown formatting, backticks, or explanatory text outside the JSON structure.
 
-The response must be a single JSON object containing a key "questions", which is an array of 5 to 10 question objects.
+The response must be a single JSON object containing a key "questions", which is an array of exactly ${countToGenerate} question objects.
 Each question object in the array must have exactly the following keys:
-- "question": string (the multiple choice question text)
+`
+
+    if (chosenFormat === "Short Answer") {
+      systemPrompt += `- "question": string (the short answer question or clinical vignette requiring a free-text response)
+- "options": array of strings (MUST be empty: [])
+- "correct_answer": string (the correct short answer or key terms/phrases)
+- "explanation": string (a brief explanation of why this answer is correct, key terms to include, and a clinical grading rubric)`
+    } else if (chosenFormat === "SBA") {
+      systemPrompt += `- "question": string (the single best answer clinical vignette question)
+- "options": array of exactly 4 strings (the choices)
+- "correct_answer": string (the correct answer, which MUST match one of the strings inside the "options" array exactly. Distractors should be highly plausible but clearly inferior to the single best answer)
+- "explanation": string (a brief explanation of why this is the single best answer and why other distractors are incorrect)`
+    } else if (chosenFormat === "Steeplechase") {
+      systemPrompt += `- "question": string (a question that is part of a sequential linked-stem case series. Consecutive questions should build on the clinical progress or scenario of the preceding question)
+- "options": array of exactly 4 strings (the choices)
+- "correct_answer": string (the correct answer, which MUST match one of the strings inside the "options" array exactly)
+- "explanation": string (a brief explanation of why the correct answer is right and why other options are incorrect, highlighting the progressive reasoning)`
+    } else if (chosenFormat === "Picture Test") {
+      systemPrompt += `- "question": string (the visual question. Since images are not directly rendered, you must explicitly reference a visual clinical image concept in the question, e.g. "On this chest X-ray...", "This histological slide shows...", "This clinical photo of...", etc.)
 - "options": array of exactly 4 strings (the choices)
 - "correct_answer": string (the correct answer, which MUST match one of the strings inside the "options" array exactly)
 - "explanation": string (a brief explanation of why the correct answer is right and why other options are incorrect)`
+    } else { // MCQ
+      systemPrompt += `- "question": string (the multiple choice question text)
+- "options": array of exactly 4 strings (the choices)
+- "correct_answer": string (the correct answer, which MUST match one of the strings inside the "options" array exactly)
+- "explanation": string (a brief explanation of why the correct answer is right and why other options are incorrect)`
+    }
 
     const userPrompt = `Generate a high-yield medical quiz for:
 Course: ${courseContext}
 Topic: ${trimmedTopic}
+Format: ${chosenFormat}
+Number of Questions: ${countToGenerate}
 
-Remember, return strictly a JSON object with a "questions" array of 5 to 10 objects.`
+Remember, return strictly a JSON object with a "questions" array of exactly ${countToGenerate} objects matching the format's structural requirements.`
 
     const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -154,33 +192,45 @@ Remember, return strictly a JSON object with a "questions" array of 5 to 10 obje
     // Validate structure of questions
     const validatedQuestions: any[] = []
     for (const q of questionsArray) {
-      if (!q.question || !Array.isArray(q.options) || q.options.length < 2 || !q.correct_answer) {
-        continue // skip malformed question
-      }
-
-      // Ensure options has exactly 4 items, padding if necessary
-      let options = q.options.map((opt: any) => String(opt))
-      if (options.length < 4) {
-        while (options.length < 4) {
-          options.push("None of the above")
+      if (chosenFormat === "Short Answer") {
+        if (!q.question || !q.correct_answer) {
+          continue // skip malformed question
         }
-      } else if (options.length > 4) {
-        options = options.slice(0, 4)
-      }
+        validatedQuestions.push({
+          question: String(q.question),
+          options: [],
+          correct_answer: String(q.correct_answer),
+          explanation: q.explanation ? String(q.explanation) : "No explanation provided.",
+        })
+      } else {
+        if (!q.question || !Array.isArray(q.options) || q.options.length < 2 || !q.correct_answer) {
+          continue // skip malformed question
+        }
 
-      // Ensure correct_answer is one of the options
-      let correctAnswer = String(q.correct_answer)
-      if (!options.includes(correctAnswer)) {
-        // fallback: set correct_answer to the first option
-        correctAnswer = options[0]
-      }
+        // Ensure options has exactly 4 items, padding if necessary
+        let options = q.options.map((opt: any) => String(opt))
+        if (options.length < 4) {
+          while (options.length < 4) {
+            options.push("None of the above")
+          }
+        } else if (options.length > 4) {
+          options = options.slice(0, 4)
+        }
 
-      validatedQuestions.push({
-        question: String(q.question),
-        options,
-        correct_answer: correctAnswer,
-        explanation: q.explanation ? String(q.explanation) : "No explanation provided.",
-      })
+        // Ensure correct_answer is one of the options
+        let correctAnswer = String(q.correct_answer)
+        if (!options.includes(correctAnswer)) {
+          // fallback: set correct_answer to the first option
+          correctAnswer = options[0]
+        }
+
+        validatedQuestions.push({
+          question: String(q.question),
+          options,
+          correct_answer: correctAnswer,
+          explanation: q.explanation ? String(q.explanation) : "No explanation provided.",
+        })
+      }
     }
 
     if (validatedQuestions.length === 0) {
@@ -193,6 +243,7 @@ Remember, return strictly a JSON object with a "questions" array of 5 to 10 obje
       .insert({
         course_id,
         topic: trimmedTopic,
+        format: chosenFormat,
       })
       .select("id")
       .single()
@@ -223,14 +274,14 @@ Remember, return strictly a JSON object with a "questions" array of 5 to 10 obje
       return NextResponse.json({ error: "Failed to save generated quiz questions to the database" }, { status: 500 })
     }
 
-    // Map questions to standard response format
+    // Map questions to standard response format, sliced to requested count
     const formattedQuestions = insertedQuestions.map((q: any) => ({
       id: q.id,
       question: q.question_text,
-      options: q.options,
+      options: q.options || [],
       correct_answer: q.correct_answer,
       explanation: q.explanation,
-    }))
+    })).slice(0, limitCount)
 
     return NextResponse.json({
       quiz_id: newQuiz.id,
