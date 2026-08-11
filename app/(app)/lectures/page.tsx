@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useMemo } from "react"
+import useAuth from "@/hooks/useAuth"
 import {
   BookMarked,
   BookOpen,
@@ -109,11 +110,13 @@ function getMaterialUrl(material: Material): string {
 
 export default function LectureVideosPage() {
   const supabase = createClient()
+  const { user } = useAuth()
 
   const [materials, setMaterials] = useState<Material[]>([])
   const [courses, setCourses] = useState<Course[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [userLevel, setUserLevel] = useState<string | null>(null)
 
   // Preview Modal State
   const [previewModal, setPreviewModal] = useState<{
@@ -128,6 +131,31 @@ export default function LectureVideosPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCourseId, setSelectedCourseId] = useState<string>("all")
   const [selectedTier, setSelectedTier] = useState<string>("all")
+
+  // Fetch logged in student level
+  useEffect(() => {
+    const userId = user?.id
+    if (!userId) return
+    let active = true
+    async function fetchUserLevel() {
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("current_level")
+          .eq("id", userId)
+          .maybeSingle()
+        if (active && !error && data) {
+          setUserLevel(data.current_level)
+        }
+      } catch (err) {
+        console.error("Failed to fetch user level:", err)
+      }
+    }
+    void fetchUserLevel()
+    return () => {
+      active = false
+    }
+  }, [user?.id, supabase])
 
   useEffect(() => {
     let mounted = true
@@ -278,10 +306,24 @@ export default function LectureVideosPage() {
     return true
   })
 
+  // Rank materials so student's own level appears first
+  const rankedMaterials = useMemo(() => {
+    if (!userLevel) return filteredMaterials
+    return [...filteredMaterials].sort((a, b) => {
+      const aLevel = a.courses?.level ?? null
+      const bLevel = b.courses?.level ?? null
+      const aMatch = String(aLevel) === String(userLevel)
+      const bMatch = String(bLevel) === String(userLevel)
+      if (aMatch && !bMatch) return -1
+      if (!aMatch && bMatch) return 1
+      return 0
+    })
+  }, [filteredMaterials, userLevel])
+
   // Grouping logic for materials per course
   const courseGroups = useMemo(() => {
     const groupsMap = new Map<string | null, Material[]>()
-    filteredMaterials.forEach((material) => {
+    rankedMaterials.forEach((material) => {
       const cid = material.course_id || null
       if (!groupsMap.has(cid)) {
         groupsMap.set(cid, [])
@@ -293,6 +335,7 @@ export default function LectureVideosPage() {
       courseId: string | null
       courseTitle: string
       courseCode?: string | null
+      level?: string | number | null
       materials: Material[]
     }[] = []
 
@@ -302,6 +345,7 @@ export default function LectureVideosPage() {
           courseId: course.id,
           courseTitle: course.title || "",
           courseCode: course.code,
+          level: course.level,
           materials: groupsMap.get(course.id)!,
         })
         groupsMap.delete(course.id)
@@ -309,16 +353,29 @@ export default function LectureVideosPage() {
     })
 
     groupsMap.forEach((mats, cid) => {
+      const firstMatLevel = mats[0]?.courses?.level ?? null
       groupsList.push({
         courseId: cid,
         courseTitle: "General Materials",
         courseCode: null,
+        level: firstMatLevel,
         materials: mats,
       })
     })
 
+    // Sort courseGroups so that courses at the student's level appear first!
+    if (userLevel) {
+      groupsList.sort((a, b) => {
+        const aMatch = String(a.level) === String(userLevel)
+        const bMatch = String(b.level) === String(userLevel)
+        if (aMatch && !bMatch) return -1
+        if (!aMatch && bMatch) return 1
+        return 0
+      })
+    }
+
     return groupsList
-  }, [filteredMaterials, courses])
+  }, [rankedMaterials, courses, userLevel])
 
   const totalVideos = levelFilteredMaterials.length
   const totalRecommendedVideos = levelFilteredMaterials.filter(m => m.tier?.toLowerCase() === "recommended").length
