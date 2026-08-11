@@ -515,6 +515,37 @@ export default function App() {
   // Core Databases
   const [library, setLibrary] = useState<StudyResource[]>([]);
   const [timetable, setTimetable] = useState(INITIAL_TIMETABLES);
+  const [dbTimetableEntries, setDbTimetableEntries] = useState<any[]>([]);
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNow(new Date());
+    }, 30000); // update every 30 seconds
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (!userProfile.level) return;
+    let active = true;
+    const fetchTimetableEntries = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('timetable_entries')
+          .select('id, level, day_of_week, start_time, end_time, title, activity_type, course_id, lecturer, notes')
+          .eq('level', userProfile.level);
+        if (active && !error && data) {
+          setDbTimetableEntries(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch timetable entries:", err);
+      }
+    };
+    void fetchTimetableEntries();
+    return () => {
+      active = false;
+    };
+  }, [userProfile.level]);
 
   // Auth Form parameters
   const [regForm, setRegForm] = useState({
@@ -713,6 +744,98 @@ export default function App() {
       active = false;
     };
   }, [userProfile.level]);
+
+  const bannerData = useMemo(() => {
+    if (!dbTimetableEntries || dbTimetableEntries.length === 0) {
+      const reminder = getActivityReminder(userProfile.level);
+      return {
+        title: `${reminder.title} • ${userProfile.level}`,
+        message: reminder.message,
+        isReal: false
+      };
+    }
+
+    const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    const todayDayOfWeek = days[now.getDay()];
+
+    const todayEntries = dbTimetableEntries.filter(
+      entry => (entry.day_of_week || "").toLowerCase().trim() === todayDayOfWeek
+    );
+
+    const parseTimeToMinutes = (timeStr: string): number => {
+      if (!timeStr) return 0;
+      const parts = timeStr.split(":");
+      const hours = parseInt(parts[0], 10) || 0;
+      const minutes = parseInt(parts[1], 10) || 0;
+      return hours * 60 + minutes;
+    };
+
+    const formatTime = (timeStr: string | null | undefined): string => {
+      if (!timeStr) return "";
+      const parts = timeStr.split(":");
+      if (parts.length >= 2) {
+        const hr = parseInt(parts[0], 10);
+        const min = parts[1];
+        return `${hr}:${min}`;
+      }
+      return timeStr;
+    };
+
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+    // 1. Find active entry
+    const activeEntry = todayEntries.find(entry => {
+      const start = parseTimeToMinutes(entry.start_time);
+      const end = parseTimeToMinutes(entry.end_time);
+      return nowMinutes >= start && nowMinutes < end;
+    });
+
+    if (activeEntry) {
+      return {
+        title: `Active Schedule • ${userProfile.level}`,
+        message: `🩺 ${activeEntry.title} is happening now, until ${formatTime(activeEntry.end_time)}`,
+        isReal: true
+      };
+    }
+
+    // 2. Find next upcoming entry today (start_time later than now)
+    const upcomingEntries = todayEntries.filter(entry => {
+      const start = parseTimeToMinutes(entry.start_time);
+      return start > nowMinutes;
+    });
+
+    // Sort upcoming entries by start_time
+    upcomingEntries.sort((a, b) => {
+      return parseTimeToMinutes(a.start_time) - parseTimeToMinutes(b.start_time);
+    });
+
+    if (upcomingEntries.length > 0) {
+      const nextEntry = upcomingEntries[0];
+      const start = parseTimeToMinutes(nextEntry.start_time);
+      const diff = start - nowMinutes;
+
+      if (diff <= 30) {
+        return {
+          title: `Upcoming Schedule • ${userProfile.level}`,
+          message: `${nextEntry.title} starts in ${diff} minutes`,
+          isReal: true
+        };
+      } else {
+        return {
+          title: `Next Up • ${userProfile.level}`,
+          message: `${nextEntry.title} is next up at ${formatTime(nextEntry.start_time)}`,
+          isReal: true
+        };
+      }
+    }
+
+    // 3. If there are no more entries today
+    return {
+      title: `End of Day • ${userProfile.level}`,
+      message: "No more activities scheduled for today. Rest well!",
+      isReal: true
+    };
+  }, [dbTimetableEntries, userProfile.level, now]);
 
   // Sensible grouping of the queried level-specific courses
   const personalizedFolders = useMemo<CourseFolder[]>(() => {
@@ -1129,25 +1252,23 @@ export default function App() {
               <div className="space-y-6">
                 
                 {/* Dynamic Level-and-Time-Aware Activity Reminder Banner */}
-                {(() => {
-                  const reminder = getActivityReminder(userProfile.level);
-                  return (
-                    <div className="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-4 flex items-start gap-3.5 animate-pulse">
-                      <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
-                      <div>
-                        <span className="text-[10px] font-bold tracking-wider uppercase text-rose-400 bg-rose-950/40 px-2.5 py-0.5 rounded-full">
-                          {reminder.title} • {userProfile.level}
-                        </span>
-                        <h4 className="font-extrabold text-rose-100 text-sm mt-1.5">
-                          Daily Activity Guidance
-                        </h4>
-                        <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
-                          {reminder.message}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })()}
+                <div
+                  onClick={() => router.push('/timetable')}
+                  className="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-4 flex items-start gap-3.5 animate-pulse cursor-pointer hover:bg-rose-500/20 transition-colors"
+                >
+                  <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="text-[10px] font-bold tracking-wider uppercase text-rose-400 bg-rose-950/40 px-2.5 py-0.5 rounded-full">
+                      {bannerData.title}
+                    </span>
+                    <h4 className="font-extrabold text-rose-100 text-sm mt-1.5">
+                      Daily Activity Guidance
+                    </h4>
+                    <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
+                      {bannerData.message}
+                    </p>
+                  </div>
+                </div>
 
                 {/* Hero section featuring JUTH main admission gate */}
                 <div className="relative rounded-2xl overflow-hidden bg-slate-950 border border-slate-850 p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
