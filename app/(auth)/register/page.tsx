@@ -96,8 +96,13 @@ function RegisterContent() {
         console.warn("Failed to create profile row gracefully:", dbErr)
       }
 
-      // Show OTP Step instead of hiding form or resetting
-      setShowOtpStep(true)
+      // Check if session is established (meaning email confirmation is disabled)
+      if (authData.session) {
+        router.replace("/dashboard")
+      } else {
+        // Show OTP Step instead of hiding form or resetting
+        setShowOtpStep(true)
+      }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (submitError: any) {
       setError(submitError?.message || (typeof submitError === 'string' ? submitError : JSON.stringify(submitError)))
