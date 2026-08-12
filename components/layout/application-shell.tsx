@@ -91,7 +91,7 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
 
       const profile = profileData as Record<string, unknown> | null
       const role = normalizeRole(profile?.role ?? "")
-      const admin = role === "admin" || role === "super_admin"
+      const admin = role === "admin" || role === "super_admin" || role === "moderator"
       setIsAdmin(admin)
     }
 
