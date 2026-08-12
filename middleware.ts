@@ -131,6 +131,7 @@ export async function middleware(request: NextRequest) {
     const isAdmin =
       role === "admin" ||
       role === "super_admin" ||
+      role === "moderator" ||
       Boolean(profile?.is_admin)
 
     if (!isAdmin) {
