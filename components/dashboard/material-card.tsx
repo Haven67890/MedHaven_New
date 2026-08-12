@@ -19,6 +19,8 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import useAuth from "@/hooks/useAuth"
+import { logMaterialActivity } from "@/utils/activity"
 
 // Memory cache for PDF thumbnails to avoid regenerating on every render
 const pdfThumbnailCache: Record<string, string> = {}
@@ -108,6 +110,7 @@ function formatTypeName(type: string): string {
 }
 
 export function MaterialCard({ material, onPreview }: MaterialCardProps) {
+  const { user } = useAuth()
   const fileUrl = getMaterialUrl(material)
   const ext = getFileExtension(fileUrl)
   const isVideo = material.type?.toLowerCase() === "video"
@@ -298,6 +301,10 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
     (!showViewButton && !hasEmbed) || (isStudyTier && isExternalLinkOnly && !hasEmbed)
 
   const handlePreviewClick = () => {
+    if (user?.id) {
+      logMaterialActivity(user.id, material.id, "view")
+    }
+
     if (isVideo) {
       onPreview(material, "video", isYoutubeEmbeddable)
     } else if (isSlideShare) {
@@ -476,7 +483,15 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
                 className="h-8 text-xs font-medium px-3 flex items-center gap-1"
                 asChild
               >
-                <a href={fileUrl} download>
+                <a
+                  href={fileUrl}
+                  download
+                  onClick={() => {
+                    if (user?.id) {
+                      logMaterialActivity(user.id, material.id, "download")
+                    }
+                  }}
+                >
                   <Download className="size-3.5 shrink-0" /> Download
                 </a>
               </Button>
