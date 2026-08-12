@@ -114,13 +114,15 @@ function ProfileCompleteContent() {
 
       if (updateError) {
         setError(updateError.message)
+        setIsSubmitting(false)
         return
       }
 
+      router.refresh()
       router.replace("/dashboard")
+      // Do not reset isSubmitting on success to preserve loading/disabled state during navigation
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to save profile details.")
-    } finally {
       setIsSubmitting(false)
     }
   }

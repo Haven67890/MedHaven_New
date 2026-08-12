@@ -45,6 +45,22 @@ export async function middleware(request: NextRequest) {
     },
   })
 
+  const redirectWithCookies = (url: string | URL) => {
+    const redirectResponse = NextResponse.redirect(typeof url === "string" ? new URL(url, request.url) : url)
+    response.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie.name, cookie.value, {
+        path: cookie.path,
+        domain: cookie.domain,
+        maxAge: cookie.maxAge,
+        secure: cookie.secure,
+        sameSite: cookie.sameSite,
+        expires: cookie.expires,
+        httpOnly: cookie.httpOnly,
+      })
+    })
+    return redirectResponse
+  }
+
   // Securely verify session by fetching user info
   const {
     data: { user },
@@ -55,7 +71,7 @@ export async function middleware(request: NextRequest) {
 
   // If already logged in and visiting login/register, redirect to dashboard
   if (user && (pathname === "/login" || pathname === "/register")) {
-    return NextResponse.redirect(new URL("/dashboard", request.url))
+    return redirectWithCookies("/dashboard")
   }
 
   // Force onboarding details completion for Google Sign-In and incomplete profiles
@@ -67,7 +83,7 @@ export async function middleware(request: NextRequest) {
       .maybeSingle()
 
     if (!profile || !profile.department || !profile.current_level) {
-      return NextResponse.redirect(new URL("/profile/complete", request.url))
+      return redirectWithCookies("/profile/complete")
     }
   }
 
@@ -95,7 +111,7 @@ export async function middleware(request: NextRequest) {
 
     if (isProtected) {
       const loginUrl = new URL("/login", request.url)
-      return NextResponse.redirect(loginUrl)
+      return redirectWithCookies(loginUrl)
     }
   }
 
@@ -118,7 +134,7 @@ export async function middleware(request: NextRequest) {
       Boolean(profile?.is_admin)
 
     if (!isAdmin) {
-      return NextResponse.redirect(new URL("/dashboard", request.url))
+      return redirectWithCookies("/dashboard")
     }
   }
 
