@@ -27,6 +27,7 @@ import { SectionHeading } from "@/components/dashboard/section-heading"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { createClient } from "@/lib/supabase/client"
 import { MaterialCard } from "@/components/dashboard/material-card"
+import { logMaterialActivity } from "@/utils/activity"
 
 interface Faculty {
   id: string
@@ -216,6 +217,7 @@ function CollapsibleImageGroupCard({
   onViewImage,
 }: CollapsibleImageGroupCardProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const { user } = useAuth()
 
   if (images.length === 0) return null
 
@@ -255,7 +257,12 @@ function CollapsibleImageGroupCard({
                 return (
                   <button
                     key={img.id}
-                    onClick={() => onViewImage(img)}
+                    onClick={() => {
+                      onViewImage(img)
+                      if (user?.id) {
+                        logMaterialActivity(user.id, img.id, "view")
+                      }
+                    }}
                     className="group relative aspect-square overflow-hidden rounded-lg border bg-muted hover:border-primary transition-all duration-200 text-left focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
                     title={img.title}
                   >
