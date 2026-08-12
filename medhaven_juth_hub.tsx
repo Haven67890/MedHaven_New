@@ -8,6 +8,7 @@ import {
   ChevronRight, Sparkles, MapPin, CheckCircle,
   HeartPulse, AlertCircle, X, ShoppingBag
 } from 'lucide-react';
+import AIChatDrawer from '@/components/dashboard/ai-chat-drawer';
 
 // Reliable placeholder imagery for the hospital dashboard without broken asset references.
 const JUTH_IMAGES = {
@@ -203,6 +204,9 @@ export default function App() {
   const [globalSearch, setGlobalSearch] = useState('');
 
   const userIsClinical = ['400L', '500L', '600L', 'Final Year'].includes(userProfile.level || '');
+
+  // AI Assistant Chat Open State
+  const [isAIChatOpen, setIsAIChatOpen] = useState(false);
 
   // Toast feedback state
   const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' | 'info' }>({
@@ -479,7 +483,7 @@ export default function App() {
   }, [dbTimetableEntries, userProfile.level, now]);
 
   const handleAISlickClick = () => {
-    showToast("Coming soon", "info");
+    setIsAIChatOpen(true);
   };
 
   return (
@@ -758,6 +762,9 @@ export default function App() {
             <span className="text-xs font-black pr-1 hidden sm:inline">Ask MedHaven AI</span>
           </button>
         </div>
+
+        {/* AI Assistant Chat Drawer */}
+        <AIChatDrawer isOpen={isAIChatOpen} onClose={() => setIsAIChatOpen(false)} />
 
         {/* ================= FOOTER ================= */}
         <footer className="bg-card border-t border-border px-6 py-6 mt-12">
