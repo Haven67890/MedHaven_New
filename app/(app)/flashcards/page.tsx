@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import {
   ArrowRight,
+  ArrowLeft,
   BrainCircuit,
   Plus,
   RotateCcw,
@@ -17,7 +18,9 @@ import {
   Eye,
   X,
   PlusCircle,
-  HelpCircle
+  HelpCircle,
+  Check,
+  Award
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -58,6 +61,76 @@ interface FlashcardDeck {
   flashcards?: Flashcard[]
 }
 
+interface FlashcardProgress {
+  id: string
+  user_id: string
+  flashcard_id: string
+  ease_factor: number
+  interval_days: number
+  repetitions: number
+  next_review_date: string
+  last_reviewed_at: string | null
+  created_at?: string
+}
+
+const MOCK_DECKS: FlashcardDeck[] = [
+  {
+    id: "mock-deck-1",
+    course_id: null,
+    topic: "Cranial Nerves Summary",
+    source: "ai_generated",
+    created_by: null,
+    created_at: new Date().toISOString(),
+    courses: {
+      id: "mock-course-1",
+      code: "ANA 201",
+      title: "Gross Anatomy"
+    },
+    flashcards: [
+      {
+        id: "mock-card-1",
+        front: "Which cranial nerve provides motor innervation to the muscles of mastication?",
+        back: "Trigeminal Nerve (CN V) - specifically the mandibular branch (V3)."
+      },
+      {
+        id: "mock-card-2",
+        front: "What is the primary action and innervation of the superior oblique muscle of the eye?",
+        back: "Intorsion, depression, and abduction; innervated by the Trochlear Nerve (CN IV)."
+      },
+      {
+        id: "mock-card-3",
+        front: "Which cranial nerve is tested by asking the patient to protrude their tongue?",
+        back: "Hypoglossal Nerve (CN XII). A lesion causes tongue deviation toward the affected side."
+      }
+    ]
+  },
+  {
+    id: "mock-deck-2",
+    course_id: null,
+    topic: "Infective Endocarditis",
+    source: "ai_generated",
+    created_by: null,
+    created_at: new Date().toISOString(),
+    courses: {
+      id: "mock-course-2",
+      code: "MED 501",
+      title: "Internal Medicine"
+    },
+    flashcards: [
+      {
+        id: "mock-card-4",
+        front: "What is the most common causative organism of subacute infective endocarditis on damaged native valves?",
+        back: "Viridans group streptococci (e.g., Streptococcus sanguinis, Streptococcus mutans)."
+      },
+      {
+        id: "mock-card-5",
+        front: "Name the diagnostic criteria system used for Infective Endocarditis.",
+        back: "Modified Duke Criteria (requires 2 major, 1 major + 3 minor, or 5 minor criteria)."
+      }
+    ]
+  }
+]
+
 const suggestedTopics = [
   "Antibiotic Mechanisms",
   "Cardiovascular Physiology",
@@ -73,11 +146,123 @@ export default function FlashcardsPage() {
   // State
   const [courses, setCourses] = useState<Course[]>([])
   const [decks, setDecks] = useState<FlashcardDeck[]>([])
+  const [progressMap, setProgressMap] = useState<Record<string, FlashcardProgress>>({})
   const [loadingInitial, setLoadingInitial] = useState(true)
   const [userSession, setUserSession] = useState<any>(null)
   const [userLevel, setUserLevel] = useState<string | null>(null)
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
+
+  // Active recall review states
+  const [isReviewActive, setIsReviewActive] = useState(false)
+  const [reviewDeck, setReviewDeck] = useState<FlashcardDeck | null>(null)
+  const [reviewQueue, setReviewQueue] = useState<Flashcard[]>([])
+  const [currentReviewIndex, setCurrentReviewIndex] = useState(0)
+  const [isCardFlipped, setIsCardFlipped] = useState(false)
+
+  const handleStartReview = (deck: FlashcardDeck) => {
+    const deckCards = deck.flashcards || []
+    if (deckCards.length === 0) return
+
+    // Queue: due cards first, then non-due cards
+    const dueCards = deckCards.filter(c => isCardDue(c.id))
+    const nonDueCards = deckCards.filter(c => !isCardDue(c.id))
+    const queue = [...dueCards, ...nonDueCards]
+
+    setReviewDeck(deck)
+    setReviewQueue(queue)
+    setCurrentReviewIndex(0)
+    setIsCardFlipped(false)
+    setIsReviewActive(true)
+  }
+
+  const addDaysToToday = (days: number) => {
+    const d = new Date()
+    d.setDate(d.getDate() + days)
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  const handleGradeCard = async (grade: number) => {
+    const currentCard = reviewQueue[currentReviewIndex]
+    if (!currentCard) return
+
+    const prog = progressMap[currentCard.id]
+    const prevReps = prog?.repetitions ?? 0
+    const prevInterval = prog?.interval_days ?? 0
+    const prevEF = prog?.ease_factor ?? 2.5
+
+    // 1. Calculate new ease factor (floor around 1.3)
+    let newEF = prevEF + (0.1 - (5 - grade) * (0.08 + (5 - grade) * 0.02))
+    if (newEF < 1.3) newEF = 1.3
+
+    // 2. Calculate repetitions and interval days
+    let newReps = prevReps
+    let newIntervalDays = prevInterval
+
+    if (grade < 3) {
+      newReps = 0
+      newIntervalDays = 1
+    } else {
+      if (prevReps === 0) {
+        newIntervalDays = 1
+      } else if (prevReps === 1) {
+        newIntervalDays = 6
+      } else {
+        newIntervalDays = Math.round(prevInterval * newEF)
+      }
+      newReps = prevReps + 1
+    }
+
+    const nextReviewDate = addDaysToToday(newIntervalDays)
+    const nowISO = new Date().toISOString()
+
+    // 3. Update local state map immediately for instant responsiveness
+    setProgressMap((prev) => ({
+      ...prev,
+      [currentCard.id]: {
+        id: prev[currentCard.id]?.id || `temp-${Math.random()}`,
+        user_id: userSession?.user?.id || "mock-user",
+        flashcard_id: currentCard.id,
+        ease_factor: newEF,
+        interval_days: newIntervalDays,
+        repetitions: newReps,
+        next_review_date: nextReviewDate,
+        last_reviewed_at: nowISO
+      }
+    }))
+
+    // 4. Save to live Supabase database if authenticated
+    if (userSession?.user?.id && !currentCard.id.startsWith("mock-")) {
+      try {
+        const { error } = await supabase
+          .from("flashcard_progress")
+          .upsert({
+            user_id: userSession.user.id,
+            flashcard_id: currentCard.id,
+            ease_factor: newEF,
+            interval_days: newIntervalDays,
+            repetitions: newReps,
+            next_review_date: nextReviewDate,
+            last_reviewed_at: nowISO
+          }, {
+            onConflict: "user_id,flashcard_id"
+          })
+
+        if (error) {
+          console.error("Failed to upsert flashcard progress:", error.message)
+        }
+      } catch (err) {
+        console.error("Database error during SM-2 upsert:", err)
+      }
+    }
+
+    // 5. Transition state to next card
+    setIsCardFlipped(false)
+    setCurrentReviewIndex((prev) => prev + 1)
+  }
 
   // Generator form state
   const [showGenerator, setShowGenerator] = useState(false)
@@ -124,6 +309,11 @@ export default function FlashcardsPage() {
         setUserSession(session)
 
         if (!session?.user) {
+          // Unauthenticated or mock state
+          setDecks(MOCK_DECKS)
+          if (MOCK_DECKS.length > 0) {
+            setSelectedDeckId(MOCK_DECKS[0].id)
+          }
           setLoadingInitial(false)
           return
         }
@@ -198,7 +388,32 @@ export default function FlashcardsPage() {
           setDecks(typedDecks)
           if (typedDecks.length > 0) {
             setSelectedDeckId(typedDecks[0].id)
+          } else {
+            setSelectedDeckId(null)
           }
+        }
+
+        // 5. Fetch real flashcard progress
+        const { data: progressData, error: progressError } = await supabase
+          .from("flashcard_progress")
+          .select("id, user_id, flashcard_id, ease_factor, interval_days, repetitions, next_review_date, last_reviewed_at")
+          .eq("user_id", session.user.id)
+
+        if (!progressError && progressData && active) {
+          const map: Record<string, FlashcardProgress> = {}
+          progressData.forEach((row: any) => {
+            map[row.flashcard_id] = {
+              id: row.id,
+              user_id: row.user_id,
+              flashcard_id: row.flashcard_id,
+              ease_factor: Number(row.ease_factor ?? 2.5),
+              interval_days: Number(row.interval_days ?? 0),
+              repetitions: Number(row.repetitions ?? 0),
+              next_review_date: row.next_review_date,
+              last_reviewed_at: row.last_reviewed_at
+            }
+          })
+          setProgressMap(map)
         }
       } catch (err) {
         console.error("Error loading flashcards page data:", err)
@@ -299,6 +514,71 @@ export default function FlashcardsPage() {
     )
   }
 
+  // Helper to get today string
+  const getTodayString = () => {
+    const d = new Date()
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  // Helper to check if a card is due
+  const isCardDue = (cardId: string) => {
+    const prog = progressMap[cardId]
+    if (!prog) return true
+    return prog.next_review_date <= getTodayString()
+  }
+
+  // Helper to get preview interval for grading buttons
+  const getPreviewInterval = (grade: number, cardId: string) => {
+    const prog = progressMap[cardId]
+    const prevReps = prog?.repetitions ?? 0
+    const prevInterval = prog?.interval_days ?? 0
+    const prevEF = prog?.ease_factor ?? 2.5
+
+    let nextEF = prevEF + (0.1 - (5 - grade) * (0.08 + (5 - grade) * 0.02))
+    if (nextEF < 1.3) nextEF = 1.3
+
+    if (grade < 3) {
+      return "1d"
+    } else {
+      if (prevReps === 0) {
+        return "1d"
+      } else if (prevReps === 1) {
+        return "6d"
+      } else {
+        const days = Math.round(prevInterval * nextEF)
+        return `${days}d`
+      }
+    }
+  }
+
+  // Calculate stats
+  let totalDueCount = 0
+  decks.forEach((deck) => {
+    deck.flashcards?.forEach((card) => {
+      if (isCardDue(card.id)) {
+        totalDueCount++
+      }
+    })
+  })
+
+  let totalReviewedCount = 0
+  let masteredCount = 0
+  Object.values(progressMap).forEach((prog) => {
+    if (prog.last_reviewed_at) {
+      totalReviewedCount++
+      if (prog.repetitions >= 2) {
+        masteredCount++
+      }
+    }
+  })
+
+  const globalMasteryRate = totalReviewedCount > 0
+    ? Math.round((masteredCount / totalReviewedCount) * 100)
+    : 0
+
   // Filter decks
   const filteredDecks = decks.filter((deck) => {
     const query = searchQuery.toLowerCase()
@@ -311,6 +591,150 @@ export default function FlashcardsPage() {
 
   const selectedDeck = decks.find((d) => d.id === selectedDeckId)
   const displayCards = selectedDeck?.flashcards || []
+
+  if (isReviewActive && reviewDeck) {
+    const isCompleted = currentReviewIndex >= reviewQueue.length
+    const currentCard = reviewQueue[currentReviewIndex]
+    const progressPercent = reviewQueue.length > 0
+      ? Math.round((currentReviewIndex / reviewQueue.length) * 100)
+      : 0
+
+    return (
+      <div className="flex flex-col gap-8">
+        <PageHeader
+          title="Flashcards"
+          description="Active recall flashcard decks powered by premium Groq AI."
+        >
+          <Button
+            variant="outline"
+            onClick={() => setIsReviewActive(false)}
+            className="flex items-center gap-1.5 transition-all"
+          >
+            <ArrowLeft className="size-4" /> Exit Session
+          </Button>
+        </PageHeader>
+
+        {isCompleted ? (
+          <div className="flex flex-col items-center justify-center p-12 border rounded-2xl bg-card border-border shadow-sm text-center gap-5 max-w-2xl mx-auto w-full animate-in fade-in duration-300">
+            <div className="flex size-14 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500">
+              <Award className="size-7" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <h3 className="text-xl font-bold text-foreground">Deck Review Completed!</h3>
+              <p className="text-sm text-muted-foreground max-w-md">
+                Excellent job! You've successfully finished studying all {reviewQueue.length} cards inside this active recall session.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 mt-2">
+              <Button onClick={() => handleStartReview(reviewDeck)} variant="outline" size="sm" className="gap-1.5">
+                <RotateCcw className="size-4" /> Restart Session
+              </Button>
+              <Button onClick={() => setIsReviewActive(false)} size="sm">
+                Back to Decks
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-6 max-w-2xl mx-auto w-full">
+            {/* Header info */}
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">Card {currentReviewIndex + 1} of {reviewQueue.length}</Badge>
+                  {isCardDue(currentCard.id) && <Badge variant="destructive">Due Today</Badge>}
+                </div>
+                <span className="text-xs font-semibold text-muted-foreground">Progress: {progressPercent}%</span>
+              </div>
+              <Progress value={progressPercent} indicatorClassName="bg-primary" />
+            </div>
+
+            {/* Central Card component */}
+            <div
+              onClick={() => !isCardFlipped && setIsCardFlipped(true)}
+              className={`min-h-[220px] flex flex-col items-center justify-center p-8 border rounded-2xl cursor-pointer text-center select-none transition-all shadow-sm ${
+                isCardFlipped
+                  ? "border-emerald-500/20 bg-emerald-500/[0.01] hover:bg-emerald-500/[0.02]"
+                  : "border-primary/20 hover:border-primary/40 bg-primary/[0.01] hover:bg-primary/[0.02]"
+              }`}
+            >
+              {isCardFlipped ? (
+                <div className="flex flex-col gap-4 w-full animate-in fade-in duration-300">
+                  <span className="text-xs font-bold text-primary uppercase tracking-wider">Explanation / Key Answer</span>
+                  <p className="text-sm sm:text-base md:text-lg text-foreground font-semibold leading-relaxed">
+                    {currentCard.back}
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3 w-full">
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Question / Front</span>
+                  <p className="text-base sm:text-lg md:text-xl text-foreground font-bold leading-snug">
+                    {currentCard.front}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-6 animate-pulse">
+                    Click anywhere to reveal the back
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Interactive Grading controls */}
+            {isCardFlipped && (
+              <div className="flex flex-col gap-4 mt-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <p className="text-xs font-semibold text-center text-muted-foreground">Rate your recall performance:</p>
+                <div className="grid grid-cols-4 gap-2 sm:gap-3">
+                  {/* AGAIN */}
+                  <button
+                    onClick={() => handleGradeCard(1)}
+                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-destructive/20 bg-destructive/[0.02] text-destructive hover:bg-destructive/10 transition-all cursor-pointer shadow-sm hover:scale-[1.02]"
+                  >
+                    <span className="text-xs sm:text-sm font-bold">Again</span>
+                    <span className="text-[10px] opacity-70 font-semibold">{getPreviewInterval(1, currentCard.id)}</span>
+                  </button>
+
+                  {/* HARD */}
+                  <button
+                    onClick={() => handleGradeCard(3)}
+                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-amber-500/20 bg-amber-500/[0.02] text-amber-600 hover:bg-amber-500/10 transition-all cursor-pointer shadow-sm hover:scale-[1.02]"
+                  >
+                    <span className="text-xs sm:text-sm font-bold">Hard</span>
+                    <span className="text-[10px] opacity-70 font-semibold">{getPreviewInterval(3, currentCard.id)}</span>
+                  </button>
+
+                  {/* GOOD */}
+                  <button
+                    onClick={() => handleGradeCard(4)}
+                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-primary/20 bg-primary/[0.02] text-primary hover:bg-primary/10 transition-all cursor-pointer shadow-sm hover:scale-[1.02]"
+                  >
+                    <span className="text-xs sm:text-sm font-bold">Good</span>
+                    <span className="text-[10px] opacity-70 font-semibold">{getPreviewInterval(4, currentCard.id)}</span>
+                  </button>
+
+                  {/* EASY */}
+                  <button
+                    onClick={() => handleGradeCard(5)}
+                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.02] text-emerald-600 hover:bg-emerald-500/10 transition-all cursor-pointer shadow-sm hover:scale-[1.02]"
+                  >
+                    <span className="text-xs sm:text-sm font-bold">Easy</span>
+                    <span className="text-[10px] opacity-70 font-semibold">{getPreviewInterval(5, currentCard.id)}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between border-t border-border/60 pt-4 mt-6 text-xs text-muted-foreground">
+              <button
+                onClick={() => setIsReviewActive(false)}
+                className="hover:text-foreground font-semibold cursor-pointer"
+              >
+                Exit Session
+              </button>
+              <span className="font-mono">SM-2 Spaced Repetition Active</span>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -331,9 +755,9 @@ export default function FlashcardsPage() {
       {/* STAT CARDS - REAL DECK VALUES */}
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Total decks" value={String(decks.length)} icon={BrainCircuit} accent="primary" />
-        <StatCard label="Cards reviewed" value="0" icon={RotateCcw} accent="secondary" />
-        <StatCard label="Mastery rate" value="No cards yet" icon={Star} accent="accent" />
-        <StatCard label="Due today" value="No cards yet" icon={BrainCircuit} accent="warning" />
+        <StatCard label="Cards reviewed" value={String(totalReviewedCount)} icon={RotateCcw} accent="secondary" />
+        <StatCard label="Mastery rate" value={totalReviewedCount > 0 ? `${globalMasteryRate}%` : "0%"} icon={Star} accent="accent" />
+        <StatCard label="Due today" value={String(totalDueCount)} icon={BrainCircuit} accent="warning" />
       </section>
 
       {/* AI GENERATOR SETUP UI */}
@@ -513,6 +937,27 @@ export default function FlashcardsPage() {
                 ? `${deck.courses.code || ""} · ${deck.courses.title || ""}`
                 : "General Course"
 
+              // Calculate deck stats
+              const deckCards = deck.flashcards || []
+              let deckDue = 0
+              let deckReviewed = 0
+              let deckMastered = 0
+              deckCards.forEach((c) => {
+                if (isCardDue(c.id)) {
+                  deckDue++
+                }
+                const prog = progressMap[c.id]
+                if (prog && prog.last_reviewed_at) {
+                  deckReviewed++
+                  if (prog.repetitions >= 2) {
+                    deckMastered++
+                  }
+                }
+              })
+              const deckMasteryPercent = deckReviewed > 0
+                ? Math.round((deckMastered / deckReviewed) * 100)
+                : 0
+
               return (
                 <Card
                   key={deck.id}
@@ -528,7 +973,9 @@ export default function FlashcardsPage() {
                       <BrainCircuit className="size-5" aria-hidden="true" />
                     </div>
                     <CardTitle className="pt-2 text-base">{deck.topic}</CardTitle>
-                    <CardDescription className="line-clamp-1">{courseText} · {cardsCount} cards</CardDescription>
+                    <CardDescription className="line-clamp-1">
+                      {courseText} · {cardsCount} cards {deckDue > 0 ? `(${deckDue} due)` : ""}
+                    </CardDescription>
                     <CardAction>
                       {deck.source === "ai_generated" && (
                         <Badge variant="outline" className="text-[10px] py-0 px-2 font-mono bg-primary/5 text-primary">
@@ -540,16 +987,20 @@ export default function FlashcardsPage() {
                   <CardContent className="flex flex-col gap-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">Mastery</span>
-                      <span className="text-xs font-medium text-foreground">0%</span>
+                      <span className="text-xs font-medium text-foreground">{deckMasteryPercent}%</span>
                     </div>
-                    <Progress value={0} indicatorClassName="bg-primary" />
+                    <Progress value={deckMasteryPercent} indicatorClassName="bg-primary" />
                     <Button
                       variant={isSelected ? "default" : "outline"}
                       size="sm"
                       className="mt-2 w-full justify-between"
                       onClick={(e) => {
                         e.stopPropagation()
-                        setSelectedDeckId(deck.id)
+                        if (isSelected) {
+                          handleStartReview(deck)
+                        } else {
+                          setSelectedDeckId(deck.id)
+                        }
                       }}
                     >
                       <span>{isSelected ? "Active recall mode" : "View cards"}</span>
