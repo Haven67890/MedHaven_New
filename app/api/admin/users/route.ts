@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     // Verify caller role
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("role, admin_permissions, is_admin")
+      .select("role, admin_permissions")
       .eq("id", user.id)
       .maybeSingle()
 
@@ -51,8 +51,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden: No profile found" }, { status: 403 })
     }
 
-    const callerRole = String(profile.role || "").toLowerCase()
-    const isAdmin = callerRole === "admin" || callerRole === "super_admin" || callerRole === "moderator" || Boolean(profile.is_admin)
+    const callerRole = String(profile.role || "").trim().toLowerCase()
+    const isAdmin = callerRole === "admin" || callerRole === "super_admin" || callerRole === "moderator"
 
     if (!isAdmin) {
       return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 })
@@ -141,7 +141,7 @@ export async function PATCH(request: NextRequest) {
     // Verify caller role and permissions
     const { data: callerProfile, error: callerError } = await supabase
       .from("profiles")
-      .select("role, admin_permissions, is_admin")
+      .select("role, admin_permissions")
       .eq("id", user.id)
       .maybeSingle()
 
@@ -149,8 +149,8 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden: No profile found" }, { status: 403 })
     }
 
-    const callerRole = String(callerProfile.role || "").toLowerCase()
-    const isAdmin = callerRole === "admin" || callerRole === "super_admin" || callerRole === "moderator" || Boolean(callerProfile.is_admin)
+    const callerRole = String(callerProfile.role || "").trim().toLowerCase()
+    const isAdmin = callerRole === "admin" || callerRole === "super_admin" || callerRole === "moderator"
 
     if (!isAdmin) {
       return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 })

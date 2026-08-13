@@ -38,6 +38,11 @@ type Faculty = {
   university_id: string
 }
 
+function normalizeRole(value: unknown): string {
+  if (typeof value !== "string") return ""
+  return value.trim().toLowerCase()
+}
+
 export default function AdminDashboard() {
   const supabase = createClient()
 
@@ -122,22 +127,26 @@ export default function AdminDashboard() {
 
         const { data: profileData } = await supabase
           .from("profiles")
-          .select("role, admin_permissions, is_admin")
+          .select("role, admin_permissions")
           .eq("id", user.id)
           .maybeSingle()
 
         if (profileData) {
-          const role = String(profileData.role || "").toLowerCase()
-          const isSuperAdmin = role === "super_admin"
-          const perms = (profileData.admin_permissions as Record<string, boolean>) || {}
-          const hasUsersPermission = isSuperAdmin || perms.users === true
+          const role = normalizeRole(profileData.role)
+          const isAdmin = role === "admin" || role === "super_admin" || role === "moderator"
 
-          setCaller({
-            id: user.id,
-            role,
-            isSuperAdmin,
-            hasUsersPermission,
-          })
+          if (isAdmin) {
+            const isSuperAdmin = role === "super_admin"
+            const perms = (profileData.admin_permissions as Record<string, boolean>) || {}
+            const hasUsersPermission = isSuperAdmin || perms.users === true
+
+            setCaller({
+              id: user.id,
+              role,
+              isSuperAdmin,
+              hasUsersPermission,
+            })
+          }
         }
       } catch (err) {
         console.error("Error loading caller profile details:", err)
