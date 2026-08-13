@@ -76,14 +76,19 @@ export async function middleware(request: NextRequest) {
 
   // Force onboarding details completion for Google Sign-In and incomplete profiles
   if (user && pathname !== "/profile/complete" && !pathname.startsWith("/api")) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("department, current_level")
-      .eq("id", user.id)
-      .maybeSingle()
+    const isGoogleUser = user.app_metadata?.provider === "google" ||
+                         user.app_metadata?.providers?.includes("google")
 
-    if (!profile || !profile.department || !profile.current_level) {
-      return redirectWithCookies("/profile/complete")
+    if (isGoogleUser) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("department, current_level")
+        .eq("id", user.id)
+        .maybeSingle()
+
+      if (!profile || !profile.department || !profile.current_level) {
+        return redirectWithCookies("/profile/complete")
+      }
     }
   }
 

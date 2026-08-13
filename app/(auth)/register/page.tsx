@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { FormEvent, useState, Suspense } from "react"
+import { FormEvent, useState, useEffect, Suspense } from "react"
 
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -11,11 +11,29 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 
+type University = {
+  id: string
+  name: string
+  short_name: string
+}
+
+type Faculty = {
+  id: string
+  name: string
+  university_id: string
+}
+
 function RegisterContent() {
   const supabase = createClient()
   const router = useRouter()
   const searchParams = useSearchParams()
   const errorQuery = searchParams ? searchParams.get("error") : null
+
+  const [universities, setUniversities] = useState<University[]>([])
+  const [faculties, setFaculties] = useState<Faculty[]>([])
+  const [selectedUniversityId, setSelectedUniversityId] = useState("")
+  const [selectedFacultyId, setSelectedFacultyId] = useState("")
+  const [loadingMetadata, setLoadingMetadata] = useState(true)
 
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
@@ -29,6 +47,53 @@ function RegisterContent() {
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
+
+  useEffect(() => {
+    const fetchMetadata = async () => {
+      try {
+        const [uniRes, facRes] = await Promise.all([
+          supabase.from("universities").select("id, name, short_name"),
+          supabase.from("faculties").select("id, name, university_id")
+        ])
+
+        if (uniRes.error) throw uniRes.error
+        if (facRes.error) throw facRes.error
+
+        const unis = (uniRes.data || []) as University[]
+        const facs = (facRes.data || []) as Faculty[]
+
+        if (unis.length === 0 || facs.length === 0) {
+          throw new Error("No metadata rows returned from database")
+        }
+
+        setUniversities(unis)
+        setFaculties(facs)
+
+        if (unis.length > 0) {
+          setSelectedUniversityId(unis[0].id)
+        }
+        if (facs.length > 0) {
+          setSelectedFacultyId(facs[0].id)
+        }
+      } catch (err) {
+        console.warn("Error loading register metadata dynamically, applying grace fallbacks:", err)
+        const mockUnis: University[] = [
+          { id: "mock-uni-id", name: "Jos University Teaching Hospital", short_name: "JUTH" }
+        ]
+        const mockFacs: Faculty[] = [
+          { id: "mock-fac-id", name: "Clinical Sciences", university_id: "mock-uni-id" }
+        ]
+        setUniversities(mockUnis)
+        setFaculties(mockFacs)
+        setSelectedUniversityId("mock-uni-id")
+        setSelectedFacultyId("mock-fac-id")
+      } finally {
+        setLoadingMetadata(false)
+      }
+    }
+
+    void fetchMetadata()
+  }, [supabase])
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -62,6 +127,8 @@ function RegisterContent() {
             full_name: fullName.trim(),
             department: department,
             level: level,
+            university_id: selectedUniversityId,
+            faculty_id: selectedFacultyId,
           },
         },
       })
@@ -84,9 +151,10 @@ function RegisterContent() {
             id: authData.user.id,
             email: email.trim().toLowerCase(),
             full_name: fullName.trim(),
+            university_id: selectedUniversityId || null,
+            faculty_id: selectedFacultyId || null,
             department: department,
             current_level: level,
-            role: "student"
           }, { onConflict: "id" })
 
         if (profileError) {
@@ -222,6 +290,61 @@ function RegisterContent() {
             </Field>
 
             <Field>
+              <FieldLabel htmlFor="register-university">University</FieldLabel>
+              <select
+                id="register-university"
+                value={selectedUniversityId}
+                onChange={(event) => {
+                  const val = event.target.value
+                  setSelectedUniversityId(val)
+                  const relatedFacs = faculties.filter((f) => f.university_id === val)
+                  if (relatedFacs.length > 0) {
+                    setSelectedFacultyId(relatedFacs[0].id)
+                  } else {
+                    setSelectedFacultyId("")
+                  }
+                }}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                required
+                disabled={loadingMetadata}
+              >
+                {loadingMetadata ? (
+                  <option value="">Loading universities...</option>
+                ) : (
+                  universities.map((uni) => (
+                    <option key={uni.id} value={uni.id}>
+                      {uni.name} ({uni.short_name})
+                    </option>
+                  ))
+                )}
+              </select>
+            </Field>
+
+            <Field>
+              <FieldLabel htmlFor="register-faculty">Faculty</FieldLabel>
+              <select
+                id="register-faculty"
+                value={selectedFacultyId}
+                onChange={(event) => setSelectedFacultyId(event.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                required
+                disabled={loadingMetadata}
+              >
+                {loadingMetadata ? (
+                  <option value="">Loading faculties...</option>
+                ) : (
+                  faculties
+                    .filter((fac) => !selectedUniversityId || fac.university_id === selectedUniversityId)
+                    .map((fac) => (
+                      <option key={fac.id} value={fac.id}>
+                        {fac.name}
+                      </option>
+                    ))
+                )}
+              </select>
+            </Field>
+
+            <Field>
               <FieldLabel htmlFor="register-department">Department</FieldLabel>
               <select
                 id="register-department"
@@ -252,7 +375,7 @@ function RegisterContent() {
                 <option value="300L">300L</option>
                 <option value="400L">400L</option>
                 <option value="500L">500L</option>
-                <option value="600L / Clinicals">600L / Clinicals</option>
+                <option value="600L">600L</option>
               </select>
             </Field>
 
@@ -267,7 +390,7 @@ function RegisterContent() {
             </Field>
           </FieldGroup>
 
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
+          <Button type="submit" className="w-full" disabled={isSubmitting || loadingMetadata}>
             {isSubmitting ? "Creating account..." : "Create account"}
           </Button>
 

@@ -84,32 +84,6 @@ export async function GET(request: Request) {
       token_hash,
     })
     if (!error) {
-      // Resolve first-time sign-in details completion check AFTER session established
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('department, current_level')
-            .eq('id', user.id)
-            .maybeSingle()
-
-          if (!profile || !profile.department || !profile.current_level) {
-            if (!profile) {
-              await supabase.from('profiles').upsert({
-                id: user.id,
-                email: user.email?.trim().toLowerCase(),
-                full_name: user.user_metadata?.full_name || '',
-                role: 'student'
-              }, { onConflict: 'id' })
-            }
-            return NextResponse.redirect(`${finalOrigin}/profile/complete`)
-          }
-        }
-      } catch (profileErr) {
-        console.warn("Profile checking gracefully ignored on callback:", profileErr)
-      }
-
       return NextResponse.redirect(`${finalOrigin}${next}`)
     }
 
