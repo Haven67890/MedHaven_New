@@ -38,30 +38,9 @@ type Faculty = {
   university_id: string
 }
 
-type Course = {
-  id: string
-  code: string
-  title: string
-}
-
-type Material = {
-  id: string
-  course_id: string
-  title: string
-  type: string
-  tier: string
-  source_url: string | null
-  storage_path: string | null
-  description: string | null
-  status: "draft" | "published" | "archived"
-  featured: boolean
-  uploaded_by: string | null
-  created_at: string
-  courses?: {
-    id: string
-    code: string
-    title: string
-  } | null
+function normalizeRole(value: unknown): string {
+  if (typeof value !== "string") return ""
+  return value.trim().toLowerCase()
 }
 
 export default function AdminDashboard() {
@@ -198,24 +177,26 @@ export default function AdminDashboard() {
 
         const { data: profileData } = await supabase
           .from("profiles")
-          .select("role, admin_permissions, is_admin")
+          .select("role, admin_permissions")
           .eq("id", user.id)
           .maybeSingle()
 
         if (profileData) {
-          const role = String(profileData.role || "").toLowerCase()
-          const isSuperAdmin = role === "super_admin"
-          const perms = (profileData.admin_permissions as Record<string, boolean>) || {}
-          const hasUsersPermission = isSuperAdmin || perms.users === true
-          const hasMaterialsPermission = isSuperAdmin || perms.materials === true
+          const role = normalizeRole(profileData.role)
+          const isAdmin = role === "admin" || role === "super_admin" || role === "moderator"
 
-          setCaller({
-            id: user.id,
-            role,
-            isSuperAdmin,
-            hasUsersPermission,
-            hasMaterialsPermission,
-          })
+          if (isAdmin) {
+            const isSuperAdmin = role === "super_admin"
+            const perms = (profileData.admin_permissions as Record<string, boolean>) || {}
+            const hasUsersPermission = isSuperAdmin || perms.users === true
+
+            setCaller({
+              id: user.id,
+              role,
+              isSuperAdmin,
+              hasUsersPermission,
+            })
+          }
         }
       } catch (err) {
         console.error("Error loading caller profile details:", err)
