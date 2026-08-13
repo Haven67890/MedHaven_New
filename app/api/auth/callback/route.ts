@@ -39,7 +39,7 @@ export async function GET(request: Request) {
     }
   )
 
-  // 1. Handle Google OAuth (PKCE Code)
+  // 1. Handle Google OAuth or PKCE Code flow
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
@@ -47,23 +47,28 @@ export async function GET(request: Request) {
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (user) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('department, current_level')
-            .eq('id', user.id)
-            .maybeSingle()
+          const isGoogleUser = user.app_metadata?.provider === "google" ||
+                               user.app_metadata?.providers?.includes("google")
 
-          if (!profile || !profile.department || !profile.current_level) {
-            // Skeleton profile upsert to allow client RLS and updating
-            if (!profile) {
-              await supabase.from('profiles').upsert({
-                id: user.id,
-                email: user.email?.trim().toLowerCase(),
-                full_name: user.user_metadata?.full_name || '',
-                role: 'student'
-              }, { onConflict: 'id' })
+          if (isGoogleUser) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('department, current_level')
+              .eq('id', user.id)
+              .maybeSingle()
+
+            if (!profile || !profile.department || !profile.current_level) {
+              // Skeleton profile upsert to allow client RLS and updating
+              if (!profile) {
+                await supabase.from('profiles').upsert({
+                  id: user.id,
+                  email: user.email?.trim().toLowerCase(),
+                  full_name: user.user_metadata?.full_name || '',
+                  role: 'student'
+                }, { onConflict: 'id' })
+              }
+              return NextResponse.redirect(`${finalOrigin}/profile/complete`)
             }
-            return NextResponse.redirect(`${finalOrigin}/profile/complete`)
           }
         }
       } catch (profileErr) {

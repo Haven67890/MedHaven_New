@@ -114,17 +114,17 @@ function ProfileCompleteContent() {
     const fullName = user?.user_metadata?.full_name || user?.user_metadata?.name || emailPrefix
 
     try {
-      const { error: updateError } = await supabase
+      // First attempt to update the existing profile row's institutional details
+      const { data, error: updateError } = await supabase
         .from("profiles")
-        .upsert({
-          id: userId,
-          email: userEmail.trim().toLowerCase() || null,
-          full_name: fullName,
+        .update({
           university_id: selectedUniversityId || null,
           faculty_id: selectedFacultyId || null,
           department: department,
           current_level: level,
-        }, { onConflict: "id" })
+        })
+        .eq("id", userId)
+        .select()
 
       if (updateError) {
         setError(updateError.message)
@@ -132,8 +132,29 @@ function ProfileCompleteContent() {
         return
       }
 
+      // If the row didn't exist for some reason, we perform a safe upsert
+      if (!data || data.length === 0) {
+        const { error: upsertError } = await supabase
+          .from("profiles")
+          .upsert({
+            id: userId,
+            email: userEmail.trim().toLowerCase() || null,
+            full_name: fullName,
+            university_id: selectedUniversityId || null,
+            faculty_id: selectedFacultyId || null,
+            department: department,
+            current_level: level,
+          }, { onConflict: "id" })
+
+        if (upsertError) {
+          setError(upsertError.message)
+          setIsSubmitting(false)
+          return
+        }
+      }
+
       router.refresh()
-      window.location.href = "/dashboard"
+      router.push("/dashboard")
       // Do not reset isSubmitting on success to preserve loading/disabled state during navigation
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to save profile details.")

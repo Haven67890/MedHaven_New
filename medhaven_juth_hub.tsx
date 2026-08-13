@@ -171,7 +171,7 @@ export default function App() {
     return () => {
       mounted = false;
     };
-  }, [userProfile.email]);
+  }, []);
 
   const [dbTimetableEntries, setDbTimetableEntries] = useState<any[]>([]);
   const [now, setNow] = useState(new Date());
