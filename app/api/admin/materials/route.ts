@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createServiceClient } from "@/lib/supabase/server"
 
 // Helper to audit actions
 async function createAuditLog(
@@ -32,24 +32,28 @@ async function createAuditLog(
 }
 
 // Verify calling admin role
-async function checkAdminAccess(supabase: any) {
+async function checkAdminAccess(supabase: any, serviceSupabase: any) {
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) {
+    if (authError) {
+      console.error("[TEMP ERROR LOG - materials authError]:", authError)
+    }
     return { errorResponse: NextResponse.json({ error: "Unauthorized" }, { status: 401 }), user: null }
   }
 
-  const { data: profile, error: profileError } = await supabase
+  const { data: profile, error: profileError } = await serviceSupabase
     .from("profiles")
-    .select("role, admin_permissions, is_admin")
+    .select("role, admin_permissions")
     .eq("id", user.id)
     .maybeSingle()
 
   if (profileError || !profile) {
+    console.error("[TEMP ERROR LOG - materials caller check]:", profileError)
     return { errorResponse: NextResponse.json({ error: "Forbidden: No profile found" }, { status: 403 }), user: null }
   }
 
   const callerRole = String(profile.role || "").toLowerCase()
-  const isAdmin = callerRole === "admin" || callerRole === "super_admin" || callerRole === "moderator" || Boolean(profile.is_admin)
+  const isAdmin = callerRole === "admin" || callerRole === "super_admin" || callerRole === "moderator"
 
   if (!isAdmin) {
     return { errorResponse: NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 }), user: null }
@@ -61,7 +65,8 @@ async function checkAdminAccess(supabase: any) {
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
-    const { errorResponse } = await checkAdminAccess(supabase)
+    const serviceSupabase = createServiceClient()
+    const { errorResponse } = await checkAdminAccess(supabase, serviceSupabase)
     if (errorResponse) return errorResponse
 
     // Parse search parameters
@@ -74,7 +79,7 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1", 10)
     const limit = parseInt(searchParams.get("limit") || "20", 10)
 
-    let queryBuilder = supabase
+    let queryBuilder = serviceSupabase
       .from("materials")
       .select(`
         id,
@@ -124,7 +129,7 @@ export async function GET(request: NextRequest) {
     const { data: materials, count, error: fetchError } = await queryBuilder
 
     if (fetchError) {
-      console.error("Error fetching materials list for admin:", fetchError)
+      console.error("[TEMP ERROR LOG - materials GET fetch]:", fetchError)
       return NextResponse.json({ error: "Failed to fetch materials" }, { status: 500 })
     }
 
@@ -141,7 +146,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
-    const { errorResponse, user } = await checkAdminAccess(supabase)
+    const serviceSupabase = createServiceClient()
+    const { errorResponse, user } = await checkAdminAccess(supabase, serviceSupabase)
     if (errorResponse) return errorResponse
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -186,19 +192,19 @@ export async function POST(request: NextRequest) {
       uploaded_by: user.id,
     }
 
-    const { data: material, error: insertError } = await supabase
+    const { data: material, error: insertError } = await serviceSupabase
       .from("materials")
       .insert(payload)
       .select()
       .single()
 
     if (insertError) {
-      console.error("Failed to create material:", insertError)
+      console.error("[TEMP ERROR LOG - materials POST insert]:", insertError)
       return NextResponse.json({ error: "Failed to create material: " + insertError.message }, { status: 500 })
     }
 
     await createAuditLog(
-      supabase,
+      serviceSupabase,
       user.id,
       "create_material",
       material.id,
@@ -216,7 +222,8 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const supabase = await createClient()
-    const { errorResponse, user } = await checkAdminAccess(supabase)
+    const serviceSupabase = createServiceClient()
+    const { errorResponse, user } = await checkAdminAccess(supabase, serviceSupabase)
     if (errorResponse) return errorResponse
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -241,13 +248,14 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Fetch existing material
-    const { data: oldMaterial, error: fetchError } = await supabase
+    const { data: oldMaterial, error: fetchError } = await serviceSupabase
       .from("materials")
       .select("*")
       .eq("id", id)
       .maybeSingle()
 
     if (fetchError || !oldMaterial) {
+      console.error("[TEMP ERROR LOG - materials PATCH fetch]:", fetchError)
       return NextResponse.json({ error: "Material not found" }, { status: 404 })
     }
 
@@ -266,13 +274,13 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ message: "No updates provided" })
     }
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await serviceSupabase
       .from("materials")
       .update(updates)
       .eq("id", id)
 
     if (updateError) {
-      console.error("Failed to update material:", updateError)
+      console.error("[TEMP ERROR LOG - materials PATCH update]:", updateError)
       return NextResponse.json({ error: "Failed to update material: " + updateError.message }, { status: 500 })
     }
 
@@ -282,7 +290,7 @@ export async function PATCH(request: NextRequest) {
       const newVal = updates[key]
       if (oldVal !== newVal) {
         await createAuditLog(
-          supabase,
+          serviceSupabase,
           user.id,
           `update_material_${key}`,
           id,
@@ -302,7 +310,8 @@ export async function PATCH(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const supabase = await createClient()
-    const { errorResponse, user } = await checkAdminAccess(supabase)
+    const serviceSupabase = createServiceClient()
+    const { errorResponse, user } = await checkAdminAccess(supabase, serviceSupabase)
     if (errorResponse) return errorResponse
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -316,31 +325,32 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Fetch material details
-    const { data: material, error: fetchError } = await supabase
+    const { data: material, error: fetchError } = await serviceSupabase
       .from("materials")
       .select("*")
       .eq("id", id)
       .maybeSingle()
 
     if (fetchError || !material) {
+      console.error("[TEMP ERROR LOG - materials DELETE fetch]:", fetchError)
       return NextResponse.json({ error: "Material not found" }, { status: 404 })
     }
 
     // Perform database deletion
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await serviceSupabase
       .from("materials")
       .delete()
       .eq("id", id)
 
     if (deleteError) {
-      console.error("Failed to delete material:", deleteError)
+      console.error("[TEMP ERROR LOG - materials DELETE operation]:", deleteError)
       return NextResponse.json({ error: "Failed to delete material: " + deleteError.message }, { status: 500 })
     }
 
     // Check whether other materials share that same file/source_url before deleting the Storage object
     const fileToMaybeDelete = material.storage_path
     if (fileToMaybeDelete) {
-      const { data: sharedMaterials, error: sharedError } = await supabase
+      const { data: sharedMaterials, error: sharedError } = await serviceSupabase
         .from("materials")
         .select("id")
         .eq("storage_path", fileToMaybeDelete)
@@ -348,7 +358,7 @@ export async function DELETE(request: NextRequest) {
 
       if (!sharedError && (!sharedMaterials || sharedMaterials.length === 0)) {
         // Safe to delete from Supabase storage
-        const { error: storageDeleteError } = await supabase.storage
+        const { error: storageDeleteError } = await serviceSupabase.storage
           .from("materials")
           .remove([fileToMaybeDelete])
         if (storageDeleteError) {
@@ -359,7 +369,7 @@ export async function DELETE(request: NextRequest) {
 
     // Write audit log
     await createAuditLog(
-      supabase,
+      serviceSupabase,
       user.id,
       "delete_material",
       id,
