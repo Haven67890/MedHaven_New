@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { Menu as MenuIcon } from "lucide-react"
 
@@ -21,14 +21,26 @@ function normalizeRole(value: unknown): string {
 }
 
 function NavLink({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }) {
+  const router = useRouter()
   const pathname = usePathname()
   const isActive = pathname === item.href
   const Icon = item.icon
 
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (onNavigate) {
+      onNavigate()
+    }
+    if (item.href === "/admin") {
+      e.preventDefault()
+      router.refresh()
+      router.push("/admin")
+    }
+  }
+
   return (
     <Link
       href={item.href}
-      onClick={onNavigate}
+      onClick={handleClick}
       aria-current={isActive ? "page" : undefined}
       className={cn(
         "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
