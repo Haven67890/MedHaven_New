@@ -89,6 +89,7 @@ function SidebarContent({ isAdmin, onNavigate }: { isAdmin: boolean; onNavigate?
 export function ApplicationShell({ children }: { children: React.ReactNode }) {
   const supabase = createClient()
   const { user } = useAuth()
+  const pathname = usePathname()
   const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
@@ -108,7 +109,7 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
     }
 
     void checkAdmin()
-  }, [user?.id])
+  }, [user?.id, pathname])
 
   return (
     <div className="flex min-h-svh bg-muted/40">
