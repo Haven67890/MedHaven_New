@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createServiceClient } from "@/lib/supabase/server"
 
 export async function GET(request: NextRequest) {
   try {
@@ -27,14 +27,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 })
     }
 
+    const serviceSupabase = createServiceClient()
+
     // Fetch student count (where role is 'student' or null)
-    const { count: studentCount, error: studentError } = await supabase
+    const { count: studentCount, error: studentError } = await serviceSupabase
       .from("profiles")
       .select("*", { count: "exact", head: true })
       .or("role.eq.student,role.is.null")
 
     // Fetch admin/moderator count (role in admin, super_admin, moderator)
-    const { count: adminCount, error: adminError } = await supabase
+    const { count: adminCount, error: adminError } = await serviceSupabase
       .from("profiles")
       .select("*", { count: "exact", head: true })
       .in("role", ["admin", "super_admin", "moderator"])

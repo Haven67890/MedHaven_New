@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createServiceClient } from "@/lib/supabase/server"
 
 // Helper to audit actions
 async function createAuditLog(
@@ -58,6 +58,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 })
     }
 
+    const serviceSupabase = createServiceClient()
+
     // Parse search parameters
     const { searchParams } = new URL(request.url)
     const search = searchParams.get("query") || ""
@@ -84,14 +86,14 @@ export async function GET(request: NextRequest) {
       "admin_permissions",
     ]
 
-    let queryBuilder = supabase
+    let queryBuilder = serviceSupabase
       .from("profiles")
       .select(fields.join(", "), { count: "exact" })
 
     // Apply filters
     if (search.trim()) {
       const cleanSearch = search.trim()
-      queryBuilder = queryBuilder.or(`full_name.ilike.%${cleanSearch}%,email.ilike.%${cleanSearch}%`)
+      queryBuilder = queryBuilder.or(`full_name.ilike.*${cleanSearch}*,email.ilike.*${cleanSearch}*`)
     }
 
     if (roleFilter !== "all") {
@@ -184,8 +186,10 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Bad Request: Missing userId" }, { status: 400 })
     }
 
+    const serviceSupabase = createServiceClient()
+
     // Fetch target user's current profile to check permissions and compare for audit logs
-    const { data: targetProfile, error: targetError } = await supabase
+    const { data: targetProfile, error: targetError } = await serviceSupabase
       .from("profiles")
       .select("*")
       .eq("id", userId)
@@ -249,7 +253,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Perform updates
-    const { error: updateError } = await supabase
+    const { error: updateError } = await serviceSupabase
       .from("profiles")
       .update(updates)
       .eq("id", userId)
@@ -261,32 +265,32 @@ export async function PATCH(request: NextRequest) {
 
     // Write audit logs for changes
     if (full_name !== undefined && full_name !== targetProfile.full_name) {
-      await createAuditLog(supabase, user.id, "update_profile_name", userId, targetProfile.full_name, full_name)
+      await createAuditLog(serviceSupabase, user.id, "update_profile_name", userId, targetProfile.full_name, full_name)
     }
     if (department !== undefined && department !== targetProfile.department) {
-      await createAuditLog(supabase, user.id, "update_profile_department", userId, targetProfile.department, department)
+      await createAuditLog(serviceSupabase, user.id, "update_profile_department", userId, targetProfile.department, department)
     }
     if (current_level !== undefined && current_level !== targetProfile.current_level) {
-      await createAuditLog(supabase, user.id, "update_profile_level", userId, targetProfile.current_level, current_level)
+      await createAuditLog(serviceSupabase, user.id, "update_profile_level", userId, targetProfile.current_level, current_level)
     }
     if (university_id !== undefined && university_id !== targetProfile.university_id) {
-      await createAuditLog(supabase, user.id, "update_profile_university", userId, targetProfile.university_id, university_id)
+      await createAuditLog(serviceSupabase, user.id, "update_profile_university", userId, targetProfile.university_id, university_id)
     }
     if (faculty_id !== undefined && faculty_id !== targetProfile.faculty_id) {
-      await createAuditLog(supabase, user.id, "update_profile_faculty", userId, targetProfile.faculty_id, faculty_id)
+      await createAuditLog(serviceSupabase, user.id, "update_profile_faculty", userId, targetProfile.faculty_id, faculty_id)
     }
     if (role !== undefined && role !== targetProfile.role && callerRole === "super_admin") {
-      await createAuditLog(supabase, user.id, "update_role", userId, targetProfile.role, role)
+      await createAuditLog(serviceSupabase, user.id, "update_role", userId, targetProfile.role, role)
     }
     if (admin_permissions !== undefined && JSON.stringify(admin_permissions) !== JSON.stringify(targetProfile.admin_permissions) && callerRole === "super_admin") {
-      await createAuditLog(supabase, user.id, "update_permissions", userId, targetProfile.admin_permissions, admin_permissions)
+      await createAuditLog(serviceSupabase, user.id, "update_permissions", userId, targetProfile.admin_permissions, admin_permissions)
     }
     if (account_status !== undefined && account_status !== targetProfile.account_status) {
       const actionName = account_status === "suspended" ? "suspend_user" : account_status === "banned" ? "ban_user" : "reactivate_user"
-      await createAuditLog(supabase, user.id, actionName, userId, targetProfile.account_status, account_status, suspended_reason || "Reactivated")
+      await createAuditLog(serviceSupabase, user.id, actionName, userId, targetProfile.account_status, account_status, suspended_reason || "Reactivated")
     } else if ((finalStatus === "suspended" || finalStatus === "banned") && (suspended_reason !== undefined || suspended_until !== undefined)) {
       // Log edit of existing suspension/ban reason/date
-      await createAuditLog(supabase, user.id, "update_lockout_details", userId, {
+      await createAuditLog(serviceSupabase, user.id, "update_lockout_details", userId, {
         reason: targetProfile.suspended_reason,
         until: targetProfile.suspended_until
       }, {
