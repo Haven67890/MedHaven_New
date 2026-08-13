@@ -37,17 +37,23 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
+      if (authError) {
+        console.error("[TEMP ERROR LOG - users GET authError]:", authError)
+      }
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Verify caller role
-    const { data: profile, error: profileError } = await supabase
+    const serviceSupabase = createServiceClient()
+
+    // Verify caller role using serviceSupabase
+    const { data: profile, error: profileError } = await serviceSupabase
       .from("profiles")
       .select("role, admin_permissions")
       .eq("id", user.id)
       .maybeSingle()
 
     if (profileError || !profile) {
+      console.error("[TEMP ERROR LOG - users GET caller check]:", profileError)
       return NextResponse.json({ error: "Forbidden: No profile found" }, { status: 403 })
     }
 
@@ -57,8 +63,6 @@ export async function GET(request: NextRequest) {
     if (!isAdmin) {
       return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 })
     }
-
-    const serviceSupabase = createServiceClient()
 
     // Parse search parameters
     const { searchParams } = new URL(request.url)
@@ -117,7 +121,7 @@ export async function GET(request: NextRequest) {
     const { data: users, count, error: fetchError } = await queryBuilder
 
     if (fetchError) {
-      console.error("Error fetching users list:", fetchError)
+      console.error("[TEMP ERROR LOG - users GET fetch]:", fetchError)
       return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 })
     }
 
@@ -137,17 +141,23 @@ export async function PATCH(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
+      if (authError) {
+        console.error("[TEMP ERROR LOG - users PATCH authError]:", authError)
+      }
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Verify caller role and permissions
-    const { data: callerProfile, error: callerError } = await supabase
+    const serviceSupabase = createServiceClient()
+
+    // Verify caller role and permissions using serviceSupabase
+    const { data: callerProfile, error: callerError } = await serviceSupabase
       .from("profiles")
       .select("role, admin_permissions")
       .eq("id", user.id)
       .maybeSingle()
 
     if (callerError || !callerProfile) {
+      console.error("[TEMP ERROR LOG - users PATCH caller check]:", callerError)
       return NextResponse.json({ error: "Forbidden: No profile found" }, { status: 403 })
     }
 
@@ -186,8 +196,6 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Bad Request: Missing userId" }, { status: 400 })
     }
 
-    const serviceSupabase = createServiceClient()
-
     // Fetch target user's current profile to check permissions and compare for audit logs
     const { data: targetProfile, error: targetError } = await serviceSupabase
       .from("profiles")
@@ -196,6 +204,7 @@ export async function PATCH(request: NextRequest) {
       .maybeSingle()
 
     if (targetError || !targetProfile) {
+      console.error("[TEMP ERROR LOG - users PATCH target check]:", targetError)
       return NextResponse.json({ error: "Target user profile not found" }, { status: 404 })
     }
 
@@ -259,7 +268,7 @@ export async function PATCH(request: NextRequest) {
       .eq("id", userId)
 
     if (updateError) {
-      console.error("Error updating user profile:", updateError)
+      console.error("[TEMP ERROR LOG - users PATCH update]:", updateError)
       return NextResponse.json({ error: "Failed to update user profile" }, { status: 500 })
     }
 

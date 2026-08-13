@@ -7,16 +7,23 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
+      if (authError) {
+        console.error("[TEMP ERROR LOG - overview authError]:", authError)
+      }
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { data: profile, error: profileError } = await supabase
+    const serviceSupabase = createServiceClient()
+
+    // Verify caller role using serviceSupabase
+    const { data: profile, error: profileError } = await serviceSupabase
       .from("profiles")
       .select("role, admin_permissions")
       .eq("id", user.id)
       .maybeSingle()
 
     if (profileError || !profile) {
+      console.error("[TEMP ERROR LOG - overview caller check]:", profileError)
       return NextResponse.json({ error: "Forbidden: No profile found" }, { status: 403 })
     }
 
@@ -26,8 +33,6 @@ export async function GET(request: NextRequest) {
     if (!isAdmin) {
       return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 })
     }
-
-    const serviceSupabase = createServiceClient()
 
     // Fetch student count (where role is 'student' or null)
     const { count: studentCount, error: studentError } = await serviceSupabase
@@ -42,7 +47,7 @@ export async function GET(request: NextRequest) {
       .in("role", ["admin", "super_admin", "moderator"])
 
     if (studentError || adminError) {
-      console.error("Database error fetching overview stats:", { studentError, adminError })
+      console.error("[TEMP ERROR LOG - overview fetch stats]:", { studentError, adminError })
       return NextResponse.json({ error: "Database error fetching stats" }, { status: 500 })
     }
 
