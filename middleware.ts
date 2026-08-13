@@ -125,19 +125,16 @@ export async function middleware(request: NextRequest) {
     // Check if user has admin role
     const { data: profileData } = await supabase
       .from("profiles")
-      .select("role, role_name, is_admin")
+      .select("role")
       .eq("id", user.id)
       .maybeSingle()
 
     const profile = profileData as Record<string, unknown> | null
-    const role = String(
-      profile?.role ?? profile?.role_name ?? ""
-    ).toLowerCase()
+    const role = String(profile?.role ?? "").toLowerCase()
     const isAdmin =
       role === "admin" ||
       role === "super_admin" ||
-      role === "moderator" ||
-      Boolean(profile?.is_admin)
+      role === "moderator"
 
     if (!isAdmin) {
       return redirectWithCookies("/dashboard")
