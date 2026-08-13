@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useTransition } from "react"
-import { ShieldAlert, Users as UsersIcon, ShieldCheck, UserCheck, AlertTriangle, RefreshCw, Search, SlidersHorizontal, Edit2 } from "lucide-react"
+import { ShieldAlert, Users as UsersIcon, ShieldCheck, UserCheck, AlertTriangle, RefreshCw, Search, SlidersHorizontal, Edit2, Plus, Trash2, CheckCircle, Ban, Archive, ExternalLink, Sparkles, FileText, Upload } from "lucide-react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -46,8 +46,8 @@ function normalizeRole(value: unknown): string {
 export default function AdminDashboard() {
   const supabase = createClient()
 
-  // Tabs: 'overview' | 'users'
-  const [activeTab, setActiveTab] = useState<"overview" | "users">("overview")
+  // Tabs: 'overview' | 'users' | 'materials'
+  const [activeTab, setActiveTab] = useState<"overview" | "users" | "materials">("overview")
 
   // Caller authorization info
   const [caller, setCaller] = useState<{
@@ -55,6 +55,7 @@ export default function AdminDashboard() {
     role: string
     isSuperAdmin: boolean
     hasUsersPermission: boolean
+    hasMaterialsPermission: boolean
   } | null>(null)
 
   const [callerLoading, setCallerLoading] = useState(true)
@@ -82,15 +83,16 @@ export default function AdminDashboard() {
   // Metadata for select options
   const [universities, setUniversities] = useState<University[]>([])
   const [faculties, setFaculties] = useState<Faculty[]>([])
+  const [courses, setCourses] = useState<Course[]>([])
 
-  // Edit Sheet State
+  // Edit User Sheet State
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null)
   const [editOpen, setEditOpen] = useState(false)
   const [editLoading, setEditLoading] = useState(false)
   const [editError, setEditError] = useState("")
   const [editSuccess, setEditSuccess] = useState("")
 
-  // Editable fields state
+  // Editable fields state (User)
   const [formName, setFormName] = useState("")
   const [formDepartment, setFormDepartment] = useState("")
   const [formLevel, setFormLevel] = useState("")
@@ -106,13 +108,61 @@ export default function AdminDashboard() {
     marketplace: false,
   })
 
-  // Debounce search query
+  // --- MATERIALS STATE ---
+  const [materials, setMaterials] = useState<Material[]>([])
+  const [materialsCount, setMaterialsCount] = useState(0)
+  const [materialsLoading, setMaterialsLoading] = useState(false)
+  const [materialsError, setMaterialsError] = useState("")
+
+  const [materialSearch, setMaterialSearch] = useState("")
+  const [materialDebouncedSearch, setMaterialDebouncedSearch] = useState("")
+  const [materialCourseFilter, setMaterialCourseFilter] = useState("all")
+  const [materialTypeFilter, setMaterialTypeFilter] = useState("all")
+  const [materialTierFilter, setMaterialTierFilter] = useState("all")
+  const [materialStatusFilter, setMaterialStatusFilter] = useState("all")
+  const [materialPage, setMaterialPage] = useState(1)
+
+  // Material Form Sheet State
+  const [materialFormOpen, setMaterialFormOpen] = useState(false)
+  const [materialFormMode, setMaterialFormMode] = useState<"create" | "edit">("create")
+  const [editingMaterial, setEditingMaterial] = useState<Material | null>(null)
+  const [materialFormLoading, setMaterialFormLoading] = useState(false)
+  const [materialFormError, setMaterialFormError] = useState("")
+  const [materialFormSuccess, setMaterialFormSuccess] = useState("")
+
+  // Material Editable Form Fields
+  const [formMaterialTitle, setFormMaterialTitle] = useState("")
+  const [formMaterialDescription, setFormMaterialDescription] = useState("")
+  const [formMaterialType, setFormMaterialType] = useState("")
+  const [formMaterialTier, setFormMaterialTier] = useState("")
+  const [formMaterialCourseId, setFormMaterialCourseId] = useState("")
+  const [formMaterialStatus, setFormMaterialStatus] = useState<"draft" | "published" | "archived">("draft")
+  const [formMaterialFeatured, setFormMaterialFeatured] = useState(false)
+  const [formMaterialSourceUrl, setFormMaterialSourceUrl] = useState("")
+  const [formMaterialFile, setFormMaterialFile] = useState<File | null>(null)
+  const [fileUploadProgress, setFileUploadProgress] = useState<string | null>(null)
+
+  // Material Delete Confirmation State
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [materialToDelete, setMaterialToDelete] = useState<Material | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteError, setDeleteError] = useState("")
+
+  // Debounce search query (Users)
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchQuery)
     }, 400)
     return () => clearTimeout(timer)
   }, [searchQuery])
+
+  // Debounce search query (Materials)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setMaterialDebouncedSearch(materialSearch)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [materialSearch])
 
   // Get current caller session/role info
   useEffect(() => {
@@ -157,16 +207,18 @@ export default function AdminDashboard() {
     void loadCaller()
   }, [])
 
-  // Load universities and faculties metadata
+  // Load universities, faculties, and courses metadata
   useEffect(() => {
     async function loadMetadata() {
       try {
-        const [uniRes, facRes] = await Promise.all([
+        const [uniRes, facRes, courseRes] = await Promise.all([
           supabase.from("universities").select("id, name, short_name"),
-          supabase.from("faculties").select("id, name, university_id")
+          supabase.from("faculties").select("id, name, university_id"),
+          supabase.from("courses").select("id, code, title").order("code", { ascending: true })
         ])
         if (uniRes.data) setUniversities(uniRes.data)
         if (facRes.data) setFaculties(facRes.data)
+        if (courseRes.data) setCourses(courseRes.data)
       } catch (err) {
         console.error("Error loading metadata directories:", err)
       }
@@ -221,14 +273,59 @@ export default function AdminDashboard() {
     }
   }
 
+  // Fetch materials list
+  const fetchMaterials = async () => {
+    setMaterialsLoading(true)
+    setMaterialsError("")
+    try {
+      const params = new URLSearchParams({
+        query: materialDebouncedSearch,
+        course_id: materialCourseFilter,
+        type: materialTypeFilter,
+        tier: materialTierFilter,
+        status: materialStatusFilter,
+        page: String(materialPage),
+        limit: String(itemsPerPage),
+      })
+
+      const res = await fetch(`/api/admin/materials?${params.toString()}`)
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to load materials")
+      }
+      setMaterials(data.materials || [])
+      setMaterialsCount(data.count || 0)
+    } catch (err: any) {
+      setMaterialsError(err.message || "An error occurred loading materials.")
+    } finally {
+      setMaterialsLoading(false)
+    }
+  }
+
   // Reload lists when active tab changes, or filters change
   useEffect(() => {
     if (activeTab === "overview") {
       void fetchOverviewStats()
-    } else {
+    } else if (activeTab === "users") {
       void fetchUsers()
+    } else if (activeTab === "materials") {
+      void fetchMaterials()
     }
-  }, [activeTab, debouncedSearch, roleFilter, levelFilter, deptFilter, uniFilter, currentPage])
+  }, [
+    activeTab,
+    debouncedSearch,
+    roleFilter,
+    levelFilter,
+    deptFilter,
+    uniFilter,
+    currentPage,
+    materialDebouncedSearch,
+    materialCourseFilter,
+    materialTypeFilter,
+    materialTierFilter,
+    materialStatusFilter,
+    materialPage
+  ])
 
   // Open Edit User view & prefill values
   const handleEditClick = (userToEdit: Profile) => {
@@ -328,6 +425,193 @@ export default function AdminDashboard() {
     }
   }
 
+  // --- MATERIAL MANAGEMENT FUNCTIONS ---
+
+  const handleOpenMaterialCreate = () => {
+    setMaterialFormMode("create")
+    setEditingMaterial(null)
+    setFormMaterialTitle("")
+    setFormMaterialDescription("")
+    setFormMaterialType("pdf")
+    setFormMaterialTier("study")
+    setFormMaterialCourseId(courses[0]?.id || "")
+    setFormMaterialStatus("draft")
+    setFormMaterialFeatured(false)
+    setFormMaterialSourceUrl("")
+    setFormMaterialFile(null)
+    setMaterialFormError("")
+    setMaterialFormSuccess("")
+    setFileUploadProgress(null)
+    setMaterialFormOpen(true)
+  }
+
+  const handleOpenMaterialEdit = (material: Material) => {
+    setMaterialFormMode("edit")
+    setEditingMaterial(material)
+    setFormMaterialTitle(material.title || "")
+    setFormMaterialDescription(material.description || "")
+    setFormMaterialType(material.type || "pdf")
+    setFormMaterialTier(material.tier || "study")
+    setFormMaterialCourseId(material.course_id || "")
+    setFormMaterialStatus(material.status || "draft")
+    setFormMaterialFeatured(material.featured || false)
+    setFormMaterialSourceUrl(material.source_url || "")
+    setFormMaterialFile(null)
+    setMaterialFormError("")
+    setMaterialFormSuccess("")
+    setFileUploadProgress(null)
+    setMaterialFormOpen(true)
+  }
+
+  const uploadFileToStorage = async (file: File): Promise<string> => {
+    setFileUploadProgress("Uploading document to materials bucket...")
+    const fileExt = file.name.split(".").pop() || "pdf"
+    const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`
+    const filePath = fileName
+
+    const { error: uploadError } = await supabase.storage
+      .from("materials")
+      .upload(filePath, file, { cacheControl: "3600", upsert: true })
+
+    if (uploadError) {
+      throw new Error("Supabase Storage Upload failed: " + uploadError.message)
+    }
+
+    return filePath
+  }
+
+  const handleMaterialFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!formMaterialTitle.trim()) {
+      setMaterialFormError("Title is required")
+      return
+    }
+    if (!formMaterialCourseId) {
+      setMaterialFormError("A course selection is required")
+      return
+    }
+
+    setMaterialFormLoading(true)
+    setMaterialFormError("")
+    setMaterialFormSuccess("")
+
+    try {
+      let finalStoragePath = editingMaterial?.storage_path || null
+      let finalSourceUrl = formMaterialSourceUrl.trim() || null
+
+      if (formMaterialFile) {
+        const filePath = await uploadFileToStorage(formMaterialFile)
+        finalStoragePath = filePath
+        // Calculate raw storage public URL to store in source_url as fallback
+        finalSourceUrl = `https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/${filePath}`
+      }
+
+      const payload: Record<string, any> = {
+        title: formMaterialTitle.trim(),
+        description: formMaterialDescription.trim() || null,
+        type: formMaterialType,
+        tier: formMaterialTier,
+        course_id: formMaterialCourseId,
+        status: formMaterialStatus,
+        featured: formMaterialFeatured,
+        source_url: finalSourceUrl,
+        storage_path: finalStoragePath,
+      }
+
+      let res
+      if (materialFormMode === "create") {
+        res = await fetch("/api/admin/materials", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        })
+      } else {
+        payload.id = editingMaterial?.id
+        res = await fetch("/api/admin/materials", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        })
+      }
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to save material changes")
+      }
+
+      setMaterialFormSuccess(
+        materialFormMode === "create"
+          ? "Material created and logged successfully!"
+          : "Material updated and logged successfully!"
+      )
+
+      void fetchMaterials()
+
+      setTimeout(() => {
+        setMaterialFormOpen(false)
+        setEditingMaterial(null)
+      }, 1000)
+    } catch (err: any) {
+      setMaterialFormError(err.message || "An unexpected error occurred saving material.")
+    } finally {
+      setMaterialFormLoading(false)
+      setFileUploadProgress(null)
+    }
+  }
+
+  const handleQuickStatusChange = async (material: Material, newStatus: "draft" | "published" | "archived") => {
+    try {
+      const res = await fetch("/api/admin/materials", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: material.id,
+          status: newStatus
+        })
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update status")
+      }
+
+      void fetchMaterials()
+    } catch (err: any) {
+      alert(err.message || "An error occurred updating the status.")
+    }
+  }
+
+  const handleOpenDeleteConfirm = (material: Material) => {
+    setMaterialToDelete(material)
+    setDeleteError("")
+    setDeleteConfirmOpen(true)
+  }
+
+  const handleDeleteMaterial = async () => {
+    if (!materialToDelete) return
+    setDeleteLoading(true)
+    setDeleteError("")
+
+    try {
+      const res = await fetch(`/api/admin/materials?id=${materialToDelete.id}`, {
+        method: "DELETE"
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to delete material")
+      }
+
+      void fetchMaterials()
+      setDeleteConfirmOpen(false)
+      setMaterialToDelete(null)
+    } catch (err: any) {
+      setDeleteError(err.message || "An error occurred deleting material.")
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
   if (callerLoading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -361,7 +645,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title="Platform Administration" description="Manage platform users, permissions, and monitor system activity.">
+      <PageHeader title="Platform Administration" description="Manage platform users, permissions, resources, and monitor system activity.">
         <div className="flex items-center gap-2 border-b pb-1">
           <Button
             variant={activeTab === "overview" ? "default" : "ghost"}
@@ -370,13 +654,24 @@ export default function AdminDashboard() {
           >
             Overview
           </Button>
-          <Button
-            variant={activeTab === "users" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setActiveTab("users")}
-          >
-            Users
-          </Button>
+          {caller.hasUsersPermission && (
+            <Button
+              variant={activeTab === "users" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setActiveTab("users")}
+            >
+              Users
+            </Button>
+          )}
+          {caller.hasMaterialsPermission && (
+            <Button
+              variant={activeTab === "materials" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setActiveTab("materials")}
+            >
+              Materials
+            </Button>
+          )}
         </div>
       </PageHeader>
 
@@ -425,7 +720,7 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                This administrative console provides secure oversight of user directories, authorization parameters, and access status. Every single write and privilege adjustment triggers an automatic system-wide cryptographic logging sequence to ensure full audit traceability.
+                This administrative console provides secure oversight of user directories, library materials, authorization parameters, and access status. Every single write, upload, and privilege adjustment triggers an automatic system-wide cryptographic logging sequence to ensure full audit traceability.
               </p>
               <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 flex gap-3 items-start">
                 <UserCheck className="h-5 w-5 text-primary shrink-0 mt-0.5" />
@@ -434,9 +729,7 @@ export default function AdminDashboard() {
                   <p className="text-xs text-muted-foreground mt-1 leading-normal">
                     {caller.isSuperAdmin
                       ? "Super Administrator — You have implicit unrestricted rights over all profile scopes, role promotions, and platform permissions."
-                      : caller.hasUsersPermission
-                        ? "Administrator — You have user directory read and modification rights (excluding role assignments or administrative privilege changes)."
-                        : "Moderator — Limited workspace access. You cannot perform user modifications unless explicit permissions are assigned."}
+                      : "Administrator / moderator with customized scope. Please check specific tab permissions on upper dashboard navigation."}
                   </p>
                 </div>
               </div>
@@ -445,7 +738,7 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {activeTab === "users" && (
+      {activeTab === "users" && caller.hasUsersPermission && (
         <div className="flex flex-col gap-6">
           {/* SEARCH & FILTERS PANEL */}
           <Card className="border-border">
@@ -472,7 +765,7 @@ export default function AdminDashboard() {
                 <select
                   value={roleFilter}
                   onChange={(e) => setRoleFilter(e.target.value)}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <option value="all">All Roles</option>
                   <option value="student">Student</option>
@@ -487,7 +780,7 @@ export default function AdminDashboard() {
                 <select
                   value={levelFilter}
                   onChange={(e) => setLevelFilter(e.target.value)}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <option value="all">All Levels</option>
                   <option value="100L">100L</option>
@@ -503,11 +796,11 @@ export default function AdminDashboard() {
                 <select
                   value={deptFilter}
                   onChange={(e) => setDeptFilter(e.target.value)}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <option value="all">All Departments</option>
                   <option value="Medicine & Surgery">Medicine & Surgery</option>
-                  <option value="Nursing">Nursing</option>
+                  <option value="Nursing Science">Nursing Science</option>
                   <option value="Medical Laboratory Science">Medical Laboratory Science</option>
                   <option value="Physiology">Physiology</option>
                   <option value="Anatomy">Anatomy</option>
@@ -518,7 +811,7 @@ export default function AdminDashboard() {
                 <select
                   value={uniFilter}
                   onChange={(e) => setUniFilter(e.target.value)}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <option value="all">All Universities</option>
                   {universities.map((uni) => (
@@ -669,6 +962,265 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* --- MATERIALS MANAGEMENT TAB --- */}
+      {activeTab === "materials" && caller.hasMaterialsPermission && (
+        <div className="flex flex-col gap-6 animate-in fade-in duration-300">
+          {/* SEARCH & FILTERS PANEL */}
+          <Card className="border-border">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Sparkles className="size-5 text-primary" /> Library Content Directory
+                </CardTitle>
+                <CardDescription>Upload curriculum notes, scanned past papers, lectures, or video recordings.</CardDescription>
+              </div>
+              <Button onClick={handleOpenMaterialCreate} size="sm" className="flex items-center gap-1">
+                <Plus className="size-4" /> Add Material
+              </Button>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2 md:grid-cols-5">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Search by title..."
+                  className="pl-9"
+                  value={materialSearch}
+                  onChange={(e) => setMaterialSearch(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <select
+                  value={materialCourseFilter}
+                  onChange={(e) => setMaterialCourseFilter(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="all">All Courses</option>
+                  {courses.map((course) => (
+                    <option key={course.id} value={course.id}>
+                      {course.code}: {course.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <select
+                  value={materialTypeFilter}
+                  onChange={(e) => setMaterialTypeFilter(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="all">All Formats</option>
+                  <option value="pdf">PDF Document</option>
+                  <option value="video">Video Recording</option>
+                  <option value="image">Image / Scan</option>
+                  <option value="slideshare">SlideShare Deck</option>
+                  <option value="doc">Word / PowerPoint / Excel</option>
+                  <option value="link">External Link</option>
+                </select>
+              </div>
+
+              <div>
+                <select
+                  value={materialTierFilter}
+                  onChange={(e) => setMaterialTierFilter(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="all">All Tiers</option>
+                  <option value="study">Study handout</option>
+                  <option value="past_question">Past Question</option>
+                  <option value="slides">Slides</option>
+                  <option value="recommendation">External resource</option>
+                </select>
+              </div>
+
+              <div>
+                <select
+                  value={materialStatusFilter}
+                  onChange={(e) => setMaterialStatusFilter(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="draft">Draft</option>
+                  <option value="published">Published</option>
+                  <option value="archived">Archived</option>
+                </select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* MATERIALS LIST TABLE */}
+          <Card className="border-border">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b bg-muted/50 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      <th className="p-4">Material Details</th>
+                      <th className="p-4">Course</th>
+                      <th className="p-4">Type / Tier</th>
+                      <th className="p-4">Status</th>
+                      <th className="p-4">Featured</th>
+                      <th className="p-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border text-sm">
+                    {materialsLoading ? (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                          <RefreshCw className="mx-auto h-5 w-5 animate-spin text-primary" />
+                          <p className="mt-2">Retrieving library index...</p>
+                        </td>
+                      </tr>
+                    ) : materialsError ? (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-destructive font-medium">
+                          {materialsError}
+                        </td>
+                      </tr>
+                    ) : materials.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                          No matching library materials found.
+                        </td>
+                      </tr>
+                    ) : (
+                      materials.map((item) => {
+                        return (
+                          <tr key={item.id} className="hover:bg-muted/30 transition-colors">
+                            <td className="p-4">
+                              <div className="font-semibold text-foreground flex items-center gap-1.5">
+                                <FileText className="size-4 text-primary shrink-0" />
+                                {item.title}
+                              </div>
+                              {item.description && (
+                                <div className="text-xs text-muted-foreground mt-0.5 max-w-sm truncate" title={item.description}>
+                                  {item.description}
+                                </div>
+                              )}
+                            </td>
+                            <td className="p-4">
+                              <Badge variant="outline">
+                                {item.courses?.code || "GENERAL"}
+                              </Badge>
+                            </td>
+                            <td className="p-4 capitalize">
+                              <div className="text-xs text-foreground font-medium">{item.type}</div>
+                              <div className="text-[11px] text-muted-foreground">{item.tier}</div>
+                            </td>
+                            <td className="p-4 capitalize">
+                              <Badge
+                                variant={
+                                  item.status === "published"
+                                    ? "default"
+                                    : item.status === "archived"
+                                      ? "destructive"
+                                      : "outline"
+                                }
+                              >
+                                {item.status || "published"}
+                              </Badge>
+                            </td>
+                            <td className="p-4">
+                              {item.featured ? (
+                                <Badge className="bg-amber-500 hover:bg-amber-600">Featured</Badge>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">No</span>
+                              )}
+                            </td>
+                            <td className="p-4 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                {item.status !== "published" && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    title="Publish material"
+                                    onClick={() => handleQuickStatusChange(item, "published")}
+                                    className="h-8 px-2 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-500/10"
+                                  >
+                                    <CheckCircle className="size-4" />
+                                  </Button>
+                                )}
+                                {item.status === "published" && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    title="Move to draft"
+                                    onClick={() => handleQuickStatusChange(item, "draft")}
+                                    className="h-8 px-2 text-amber-500 hover:text-amber-600 hover:bg-amber-500/10"
+                                  >
+                                    <Ban className="size-4" />
+                                  </Button>
+                                )}
+                                {item.status !== "archived" && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    title="Archive material"
+                                    onClick={() => handleQuickStatusChange(item, "archived")}
+                                    className="h-8 px-2 text-slate-500 hover:text-slate-600 hover:bg-slate-500/10"
+                                  >
+                                    <Archive className="size-4" />
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenMaterialEdit(item)}
+                                  className="h-8 px-2 text-primary"
+                                >
+                                  <Edit2 className="size-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenDeleteConfirm(item)}
+                                  className="h-8 px-2 text-destructive hover:bg-destructive/10"
+                                >
+                                  <Trash2 className="size-4" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* PAGINATION PANEL */}
+              {materialsCount > itemsPerPage && (
+                <div className="flex items-center justify-between p-4 border-t border-border">
+                  <span className="text-xs text-muted-foreground">
+                    Showing {(materialPage - 1) * itemsPerPage + 1} - {Math.min(materialPage * itemsPerPage, materialsCount)} of {materialsCount} materials
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={materialPage === 1 || materialsLoading}
+                      onClick={() => setMaterialPage((c) => c - 1)}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={materialPage * itemsPerPage >= materialsCount || materialsLoading}
+                      onClick={() => setMaterialPage((c) => c + 1)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* SECURE USER EDIT DRAWER (SHEET) */}
       <Sheet open={editOpen} onOpenChange={setEditOpen}>
         <SheetContent side="right" className="sm:max-w-md overflow-y-auto w-full">
@@ -725,7 +1277,7 @@ export default function AdminDashboard() {
                     required
                   >
                     <option value="Medicine & Surgery">Medicine & Surgery</option>
-                    <option value="Nursing">Nursing</option>
+                    <option value="Nursing Science">Nursing Science</option>
                     <option value="Medical Laboratory Science">Medical Laboratory Science</option>
                     <option value="Physiology">Physiology</option>
                     <option value="Anatomy">Anatomy</option>
@@ -927,6 +1479,252 @@ export default function AdminDashboard() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* --- MATERIAL UPLOAD / EDIT DRAWER (SHEET) --- */}
+      <Sheet open={materialFormOpen} onOpenChange={setMaterialFormOpen}>
+        <SheetContent side="right" className="sm:max-w-md overflow-y-auto w-full">
+          <SheetHeader>
+            <SheetTitle>
+              {materialFormMode === "create" ? "Add New Study Resource" : "Modify Study Resource"}
+            </SheetTitle>
+            <SheetDescription>
+              Provide direct links or upload curriculum documents securely. Changes populate the student workspace dynamically.
+            </SheetDescription>
+          </SheetHeader>
+
+          <form onSubmit={handleMaterialFormSubmit} className="space-y-5 p-4">
+            {materialFormError && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/15 p-3 text-sm text-destructive font-medium">
+                {materialFormError}
+              </div>
+            )}
+            {materialFormSuccess && (
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-500 font-medium">
+                {materialFormSuccess}
+              </div>
+            )}
+
+            {/* Title */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="material-title" className="text-xs font-medium text-foreground">Resource Title</label>
+              <Input
+                id="material-title"
+                placeholder="e.g., Physiology of Gastrointestinal Hormones"
+                value={formMaterialTitle}
+                onChange={(e) => setFormMaterialTitle(e.target.value)}
+                required
+              />
+            </div>
+
+            {/* Description */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="material-desc" className="text-xs font-medium text-foreground">Detailed Description</label>
+              <textarea
+                id="material-desc"
+                placeholder="Describe key topics, context, or notes for students."
+                value={formMaterialDescription}
+                onChange={(e) => setFormMaterialDescription(e.target.value)}
+                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              />
+            </div>
+
+            {/* Course Select */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="material-course" className="text-xs font-medium text-foreground">Academic Course Mapping</label>
+              <select
+                id="material-course"
+                value={formMaterialCourseId}
+                onChange={(e) => setFormMaterialCourseId(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                required
+              >
+                <option value="">-- Choose Course --</option>
+                {courses.map((course) => (
+                  <option key={course.id} value={course.id}>
+                    {course.code}: {course.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Grid for Type and Tier */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="material-type" className="text-xs font-medium text-foreground">Format Type</label>
+                <select
+                  id="material-type"
+                  value={formMaterialType}
+                  onChange={(e) => setFormMaterialType(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="pdf">PDF Document</option>
+                  <option value="video">Video Recording</option>
+                  <option value="image">Image / Scan</option>
+                  <option value="slideshare">SlideShare Deck</option>
+                  <option value="doc">Word / PowerPoint / Excel</option>
+                  <option value="link">External Link</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="material-tier" className="text-xs font-medium text-foreground">Content Tier</label>
+                <select
+                  id="material-tier"
+                  value={formMaterialTier}
+                  onChange={(e) => setFormMaterialTier(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="study">Study handout</option>
+                  <option value="past_question">Past Question</option>
+                  <option value="slides">Slides</option>
+                  <option value="recommendation">External resource</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Document File / URL */}
+            <div className="border border-dashed rounded-lg p-4 bg-muted/20 space-y-4">
+              <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <Upload className="size-4 text-primary" /> Resource Location
+              </span>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="material-url" className="text-xs font-medium text-foreground">Source URL (YouTube / SlideShare / Web link)</label>
+                <Input
+                  id="material-url"
+                  placeholder="https://..."
+                  value={formMaterialSourceUrl}
+                  onChange={(e) => setFormMaterialSourceUrl(e.target.value)}
+                />
+              </div>
+
+              <div className="text-center py-2">
+                <span className="text-xs text-muted-foreground font-semibold">— OR UPLOAD FILE —</span>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="material-file" className="text-xs font-medium text-foreground">Secure File Upload (Optional / Overrides URL)</label>
+                <input
+                  id="material-file"
+                  type="file"
+                  accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.ppt,.pptx,.xls,.xlsx"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setFormMaterialFile(e.target.files[0])
+                    }
+                  }}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
+                {formMaterialFile && (
+                  <p className="text-[11px] text-emerald-500 font-medium">Selected: {formMaterialFile.name}</p>
+                )}
+                {fileUploadProgress && (
+                  <p className="text-[11px] text-primary animate-pulse">{fileUploadProgress}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Status and Featured Row */}
+            <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="material-status" className="text-xs font-medium text-foreground">Access Status</label>
+                <select
+                  id="material-status"
+                  value={formMaterialStatus}
+                  onChange={(e) => setFormMaterialStatus(e.target.value as "draft" | "published" | "archived")}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="draft">Draft (Under Review)</option>
+                  <option value="published">Published (Visible to Students)</option>
+                  <option value="archived">Archived (Hidden from Students)</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2.5 pt-6">
+                <input
+                  id="material-featured"
+                  type="checkbox"
+                  checked={formMaterialFeatured}
+                  onChange={(e) => setFormMaterialFeatured(e.target.checked)}
+                  className="rounded border-input text-primary focus:ring-primary size-4 cursor-pointer"
+                />
+                <label htmlFor="material-featured" className="text-xs font-semibold text-foreground cursor-pointer select-none">
+                  Pin to Featured shelf
+                </label>
+              </div>
+            </div>
+
+            {/* Save Buttons */}
+            <div className="flex gap-3 pt-4 border-t">
+              <Button
+                type="submit"
+                className="flex-1"
+                disabled={materialFormLoading}
+              >
+                {materialFormLoading ? "Processing transaction..." : "Apply Resource Changes"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setMaterialFormOpen(false)
+                  setEditingMaterial(null)
+                }}
+                disabled={materialFormLoading}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </SheetContent>
+      </Sheet>
+
+      {/* --- DELETE CONFIRMATION DIALOG --- */}
+      {deleteConfirmOpen && materialToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <Card className="w-full max-w-md border-destructive/30 shadow-2xl animate-in zoom-in-95 duration-200">
+            <CardHeader>
+              <CardTitle className="text-destructive flex items-center gap-1.5">
+                <AlertTriangle className="size-5" /> Confirm Deletion
+              </CardTitle>
+              <CardDescription>
+                Are you absolutely sure you want to permanently delete the study material: <strong className="text-foreground">&quot;{materialToDelete.title}&quot;</strong>?
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-muted-foreground leading-normal">
+                This will completely remove the resource entry from the academic directories. If no other study resources reference the attached document file ({materialToDelete.storage_path || "None"}), the physical file will also be permanently deleted from the storage servers.
+              </p>
+
+              {deleteError && (
+                <div className="rounded-lg border border-destructive/30 bg-destructive/15 p-3 text-sm text-destructive font-medium">
+                  {deleteError}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 border-t pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setDeleteConfirmOpen(false)
+                    setMaterialToDelete(null)
+                  }}
+                  disabled={deleteLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteMaterial}
+                  disabled={deleteLoading}
+                >
+                  {deleteLoading ? "Deleting resource..." : "Confirm Deletion"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }
