@@ -1,6 +1,4 @@
 import Link from "next/link"
-import { HeartPulse } from "lucide-react"
-
 import { cn } from "@/lib/utils"
 
 type MedHavenLogoProps = {
@@ -11,20 +9,27 @@ type MedHavenLogoProps = {
 }
 
 export function MedHavenLogo({ compact = false, className, href = "/", inverse = false }: MedHavenLogoProps) {
+  const logoUrl = "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/Untitled%20design.png"
+
+  // Sizing of the logo that respects location and does not distort:
+  const imageSizeClass = compact
+    ? "h-8 w-auto max-w-full object-contain"
+    : "h-10 w-auto max-w-full object-contain"
+
   return (
     <Link
       href={href}
       className={cn(
-        "inline-flex items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        inverse && "text-primary-foreground",
+        "inline-flex items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
         className
       )}
       aria-label="MedHaven home"
     >
-      <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-        <HeartPulse className="size-5" aria-hidden="true" />
-      </span>
-      {!compact && <span className="text-lg font-semibold tracking-tight">MedHaven</span>}
+      <img
+        src={logoUrl}
+        alt="MedHaven Logo"
+        className={cn(imageSizeClass)}
+      />
     </Link>
   )
 }

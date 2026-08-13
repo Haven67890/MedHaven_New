@@ -6,6 +6,9 @@ export const metadata = {
   title: { default: 'MedHaven — University ecosystem' },
   description: 'MedHaven is a clearer founder for modern healthcare',
   applicationName: 'MedHaven',
+  icons: {
+    icon: 'https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/Untitled%20design.png',
+  }
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
