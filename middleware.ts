@@ -74,20 +74,27 @@ export async function middleware(request: NextRequest) {
     return redirectWithCookies("/dashboard")
   }
 
-  // Force onboarding details completion for Google Sign-In and incomplete profiles
-  if (user && pathname !== "/profile/complete" && !pathname.startsWith("/api")) {
+  // Force onboarding details completion only for Google Sign-In and incomplete profiles
+  if (user && !pathname.startsWith("/api")) {
     const isGoogleUser = user.app_metadata?.provider === "google" ||
                          user.app_metadata?.providers?.includes("google")
 
     if (isGoogleUser) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("department, current_level")
-        .eq("id", user.id)
-        .maybeSingle()
+      if (pathname !== "/profile/complete") {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("department, current_level")
+          .eq("id", user.id)
+          .maybeSingle()
 
-      if (!profile || !profile.department || !profile.current_level) {
-        return redirectWithCookies("/profile/complete")
+        if (!profile || !profile.department || !profile.current_level) {
+          return redirectWithCookies("/profile/complete")
+        }
+      }
+    } else {
+      // Email signups and non-Google users should never be routed to /profile/complete
+      if (pathname === "/profile/complete") {
+        return redirectWithCookies("/dashboard")
       }
     }
   }
