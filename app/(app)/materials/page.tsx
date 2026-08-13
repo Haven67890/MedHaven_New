@@ -380,6 +380,7 @@ export default function StudyMaterialsPage() {
             )
           `)
           .eq("tier", "study")
+          .eq("status", "published")
           .order("created_at", { ascending: false })
 
         if (mError) throw mError

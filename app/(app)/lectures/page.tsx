@@ -200,6 +200,7 @@ export default function LectureVideosPage() {
             )
           `)
           .eq("type", "video")
+          .eq("status", "published")
           .order("created_at", { ascending: false })
 
         if (mError) throw mError

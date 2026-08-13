@@ -75,6 +75,7 @@ export async function POST(request: NextRequest) {
       .from("materials")
       .select("id, title, source_url, type")
       .eq("course_id", course_id)
+      .eq("status", "published")
 
     const pdfMaterials = (materials || []).filter(
       (m) =>

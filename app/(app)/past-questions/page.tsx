@@ -380,6 +380,7 @@ export default function PastQuestionsPage() {
             )
           `)
           .eq("type", "past_question")
+          .eq("status", "published")
           .order("created_at", { ascending: false })
 
         if (mError) throw mError
