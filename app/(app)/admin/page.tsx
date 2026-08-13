@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { PageHeader } from "@/components/dashboard/page-header"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { createClient } from "@/lib/supabase/client"
+import type { Course, Material } from "@/components/dashboard/material-card"
 
 type Profile = {
   id: string
@@ -189,12 +190,14 @@ export default function AdminDashboard() {
             const isSuperAdmin = role === "super_admin"
             const perms = (profileData.admin_permissions as Record<string, boolean>) || {}
             const hasUsersPermission = isSuperAdmin || perms.users === true
+            const hasMaterialsPermission = isSuperAdmin || perms.materials === true
 
             setCaller({
               id: user.id,
               role,
               isSuperAdmin,
               hasUsersPermission,
+              hasMaterialsPermission,
             })
           }
         }
@@ -453,7 +456,7 @@ export default function AdminDashboard() {
     setFormMaterialType(material.type || "pdf")
     setFormMaterialTier(material.tier || "study")
     setFormMaterialCourseId(material.course_id || "")
-    setFormMaterialStatus(material.status || "draft")
+    setFormMaterialStatus((material.status as "draft" | "published" | "archived") || "draft")
     setFormMaterialFeatured(material.featured || false)
     setFormMaterialSourceUrl(material.source_url || "")
     setFormMaterialFile(null)

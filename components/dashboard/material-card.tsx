@@ -54,6 +54,8 @@ export interface Material {
   uploaded_by?: string | null
   created_at: string
   courses?: Course | null
+  status?: "draft" | "published" | "archived" | string | null
+  featured?: boolean | null
 }
 
 interface MaterialCardProps {
