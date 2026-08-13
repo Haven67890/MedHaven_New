@@ -77,7 +77,6 @@ export async function GET(request: NextRequest) {
     const fields = [
       "id",
       "full_name",
-      "email",
       "avatar_url",
       "role",
       "current_level",
@@ -97,7 +96,7 @@ export async function GET(request: NextRequest) {
     // Apply filters
     if (search.trim()) {
       const cleanSearch = search.trim()
-      queryBuilder = queryBuilder.or(`full_name.ilike.*${cleanSearch}*,email.ilike.*${cleanSearch}*`)
+      queryBuilder = queryBuilder.ilike("full_name", `%${cleanSearch}%`)
     }
 
     if (roleFilter !== "all") {
