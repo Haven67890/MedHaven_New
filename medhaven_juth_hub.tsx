@@ -141,7 +141,12 @@ export default function App() {
               matric: String(data.id ?? userProfile.matric),
               gender: userProfile.gender,
               phone: userProfile.phone,
-              isAdmin: Boolean(userProfile.isAdmin || data.role === 'admin' || data.role_name === 'admin' || data.is_admin),
+              isAdmin: Boolean(
+                userProfile.isAdmin ||
+                data.role === "admin" ||
+                data.role === "super_admin" ||
+                data.role === "moderator"
+              ),
               course: userProfile.course,
               departmentName: data.department ?? userProfile.departmentName,
               facultyName: userProfile.facultyName,

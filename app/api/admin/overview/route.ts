@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
 
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("role, admin_permissions, is_admin")
+      .select("role, admin_permissions")
       .eq("id", user.id)
       .maybeSingle()
 
@@ -20,8 +20,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden: No profile found" }, { status: 403 })
     }
 
-    const role = String(profile.role || "").toLowerCase()
-    const isAdmin = role === "admin" || role === "super_admin" || role === "moderator" || Boolean(profile.is_admin)
+    const role = String(profile.role || "").trim().toLowerCase()
+    const isAdmin = role === "admin" || role === "super_admin" || role === "moderator"
 
     if (!isAdmin) {
       return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 })
