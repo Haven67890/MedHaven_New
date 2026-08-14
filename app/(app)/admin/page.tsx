@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useTransition } from "react"
-import { ShieldAlert, Users as UsersIcon, ShieldCheck, UserCheck, AlertTriangle, RefreshCw, Search, SlidersHorizontal, Edit2, Plus, Trash2, CheckCircle, Ban, Archive, ExternalLink, Sparkles, FileText, Upload } from "lucide-react"
+import { ShieldAlert, Users as UsersIcon, ShieldCheck, UserCheck, AlertTriangle, RefreshCw, Search, SlidersHorizontal, Edit2, Plus, Trash2, CheckCircle, Ban, Archive, ExternalLink, Sparkles, FileText, Upload, ChevronUp, ChevronDown, Stethoscope } from "lucide-react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -47,8 +47,8 @@ function normalizeRole(value: unknown): string {
 export default function AdminDashboard() {
   const supabase = createClient()
 
-  // Tabs: 'overview' | 'users' | 'materials' | 'staff'
-  const [activeTab, setActiveTab] = useState<"overview" | "users" | "materials" | "staff">("overview")
+  // Tabs: 'overview' | 'users' | 'materials' | 'staff' | 'guides'
+  const [activeTab, setActiveTab] = useState<"overview" | "users" | "materials" | "staff" | "guides">("overview")
 
   // Caller authorization info
   const [caller, setCaller] = useState<{
@@ -183,6 +183,38 @@ export default function AdminDashboard() {
   const [staffDeleteLoading, setStaffDeleteLoading] = useState(false)
   const [staffDeleteError, setStaffDeleteError] = useState("")
 
+  // --- CLINICAL GUIDES STATE ---
+  const [guides, setGuides] = useState<any[]>([])
+  const [guidesCount, setGuidesCount] = useState(0)
+  const [guidesLoading, setGuidesLoading] = useState(false)
+  const [guidesError, setGuidesError] = useState("")
+
+  const [guidesSearch, setGuidesSearch] = useState("")
+  const [guidesDebouncedSearch, setGuidesDebouncedSearch] = useState("")
+  const [guidesStatusFilter, setGuidesStatusFilter] = useState("all")
+  const [guidesPage, setGuidesPage] = useState(1)
+
+  // Guides Form Sheet State
+  const [guideFormOpen, setGuideFormOpen] = useState(false)
+  const [guideFormMode, setGuideFormMode] = useState<"create" | "edit">("create")
+  const [editingGuide, setEditingGuide] = useState<any | null>(null)
+  const [guideFormLoading, setGuideFormLoading] = useState(false)
+  const [guideFormError, setGuideFormError] = useState("")
+  const [guideFormSuccess, setGuideFormSuccess] = useState("")
+
+  // Guide Editable Form Fields
+  const [formGuideTitle, setFormGuideTitle] = useState("")
+  const [formGuideSpecialty, setFormGuideSpecialty] = useState("")
+  const [formGuideLevel, setFormGuideLevel] = useState("")
+  const [formGuideStatus, setFormGuideStatus] = useState<"draft" | "published">("draft")
+  const [formGuideSections, setFormGuideSections] = useState<{ heading: string; content: string }[]>([])
+
+  // Guide Delete Confirmation State
+  const [guideDeleteConfirmOpen, setGuideDeleteConfirmOpen] = useState(false)
+  const [guideToDelete, setGuideToDelete] = useState<any | null>(null)
+  const [guideDeleteLoading, setGuideDeleteLoading] = useState(false)
+  const [guideDeleteError, setGuideDeleteError] = useState("")
+
   // Debounce search query (Users)
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -206,6 +238,14 @@ export default function AdminDashboard() {
     }, 400)
     return () => clearTimeout(timer)
   }, [staffSearch])
+
+  // Debounce search query (Guides)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setGuidesDebouncedSearch(guidesSearch)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [guidesSearch])
 
   // Get current caller session/role info
   useEffect(() => {
@@ -373,6 +413,32 @@ export default function AdminDashboard() {
     }
   }
 
+  // Fetch clinical guides list
+  const fetchGuides = async () => {
+    setGuidesLoading(true)
+    setGuidesError("")
+    try {
+      const params = new URLSearchParams({
+        query: guidesDebouncedSearch,
+        status: guidesStatusFilter,
+        page: String(guidesPage),
+        limit: String(itemsPerPage),
+      })
+
+      const res = await fetch(`/api/admin/guides?${params.toString()}`)
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to load clinical guides")
+      }
+      setGuides(data.guides || [])
+      setGuidesCount(data.count || 0)
+    } catch (err: any) {
+      setGuidesError(err.message || "An error occurred loading clinical guides.")
+    } finally {
+      setGuidesLoading(false)
+    }
+  }
+
   // Reload lists when active tab changes, or filters change
   useEffect(() => {
     if (activeTab === "overview") {
@@ -383,6 +449,8 @@ export default function AdminDashboard() {
       void fetchMaterials()
     } else if (activeTab === "staff") {
       void fetchStaff()
+    } else if (activeTab === "guides") {
+      void fetchGuides()
     }
   }, [
     activeTab,
@@ -400,7 +468,10 @@ export default function AdminDashboard() {
     materialPage,
     staffDebouncedSearch,
     staffDeptFilter,
-    staffPage
+    staffPage,
+    guidesDebouncedSearch,
+    guidesStatusFilter,
+    guidesPage
   ])
 
   // Open Edit User view & prefill values
@@ -825,6 +896,181 @@ export default function AdminDashboard() {
     }
   }
 
+  // --- CLINICAL GUIDES FUNCTIONS ---
+  const handleOpenGuideCreate = () => {
+    setGuideFormMode("create")
+    setEditingGuide(null)
+    setFormGuideTitle("")
+    setFormGuideSpecialty("")
+    setFormGuideLevel("400L")
+    setFormGuideStatus("draft")
+    setFormGuideSections([{ heading: "", content: "" }])
+    setGuideFormError("")
+    setGuideFormSuccess("")
+    setGuideFormOpen(true)
+  }
+
+  const handleOpenGuideEdit = (guide: any) => {
+    setGuideFormMode("edit")
+    setEditingGuide(guide)
+    setFormGuideTitle(guide.title || "")
+    setFormGuideSpecialty(guide.specialty || "")
+    setFormGuideLevel(guide.level || "400L")
+    setFormGuideStatus((guide.status as "draft" | "published") || "draft")
+    setFormGuideSections(Array.isArray(guide.sections) ? [...guide.sections] : [{ heading: "", content: "" }])
+    setGuideFormError("")
+    setGuideFormSuccess("")
+    setGuideFormOpen(true)
+  }
+
+  const handleAddSection = () => {
+    setFormGuideSections((prev) => [...prev, { heading: "", content: "" }])
+  }
+
+  const handleRemoveSection = (index: number) => {
+    setFormGuideSections((prev) => prev.filter((_, idx) => idx !== index))
+  }
+
+  const handleUpdateSection = (index: number, field: "heading" | "content", value: string) => {
+    setFormGuideSections((prev) =>
+      prev.map((sec, idx) => (idx === index ? { ...sec, [field]: value } : sec))
+    )
+  }
+
+  const handleMoveSection = (index: number, direction: "up" | "down") => {
+    setFormGuideSections((prev) => {
+      const nextSections = [...prev]
+      const targetIndex = direction === "up" ? index - 1 : index + 1
+      if (targetIndex < 0 || targetIndex >= nextSections.length) return prev
+      const temp = nextSections[index]
+      nextSections[index] = nextSections[targetIndex]
+      nextSections[targetIndex] = temp
+      return nextSections
+    })
+  }
+
+  const handleGuideFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!formGuideTitle.trim()) {
+      setGuideFormError("Title is required")
+      return
+    }
+    if (!formGuideSpecialty.trim()) {
+      setGuideFormError("Specialty is required")
+      return
+    }
+
+    // Filter out completely empty sections, but allow non-empty ones
+    const cleanSections = formGuideSections
+      .map((s) => ({ heading: s.heading.trim(), content: s.content.trim() }))
+      .filter((s) => s.heading || s.content)
+
+    setGuideFormLoading(true)
+    setGuideFormError("")
+    setGuideFormSuccess("")
+
+    try {
+      const payload: Record<string, any> = {
+        title: formGuideTitle.trim(),
+        specialty: formGuideSpecialty.trim(),
+        level: formGuideLevel || null,
+        status: formGuideStatus,
+        sections: cleanSections,
+      }
+
+      let res
+      if (guideFormMode === "create") {
+        res = await fetch("/api/admin/guides", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        })
+      } else {
+        payload.id = editingGuide?.id
+        res = await fetch("/api/admin/guides", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        })
+      }
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to save clinical guide")
+      }
+
+      setGuideFormSuccess(
+        guideFormMode === "create"
+          ? "Clinical guide created and logged successfully!"
+          : "Clinical guide updated and logged successfully!"
+      )
+
+      void fetchGuides()
+
+      setTimeout(() => {
+        setGuideFormOpen(false)
+        setEditingGuide(null)
+      }, 1000)
+    } catch (err: any) {
+      setGuideFormError(err.message || "An unexpected error occurred saving guide.")
+    } finally {
+      setGuideFormLoading(false)
+    }
+  }
+
+  const handleGuideQuickStatusChange = async (guide: any, newStatus: "draft" | "published") => {
+    try {
+      const res = await fetch("/api/admin/guides", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: guide.id,
+          status: newStatus
+        })
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update status")
+      }
+
+      void fetchGuides()
+    } catch (err: any) {
+      alert(err.message || "An error occurred updating the status.")
+    }
+  }
+
+  const handleOpenGuideDeleteConfirm = (guide: any) => {
+    setGuideToDelete(guide)
+    setGuideDeleteError("")
+    setGuideDeleteConfirmOpen(true)
+  }
+
+  const handleDeleteGuide = async () => {
+    if (!guideToDelete) return
+    setGuideDeleteLoading(true)
+    setGuideDeleteError("")
+
+    try {
+      const res = await fetch(`/api/admin/guides?id=${guideToDelete.id}`, {
+        method: "DELETE"
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to delete clinical guide")
+      }
+
+      void fetchGuides()
+      setGuideDeleteConfirmOpen(false)
+      setGuideToDelete(null)
+    } catch (err: any) {
+      setGuideDeleteError(err.message || "An error occurred deleting clinical guide.")
+    } finally {
+      setGuideDeleteLoading(false)
+    }
+  }
+
   if (callerLoading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -891,6 +1137,13 @@ export default function AdminDashboard() {
             onClick={() => setActiveTab("staff")}
           >
             Staff Directory
+          </Button>
+          <Button
+            variant={activeTab === "guides" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setActiveTab("guides")}
+          >
+            Clinical Guides
           </Button>
         </div>
       </PageHeader>
@@ -2096,6 +2349,196 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* --- CLINICAL GUIDES TAB --- */}
+      {activeTab === "guides" && (
+        <div className="flex flex-col gap-6 animate-in fade-in duration-300">
+          {/* SEARCH & FILTERS PANEL */}
+          <Card className="border-border">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Stethoscope className="size-5 text-primary" /> Clinical Posting Guides Directory
+                </CardTitle>
+                <CardDescription>Manage posting references, checklists, expectations, and rotation sections.</CardDescription>
+              </div>
+              <Button onClick={handleOpenGuideCreate} size="sm" className="flex items-center gap-1">
+                <Plus className="size-4" /> Add Guide
+              </Button>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+              <div className="relative col-span-2">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Search guides by title or specialty..."
+                  className="pl-9"
+                  value={guidesSearch}
+                  onChange={(e) => setGuidesSearch(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <select
+                  value={guidesStatusFilter}
+                  onChange={(e) => setGuidesStatusFilter(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="draft">Draft</option>
+                  <option value="published">Published</option>
+                </select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* GUIDES LIST TABLE */}
+          <Card className="border-border">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b bg-muted/50 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      <th className="p-4">Guide Details</th>
+                      <th className="p-4">Specialty</th>
+                      <th className="p-4">Target Level</th>
+                      <th className="p-4">Sections Count</th>
+                      <th className="p-4">Status</th>
+                      <th className="p-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border text-sm">
+                    {guidesLoading ? (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                          <RefreshCw className="mx-auto h-5 w-5 animate-spin text-primary" />
+                          <p className="mt-2">Retrieving guides index...</p>
+                        </td>
+                      </tr>
+                    ) : guidesError ? (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-destructive font-medium">
+                          {guidesError}
+                        </td>
+                      </tr>
+                    ) : guides.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                          No clinical guides found.
+                        </td>
+                      </tr>
+                    ) : (
+                      guides.map((item) => {
+                        return (
+                          <tr key={item.id} className="hover:bg-muted/30 transition-colors">
+                            <td className="p-4">
+                              <div className="font-semibold text-foreground flex items-center gap-1.5">
+                                <Stethoscope className="size-4 text-primary shrink-0" />
+                                {item.title}
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <Badge variant="outline">{item.specialty}</Badge>
+                            </td>
+                            <td className="p-4 font-mono text-xs">
+                              {item.level || "General (All)"}
+                            </td>
+                            <td className="p-4">
+                              <Badge variant="secondary">
+                                {Array.isArray(item.sections) ? item.sections.length : 0} section(s)
+                              </Badge>
+                            </td>
+                            <td className="p-4 capitalize">
+                              <Badge
+                                variant={
+                                  item.status === "published"
+                                    ? "default"
+                                    : "outline"
+                                }
+                              >
+                                {item.status || "draft"}
+                              </Badge>
+                            </td>
+                            <td className="p-4 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                {item.status !== "published" && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    title="Publish guide"
+                                    onClick={() => handleGuideQuickStatusChange(item, "published")}
+                                    className="h-8 px-2 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-500/10"
+                                  >
+                                    <CheckCircle className="size-4" />
+                                  </Button>
+                                )}
+                                {item.status === "published" && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    title="Move to draft"
+                                    onClick={() => handleGuideQuickStatusChange(item, "draft")}
+                                    className="h-8 px-2 text-amber-500 hover:text-amber-600 hover:bg-amber-500/10"
+                                  >
+                                    <Ban className="size-4" />
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenGuideEdit(item)}
+                                  className="h-8 px-2 text-primary"
+                                >
+                                  <Edit2 className="size-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenGuideDeleteConfirm(item)}
+                                  className="h-8 px-2 text-destructive hover:bg-destructive/10"
+                                >
+                                  <Trash2 className="size-4" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* PAGINATION PANEL */}
+              {guidesCount > itemsPerPage && (
+                <div className="flex items-center justify-between p-4 border-t border-border">
+                  <span className="text-xs text-muted-foreground">
+                    Showing {(guidesPage - 1) * itemsPerPage + 1} - {Math.min(guidesPage * itemsPerPage, guidesCount)} of {guidesCount} guides
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={guidesPage === 1 || guidesLoading}
+                      onClick={() => setGuidesPage((c) => c - 1)}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={guidesPage * itemsPerPage >= guidesCount || guidesLoading}
+                      onClick={() => setGuidesPage((c) => c + 1)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* --- STAFF FORM DRAWER (SHEET) --- */}
       <Sheet open={staffFormOpen} onOpenChange={setStaffFormOpen}>
         <SheetContent side="right" className="sm:max-w-md overflow-y-auto w-full">
@@ -2322,6 +2765,232 @@ export default function AdminDashboard() {
                   disabled={deleteLoading}
                 >
                   {deleteLoading ? "Deleting resource..." : "Confirm Deletion"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* --- CLINICAL GUIDE FORM DRAWER (SHEET) --- */}
+      <Sheet open={guideFormOpen} onOpenChange={setGuideFormOpen}>
+        <SheetContent side="right" className="sm:max-w-xl overflow-y-auto w-full">
+          <SheetHeader>
+            <SheetTitle>
+              {guideFormMode === "create" ? "Add Clinical Posting Guide" : "Modify Clinical Posting Guide"}
+            </SheetTitle>
+            <SheetDescription>
+              Populate rotation guides and sections dynamically. All edits are logged.
+            </SheetDescription>
+          </SheetHeader>
+
+          <form onSubmit={handleGuideFormSubmit} className="space-y-5 p-4">
+            {guideFormError && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/15 p-3 text-sm text-destructive font-medium">
+                {guideFormError}
+              </div>
+            )}
+            {guideFormSuccess && (
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-500 font-medium">
+                {guideFormSuccess}
+              </div>
+            )}
+
+            {/* Title */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="guide-title" className="text-xs font-medium text-foreground">Guide Title</label>
+              <Input
+                id="guide-title"
+                placeholder="e.g., Surgery — Theatre Etiquette"
+                value={formGuideTitle}
+                onChange={(e) => setFormGuideTitle(e.target.value)}
+                required
+              />
+            </div>
+
+            {/* Specialty */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="guide-specialty" className="text-xs font-medium text-foreground">Specialty / Department</label>
+              <Input
+                id="guide-specialty"
+                placeholder="e.g., Surgery, Paediatrics, O&G"
+                value={formGuideSpecialty}
+                onChange={(e) => setFormGuideSpecialty(e.target.value)}
+                required
+              />
+            </div>
+
+            {/* Target Level */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="guide-level" className="text-xs font-medium text-foreground">Target Academic Level</label>
+              <select
+                id="guide-level"
+                value={formGuideLevel}
+                onChange={(e) => setFormGuideLevel(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="">General / All Levels</option>
+                <option value="100L">100L</option>
+                <option value="200L">200L</option>
+                <option value="300L">300L</option>
+                <option value="400L">400L</option>
+                <option value="500L">500L</option>
+                <option value="600L">600L</option>
+                <option value="Final Year">Final Year</option>
+              </select>
+            </div>
+
+            {/* Status */}
+            <div className="flex flex-col gap-1.5 pt-2 border-t">
+              <label htmlFor="guide-status" className="text-xs font-medium text-foreground">Status</label>
+              <select
+                id="guide-status"
+                value={formGuideStatus}
+                onChange={(e) => setFormGuideStatus(e.target.value as "draft" | "published")}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="draft">Draft (Hidden from Students)</option>
+                <option value="published">Published (Visible to Students)</option>
+              </select>
+            </div>
+
+            {/* Sections JSONB array management */}
+            <div className="space-y-4 pt-4 border-t">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-foreground">Dynamic Guide Sections</span>
+                <Button type="button" variant="outline" size="sm" onClick={handleAddSection} className="flex items-center gap-1">
+                  <Plus className="size-3.5" /> Add Section
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                {formGuideSections.map((sec, idx) => (
+                  <div key={idx} className="p-3 border rounded-lg bg-muted/10 space-y-3 relative">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-muted-foreground">Section #{idx + 1}</span>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          disabled={idx === 0}
+                          onClick={() => handleMoveSection(idx, "up")}
+                          className="size-7"
+                          title="Move Up"
+                        >
+                          <ChevronUp className="size-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          disabled={idx === formGuideSections.length - 1}
+                          onClick={() => handleMoveSection(idx, "down")}
+                          className="size-7"
+                          title="Move Down"
+                        >
+                          <ChevronDown className="size-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemoveSection(idx)}
+                          className="size-7 text-destructive hover:bg-destructive/10"
+                          title="Remove Section"
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <Input
+                        placeholder="Section Heading (e.g. Ward Rules)"
+                        value={sec.heading}
+                        onChange={(e) => handleUpdateSection(idx, "heading", e.target.value)}
+                        className="h-8 text-xs font-medium"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <textarea
+                        placeholder="Section Content..."
+                        value={sec.content}
+                        onChange={(e) => handleUpdateSection(idx, "content", e.target.value)}
+                        className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Save Buttons */}
+            <div className="flex gap-3 pt-4 border-t">
+              <Button
+                type="submit"
+                className="flex-1"
+                disabled={guideFormLoading}
+              >
+                {guideFormLoading ? "Processing transaction..." : "Apply Guide Changes"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setGuideFormOpen(false)
+                  setEditingGuide(null)
+                }}
+                disabled={guideFormLoading}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </SheetContent>
+      </Sheet>
+
+      {/* --- CLINICAL GUIDE DELETE CONFIRMATION DIALOG --- */}
+      {guideDeleteConfirmOpen && guideToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <Card className="w-full max-w-md border-destructive/30 shadow-2xl animate-in zoom-in-95 duration-200">
+            <CardHeader>
+              <CardTitle className="text-destructive flex items-center gap-1.5">
+                <AlertTriangle className="size-5" /> Confirm Guide Deletion
+              </CardTitle>
+              <CardDescription>
+                Are you absolutely sure you want to permanently delete the clinical guide: <strong className="text-foreground">&quot;{guideToDelete.title}&quot;</strong>?
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-muted-foreground leading-normal">
+                This will completely remove the clinical guide and all of its sections. This action cannot be undone.
+              </p>
+
+              {guideDeleteError && (
+                <div className="rounded-lg border border-destructive/30 bg-destructive/15 p-3 text-sm text-destructive font-medium">
+                  {guideDeleteError}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 border-t pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setGuideDeleteConfirmOpen(false)
+                    setGuideToDelete(null)
+                  }}
+                  disabled={guideDeleteLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteGuide}
+                  disabled={guideDeleteLoading}
+                >
+                  {guideDeleteLoading ? "Deleting guide..." : "Confirm Deletion"}
                 </Button>
               </div>
             </CardContent>
