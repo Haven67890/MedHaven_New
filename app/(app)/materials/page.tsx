@@ -65,6 +65,13 @@ const colorMap: Record<string, string> = {
 
 const collectionIcons = { BookOpen, BookMarked, Library } as const
 
+function getLevelPhase(level: string | number | null | undefined): "pre-clinical" | "clinical" {
+  if (!level) return "pre-clinical"
+  const lvl = String(level).toUpperCase().trim()
+  const clinicalLevels = ["400L", "500L", "600L", "FINAL YEAR"]
+  return clinicalLevels.includes(lvl) ? "clinical" : "pre-clinical"
+}
+
 // Helper to format type names neatly
 function formatTypeName(type: string): string {
   if (!type) return "Material"
@@ -221,6 +228,8 @@ function CollapsibleImageGroupCard({
 
   if (images.length === 0) return null
 
+  const courseTitle = images[0]?.courses?.title || images[0]?.courses?.code || "General"
+
   return (
     <Card className="gap-3 flex flex-col justify-between overflow-hidden border-primary/20 hover:border-primary/40 transition-colors duration-200">
       <CardHeader
@@ -233,7 +242,7 @@ function CollapsibleImageGroupCard({
           </div>
           <div className="flex flex-col gap-0.5 overflow-hidden pr-8">
             <CardTitle className="text-base leading-snug truncate">
-              Scanned Past Questions ({images.length})
+              {courseTitle} — Scanned Past Questions ({images.length})
             </CardTitle>
             <CardDescription className="text-xs text-muted-foreground">
               {images.length} scan${images.length > 1 ? "s" : ""} available
@@ -297,6 +306,7 @@ export default function StudyMaterialsPage() {
   const [error, setError] = useState<string | null>(null)
   const [failedSlideShareEmbeds, setFailedSlideShareEmbeds] = useState<Record<string, boolean>>({})
   const [userLevel, setUserLevel] = useState<string | null>(null)
+  const [contentVisibility, setContentVisibility] = useState<string>("all")
 
   // Preview Modal State
   const [previewModal, setPreviewModal] = useState<{
@@ -312,26 +322,41 @@ export default function StudyMaterialsPage() {
   const [selectedCourseId, setSelectedCourseId] = useState<string>("all")
   const [selectedType, setSelectedType] = useState<string>("all")
 
-  // Fetch logged in student level
+  // Fetch logged in student level and content visibility preferences
   useEffect(() => {
     const userId = user?.id
     if (!userId) return
     let active = true
-    async function fetchUserLevel() {
+    async function fetchUserLevelAndPreferences() {
       try {
-        const { data, error } = await supabase
+        const { data: profileData, error: profileError } = await supabase
           .from("profiles")
           .select("current_level")
           .eq("id", userId)
           .maybeSingle()
-        if (active && !error && data) {
-          setUserLevel(data.current_level)
+        if (active && !profileError && profileData) {
+          setUserLevel(profileData.current_level)
+        }
+
+        const { data: prefData, error: prefError } = await supabase
+          .from("user_preferences")
+          .select("*")
+          .eq("user_id", userId)
+          .maybeSingle()
+        if (active && !prefError && prefData) {
+          if (prefData.content_visibility) {
+            setContentVisibility(prefData.content_visibility)
+          } else if (prefData.show_other_levels === false) {
+            setContentVisibility("group")
+          } else {
+            setContentVisibility("all")
+          }
         }
       } catch (err) {
-        console.error("Failed to fetch user level:", err)
+        console.error("Failed to fetch user level or preferences:", err)
       }
     }
-    void fetchUserLevel()
+    void fetchUserLevelAndPreferences()
     return () => {
       active = false
     }
@@ -456,8 +481,30 @@ export default function StudyMaterialsPage() {
     }
   }, [supabase])
 
-  const levelFilteredCourses = courses
-  const levelFilteredMaterials = materials
+  const levelFilteredCourses = useMemo(() => {
+    if (contentVisibility === "all" || !userLevel) return courses
+    const userPhase = getLevelPhase(userLevel)
+    return courses.filter((course) => {
+      if (!course.level) return true
+      if (contentVisibility === "exact") {
+        return String(course.level).toUpperCase().trim() === String(userLevel).toUpperCase().trim()
+      }
+      return getLevelPhase(course.level) === userPhase
+    })
+  }, [courses, contentVisibility, userLevel])
+
+  const levelFilteredMaterials = useMemo(() => {
+    if (contentVisibility === "all" || !userLevel) return materials
+    const userPhase = getLevelPhase(userLevel)
+    return materials.filter((material) => {
+      const materialLevel = material.courses?.level ?? null
+      if (!materialLevel) return true
+      if (contentVisibility === "exact") {
+        return String(materialLevel).toUpperCase().trim() === String(userLevel).toUpperCase().trim()
+      }
+      return getLevelPhase(materialLevel) === userPhase
+    })
+  }, [materials, contentVisibility, userLevel])
 
   // Get dynamic category/collection statistics
   const categoryData = useMemo(() => {
