@@ -47,8 +47,8 @@ function normalizeRole(value: unknown): string {
 export default function AdminDashboard() {
   const supabase = createClient()
 
-  // Tabs: 'overview' | 'users' | 'materials' | 'staff' | 'guides'
-  const [activeTab, setActiveTab] = useState<"overview" | "users" | "materials" | "staff" | "guides">("overview")
+  // Tabs: 'overview' | 'users' | 'materials' | 'staff' | 'guides' | 'tutorials'
+  const [activeTab, setActiveTab] = useState<"overview" | "users" | "materials" | "staff" | "guides" | "tutorials">("overview")
 
   // Caller authorization info
   const [caller, setCaller] = useState<{
@@ -215,6 +215,48 @@ export default function AdminDashboard() {
   const [guideDeleteLoading, setGuideDeleteLoading] = useState(false)
   const [guideDeleteError, setGuideDeleteError] = useState("")
 
+  // --- TUTORIALS STATE ---
+  const [tutorialsList, setTutorialsList] = useState<any[]>([])
+  const [tutorialsCount, setTutorialsCount] = useState(0)
+  const [tutorialsLoading, setTutorialsLoading] = useState(false)
+  const [tutorialsError, setTutorialsError] = useState("")
+
+  const [tutorialsSearch, setTutorialsSearch] = useState("")
+  const [tutorialsDebouncedSearch, setTutorialsDebouncedSearch] = useState("")
+  const [tutorialsStatusFilter, setTutorialsStatusFilter] = useState("all")
+  const [tutorialsCourseFilter, setTutorialsCourseFilter] = useState("all")
+  const [tutorialsPage, setTutorialsPage] = useState(1)
+
+  // Tutorials Form Sheet State
+  const [tutorialFormOpen, setTutorialFormOpen] = useState(false)
+  const [tutorialFormMode, setTutorialFormMode] = useState<"create" | "edit">("create")
+  const [editingTutorial, setEditingTutorial] = useState<any | null>(null)
+  const [tutorialFormLoading, setTutorialFormLoading] = useState(false)
+  const [tutorialFormError, setTutorialFormError] = useState("")
+  const [tutorialFormSuccess, setTutorialFormSuccess] = useState("")
+
+  // Tutorial Editable Form Fields
+  const [formTutorialTitle, setFormTutorialTitle] = useState("")
+  const [formTutorialCourseId, setFormTutorialCourseId] = useState("")
+  const [formTutorialOverview, setFormTutorialOverview] = useState("")
+  const [formTutorialStatus, setFormTutorialStatus] = useState<"draft" | "published">("draft")
+  const [formTutorialSections, setFormTutorialSections] = useState<{ heading: string; content: string }[]>([])
+  const [formTutorialLinkedQuizId, setFormTutorialLinkedQuizId] = useState("")
+
+  // Dynamic Quiz list for picking existing quizzes
+  const [quizzesList, setQuizzesList] = useState<any[]>([])
+  const [quizzesLoading, setQuizzesLoading] = useState(false)
+
+  // AI Quiz Generation within admin form
+  const [formQuizTopic, setFormQuizTopic] = useState("")
+  const [formQuizGenerating, setFormQuizGenerating] = useState(false)
+
+  // Tutorial Delete Confirmation State
+  const [tutorialDeleteConfirmOpen, setTutorialDeleteConfirmOpen] = useState(false)
+  const [tutorialToDelete, setTutorialToDelete] = useState<any | null>(null)
+  const [tutorialDeleteLoading, setTutorialDeleteLoading] = useState(false)
+  const [tutorialDeleteError, setTutorialDeleteError] = useState("")
+
   // Debounce search query (Users)
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -246,6 +288,14 @@ export default function AdminDashboard() {
     }, 400)
     return () => clearTimeout(timer)
   }, [guidesSearch])
+
+  // Debounce search query (Tutorials)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setTutorialsDebouncedSearch(tutorialsSearch)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [tutorialsSearch])
 
   // Get current caller session/role info
   useEffect(() => {
@@ -439,6 +489,57 @@ export default function AdminDashboard() {
     }
   }
 
+  // Fetch tutorials list
+  const fetchTutorials = async () => {
+    setTutorialsLoading(true)
+    setTutorialsError("")
+    try {
+      const params = new URLSearchParams({
+        query: tutorialsDebouncedSearch,
+        status: tutorialsStatusFilter,
+        course_id: tutorialsCourseFilter,
+        page: String(tutorialsPage),
+        limit: String(itemsPerPage),
+      })
+
+      const res = await fetch(`/api/admin/tutorials?${params.toString()}`)
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to load tutorials")
+      }
+      setTutorialsList(data.tutorials || [])
+      setTutorialsCount(data.count || 0)
+    } catch (err: any) {
+      setTutorialsError(err.message || "An error occurred loading tutorials.")
+    } finally {
+      setTutorialsLoading(false)
+    }
+  }
+
+  // Fetch quizzes for linking dropdown
+  const fetchAllQuizzes = async () => {
+    try {
+      setQuizzesLoading(true)
+      const { data, error } = await supabase
+        .from("quizzes")
+        .select(`
+          id,
+          topic,
+          format,
+          course_id,
+          courses (code)
+        `)
+        .order("topic", { ascending: true })
+      if (!error && data) {
+        setQuizzesList(data)
+      }
+    } catch (err) {
+      console.error("Failed to load quizzes list:", err)
+    } finally {
+      setQuizzesLoading(false)
+    }
+  }
+
   // Reload lists when active tab changes, or filters change
   useEffect(() => {
     if (activeTab === "overview") {
@@ -451,6 +552,9 @@ export default function AdminDashboard() {
       void fetchStaff()
     } else if (activeTab === "guides") {
       void fetchGuides()
+    } else if (activeTab === "tutorials") {
+      void fetchTutorials()
+      void fetchAllQuizzes()
     }
   }, [
     activeTab,
@@ -471,7 +575,11 @@ export default function AdminDashboard() {
     staffPage,
     guidesDebouncedSearch,
     guidesStatusFilter,
-    guidesPage
+    guidesPage,
+    tutorialsDebouncedSearch,
+    tutorialsStatusFilter,
+    tutorialsCourseFilter,
+    tutorialsPage
   ])
 
   // Open Edit User view & prefill values
@@ -1071,6 +1179,232 @@ export default function AdminDashboard() {
     }
   }
 
+  // --- TUTORIALS ACTION HANDLERS ---
+  const handleOpenTutorialCreate = () => {
+    setTutorialFormMode("create")
+    setEditingTutorial(null)
+    setFormTutorialTitle("")
+    setFormTutorialOverview("")
+    setFormTutorialCourseId(courses[0]?.id || "")
+    setFormTutorialStatus("draft")
+    setFormTutorialSections([{ heading: "", content: "" }])
+    setFormTutorialLinkedQuizId("")
+    setFormQuizTopic("")
+    setTutorialFormError("")
+    setTutorialFormSuccess("")
+    setTutorialFormOpen(true)
+  }
+
+  const handleOpenTutorialEdit = (tutorial: any) => {
+    setTutorialFormMode("edit")
+    setEditingTutorial(tutorial)
+    setFormTutorialTitle(tutorial.title || "")
+    setFormTutorialOverview(tutorial.overview || "")
+    setFormTutorialCourseId(tutorial.course_id || "")
+    setFormTutorialStatus((tutorial.status as "draft" | "published") || "draft")
+    setFormTutorialSections(Array.isArray(tutorial.sections) ? [...tutorial.sections] : [{ heading: "", content: "" }])
+    setFormTutorialLinkedQuizId(tutorial.linked_quiz_id || "")
+    setFormQuizTopic("")
+    setTutorialFormError("")
+    setTutorialFormSuccess("")
+    setTutorialFormOpen(true)
+  }
+
+  const handleAddTutorialSection = () => {
+    setFormTutorialSections((prev) => [...prev, { heading: "", content: "" }])
+  }
+
+  const handleRemoveTutorialSection = (index: number) => {
+    setFormTutorialSections((prev) => prev.filter((_, idx) => idx !== index))
+  }
+
+  const handleUpdateTutorialSection = (index: number, field: "heading" | "content", value: string) => {
+    setFormTutorialSections((prev) =>
+      prev.map((sec, idx) => (idx === index ? { ...sec, [field]: value } : sec))
+    )
+  }
+
+  const handleMoveTutorialSection = (index: number, direction: "up" | "down") => {
+    setFormTutorialSections((prev) => {
+      const nextSections = [...prev]
+      const targetIndex = direction === "up" ? index - 1 : index + 1
+      if (targetIndex < 0 || targetIndex >= nextSections.length) return prev
+      const temp = nextSections[index]
+      nextSections[index] = nextSections[targetIndex]
+      nextSections[targetIndex] = temp
+      return nextSections
+    })
+  }
+
+  const handleTutorialQuickStatusChange = async (tutorial: any, newStatus: "draft" | "published") => {
+    try {
+      const res = await fetch("/api/admin/tutorials", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: tutorial.id,
+          status: newStatus
+        })
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update status")
+      }
+
+      void fetchTutorials()
+    } catch (err: any) {
+      alert(err.message || "An error occurred updating the status.")
+    }
+  }
+
+  const handleOpenTutorialDeleteConfirm = (tutorial: any) => {
+    setTutorialToDelete(tutorial)
+    setTutorialDeleteError("")
+    setTutorialDeleteConfirmOpen(true)
+  }
+
+  const handleDeleteTutorial = async () => {
+    if (!tutorialToDelete) return
+    setTutorialDeleteLoading(true)
+    setTutorialDeleteError("")
+
+    try {
+      const res = await fetch(`/api/admin/tutorials?id=${tutorialToDelete.id}`, {
+        method: "DELETE"
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to delete tutorial")
+      }
+
+      void fetchTutorials()
+      setTutorialDeleteConfirmOpen(false)
+      setTutorialToDelete(null)
+    } catch (err: any) {
+      setTutorialDeleteError(err.message || "An error occurred deleting tutorial.")
+    } finally {
+      setTutorialDeleteLoading(false)
+    }
+  }
+
+  const handleTutorialFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!formTutorialTitle.trim()) {
+      setTutorialFormError("Title is required")
+      return
+    }
+    if (!formTutorialCourseId) {
+      setTutorialFormError("A course mapping is required")
+      return
+    }
+
+    const cleanSections = formTutorialSections
+      .map((s) => ({ heading: s.heading.trim(), content: s.content.trim() }))
+      .filter((s) => s.heading || s.content)
+
+    setTutorialFormLoading(true)
+    setTutorialFormError("")
+    setTutorialFormSuccess("")
+
+    try {
+      const payload: Record<string, any> = {
+        title: formTutorialTitle.trim(),
+        course_id: formTutorialCourseId,
+        overview: formTutorialOverview.trim(),
+        status: formTutorialStatus,
+        sections: cleanSections,
+        linked_quiz_id: formTutorialLinkedQuizId || null,
+      }
+
+      let res
+      if (tutorialFormMode === "create") {
+        res = await fetch("/api/admin/tutorials", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        })
+      } else {
+        payload.id = editingTutorial?.id
+        res = await fetch("/api/admin/tutorials", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        })
+      }
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to save tutorial")
+      }
+
+      setTutorialFormSuccess(
+        tutorialFormMode === "create"
+          ? "Tutorial created and logged successfully!"
+          : "Tutorial updated and logged successfully!"
+      )
+
+      void fetchTutorials()
+
+      setTimeout(() => {
+        setTutorialFormOpen(false)
+        setEditingTutorial(null)
+      }, 1000)
+    } catch (err: any) {
+      setTutorialFormError(err.message || "An unexpected error occurred saving tutorial.")
+    } finally {
+      setTutorialFormLoading(false)
+    }
+  }
+
+  const handleGenerateQuizInForm = async () => {
+    if (!formQuizTopic.trim()) {
+      alert("Please enter a topic to generate quiz questions.")
+      return
+    }
+    if (!formTutorialCourseId) {
+      alert("Please select a course for the tutorial first.")
+      return
+    }
+
+    try {
+      setFormQuizGenerating(true)
+      const response = await fetch("/api/quiz/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          course_id: formTutorialCourseId,
+          topic: formQuizTopic.trim(),
+          format: "MCQ",
+          count: 10
+        })
+      })
+
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to generate quiz.")
+      }
+
+      setFormTutorialLinkedQuizId(data.quiz_id)
+
+      const newQuizObj = {
+        id: data.quiz_id,
+        topic: formQuizTopic.trim(),
+        format: "MCQ",
+        course_id: formTutorialCourseId
+      }
+      setQuizzesList((prev) => [newQuizObj, ...prev])
+
+      alert(`Quiz generated successfully on topic "${formQuizTopic.trim()}" and automatically linked!`)
+    } catch (err: any) {
+      console.error("Error generating quiz in admin form:", err)
+      alert(err.message || "An unexpected error occurred while generating quiz.")
+    } finally {
+      setFormQuizGenerating(false)
+    }
+  }
+
   if (callerLoading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -1144,6 +1478,13 @@ export default function AdminDashboard() {
             onClick={() => setActiveTab("guides")}
           >
             Clinical Guides
+          </Button>
+          <Button
+            variant={activeTab === "tutorials" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setActiveTab("tutorials")}
+          >
+            Tutorials
           </Button>
         </div>
       </PageHeader>
@@ -2539,6 +2880,225 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* --- TUTORIALS TAB --- */}
+      {activeTab === "tutorials" && (
+        <div className="flex flex-col gap-6 animate-in fade-in duration-300">
+          {/* SEARCH & FILTERS PANEL */}
+          <Card className="border-border">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <FileText className="size-5 text-primary" /> Tutorials Administration Directory
+                </CardTitle>
+                <CardDescription>Manage rich interactive tutorials and map integrated learning assessments.</CardDescription>
+              </div>
+              <Button onClick={handleOpenTutorialCreate} size="sm" className="flex items-center gap-1">
+                <Plus className="size-4" /> Add Tutorial
+              </Button>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+              <div className="relative col-span-2">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Search tutorials by title..."
+                  className="pl-9"
+                  value={tutorialsSearch}
+                  onChange={(e) => setTutorialsSearch(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <select
+                  value={tutorialsCourseFilter}
+                  onChange={(e) => setTutorialsCourseFilter(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="all">All Courses</option>
+                  {courses.map((course) => (
+                    <option key={course.id} value={course.id}>
+                      {course.code}: {course.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <select
+                  value={tutorialsStatusFilter}
+                  onChange={(e) => setTutorialsStatusFilter(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="draft">Draft</option>
+                  <option value="published">Published</option>
+                </select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* TUTORIALS LIST TABLE */}
+          <Card className="border-border">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b bg-muted/50 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      <th className="p-4">Tutorial Details</th>
+                      <th className="p-4">Course</th>
+                      <th className="p-4">Sections</th>
+                      <th className="p-4">Linked Quiz</th>
+                      <th className="p-4">Status</th>
+                      <th className="p-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border text-sm">
+                    {tutorialsLoading ? (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                          <RefreshCw className="mx-auto h-5 w-5 animate-spin text-primary" />
+                          <p className="mt-2">Retrieving tutorials list...</p>
+                        </td>
+                      </tr>
+                    ) : tutorialsError ? (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-destructive font-medium">
+                          {tutorialsError}
+                        </td>
+                      </tr>
+                    ) : tutorialsList.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                          No matching tutorials found.
+                        </td>
+                      </tr>
+                    ) : (
+                      tutorialsList.map((item) => {
+                        const linkedQuiz = quizzesList.find(q => q.id === item.linked_quiz_id)
+
+                        return (
+                          <tr key={item.id} className="hover:bg-muted/30 transition-colors">
+                            <td className="p-4">
+                              <div className="font-semibold text-foreground flex items-center gap-1.5">
+                                <FileText className="size-4 text-primary shrink-0" />
+                                {item.title}
+                              </div>
+                              {item.overview && (
+                                <div className="text-xs text-muted-foreground mt-0.5 max-w-sm truncate" title={item.overview}>
+                                  {item.overview}
+                                </div>
+                              )}
+                            </td>
+                            <td className="p-4">
+                              <Badge variant="outline">
+                                {item.courses?.code || "GENERAL"}
+                              </Badge>
+                            </td>
+                            <td className="p-4">
+                              <Badge variant="secondary">
+                                {Array.isArray(item.sections) ? item.sections.length : 0} section(s)
+                              </Badge>
+                            </td>
+                            <td className="p-4">
+                              {linkedQuiz ? (
+                                <div className="flex flex-col gap-0.5 text-xs">
+                                  <span className="font-semibold text-foreground max-w-[150px] truncate" title={linkedQuiz.topic}>
+                                    {linkedQuiz.topic}
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground">
+                                    Format: {linkedQuiz.format || "MCQ"}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground italic">None mapped</span>
+                              )}
+                            </td>
+                            <td className="p-4 capitalize">
+                              <Badge variant={item.status === "published" ? "default" : "outline"}>
+                                {item.status || "draft"}
+                              </Badge>
+                            </td>
+                            <td className="p-4 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                {item.status !== "published" && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    title="Publish tutorial"
+                                    onClick={() => handleTutorialQuickStatusChange(item, "published")}
+                                    className="h-8 px-2 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-500/10"
+                                  >
+                                    <CheckCircle className="size-4" />
+                                  </Button>
+                                )}
+                                {item.status === "published" && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    title="Move to draft"
+                                    onClick={() => handleTutorialQuickStatusChange(item, "draft")}
+                                    className="h-8 px-2 text-amber-500 hover:text-amber-600 hover:bg-amber-500/10"
+                                  >
+                                    <Ban className="size-4" />
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenTutorialEdit(item)}
+                                  className="h-8 px-2 text-primary"
+                                >
+                                  <Edit2 className="size-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenTutorialDeleteConfirm(item)}
+                                  className="h-8 px-2 text-destructive hover:bg-destructive/10"
+                                >
+                                  <Trash2 className="size-4" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* PAGINATION PANEL */}
+              {tutorialsCount > itemsPerPage && (
+                <div className="flex items-center justify-between p-4 border-t border-border">
+                  <span className="text-xs text-muted-foreground">
+                    Showing {(tutorialsPage - 1) * itemsPerPage + 1} - {Math.min(tutorialsPage * itemsPerPage, tutorialsCount)} of {tutorialsCount} tutorials
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={tutorialsPage === 1 || tutorialsLoading}
+                      onClick={() => setTutorialsPage((c) => c - 1)}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={tutorialsPage * itemsPerPage >= tutorialsCount || tutorialsLoading}
+                      onClick={() => setTutorialsPage((c) => c + 1)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* --- STAFF FORM DRAWER (SHEET) --- */}
       <Sheet open={staffFormOpen} onOpenChange={setStaffFormOpen}>
         <SheetContent side="right" className="sm:max-w-md overflow-y-auto w-full">
@@ -2991,6 +3551,289 @@ export default function AdminDashboard() {
                   disabled={guideDeleteLoading}
                 >
                   {guideDeleteLoading ? "Deleting guide..." : "Confirm Deletion"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* --- TUTORIAL FORM DRAWER (SHEET) --- */}
+      <Sheet open={tutorialFormOpen} onOpenChange={setTutorialFormOpen}>
+        <SheetContent side="right" className="sm:max-w-xl overflow-y-auto w-full">
+          <SheetHeader>
+            <SheetTitle>
+              {tutorialFormMode === "create" ? "Add Tutorial" : "Modify Tutorial"}
+            </SheetTitle>
+            <SheetDescription>
+              Populate tutorial details, sections, and associate assessment quizzes dynamically. All modifications are logged.
+            </SheetDescription>
+          </SheetHeader>
+
+          <form onSubmit={handleTutorialFormSubmit} className="space-y-5 p-4">
+            {tutorialFormError && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/15 p-3 text-sm text-destructive font-medium">
+                {tutorialFormError}
+              </div>
+            )}
+            {tutorialFormSuccess && (
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-500 font-medium">
+                {tutorialFormSuccess}
+              </div>
+            )}
+
+            {/* Title */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="tutorial-title" className="text-xs font-medium text-foreground">Tutorial Title</label>
+              <Input
+                id="tutorial-title"
+                placeholder="e.g., Immunology of Vaccines"
+                value={formTutorialTitle}
+                onChange={(e) => setFormTutorialTitle(e.target.value)}
+                required
+              />
+            </div>
+
+            {/* Course Mapped */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="tutorial-course" className="text-xs font-medium text-foreground">Academic Course Mapping</label>
+              <select
+                id="tutorial-course"
+                value={formTutorialCourseId}
+                onChange={(e) => setFormTutorialCourseId(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                required
+              >
+                <option value="">-- Choose Course --</option>
+                {courses.map((course) => (
+                  <option key={course.id} value={course.id}>
+                    {course.code}: {course.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Overview */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="tutorial-overview" className="text-xs font-medium text-foreground">Tutorial Overview</label>
+              <textarea
+                id="tutorial-overview"
+                placeholder="Provide a general summary or overview of the tutorial lesson..."
+                value={formTutorialOverview}
+                onChange={(e) => setFormTutorialOverview(e.target.value)}
+                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+            </div>
+
+            {/* Status */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="tutorial-status" className="text-xs font-medium text-foreground">Status</label>
+              <select
+                id="tutorial-status"
+                value={formTutorialStatus}
+                onChange={(e) => setFormTutorialStatus(e.target.value as "draft" | "published")}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="draft">Draft (Hidden from Students)</option>
+                <option value="published">Published (Visible to Students)</option>
+              </select>
+            </div>
+
+            {/* Quiz Linking flows */}
+            <div className="space-y-4 pt-4 border-t">
+              <span className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                <Sparkles className="size-4 text-primary" /> Quiz Integration Mapping
+              </span>
+
+              {/* Pick existing quiz dropdown */}
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="tutorial-linked-quiz" className="text-xs font-medium text-foreground">
+                  Option A: Pick Existing Mapped Quiz
+                </label>
+                <select
+                  id="tutorial-linked-quiz"
+                  value={formTutorialLinkedQuizId}
+                  onChange={(e) => setFormTutorialLinkedQuizId(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none"
+                >
+                  <option value="">-- No Quiz Linked --</option>
+                  {quizzesList
+                    .filter((q) => !formTutorialCourseId || q.course_id === formTutorialCourseId)
+                    .map((q) => (
+                      <option key={q.id} value={q.id}>
+                        {q.courses?.code ? `[${q.courses.code}] ` : ""}{q.topic} ({q.format || "MCQ"})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              {/* Generate new quiz in form */}
+              <div className="space-y-2 p-3 border rounded-lg bg-muted/20">
+                <label htmlFor="form-quiz-topic" className="text-xs font-semibold text-foreground block">
+                  Option B: AI Generate New Quiz
+                </label>
+                <p className="text-[10px] text-muted-foreground leading-normal">
+                  Generate 10 multiple choice questions dynamically via MedHaven AI, which will be automatically set as the linked quiz ID.
+                </p>
+                <div className="flex gap-2 mt-2">
+                  <Input
+                    id="form-quiz-topic"
+                    placeholder="Enter topic (e.g. Action potential)"
+                    value={formQuizTopic}
+                    onChange={(e) => setFormQuizTopic(e.target.value)}
+                    className="h-9 text-xs"
+                    disabled={formQuizGenerating}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleGenerateQuizInForm}
+                    disabled={formQuizGenerating || !formQuizTopic.trim() || !formTutorialCourseId}
+                    className="shrink-0 h-9"
+                  >
+                    {formQuizGenerating ? "Generating..." : "Generate & Link"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Dynamic sections editor pattern */}
+            <div className="space-y-4 pt-4 border-t">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-foreground">Dynamic Tutorial Sections</span>
+                <Button type="button" variant="outline" size="sm" onClick={handleAddTutorialSection} className="flex items-center gap-1">
+                  <Plus className="size-3.5" /> Add Section
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                {formTutorialSections.map((sec, idx) => (
+                  <div key={idx} className="p-3 border rounded-lg bg-muted/10 space-y-3 relative">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-muted-foreground">Section #{idx + 1}</span>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          disabled={idx === 0}
+                          onClick={() => handleMoveTutorialSection(idx, "up")}
+                          className="size-7"
+                          title="Move Up"
+                        >
+                          <ChevronUp className="size-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          disabled={idx === formTutorialSections.length - 1}
+                          onClick={() => handleMoveTutorialSection(idx, "down")}
+                          className="size-7"
+                          title="Move Down"
+                        >
+                          <ChevronDown className="size-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemoveTutorialSection(idx)}
+                          className="size-7 text-destructive hover:bg-destructive/10"
+                          title="Remove Section"
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <Input
+                        placeholder="Section Heading (e.g. Core Mechanisms)"
+                        value={sec.heading}
+                        onChange={(e) => handleUpdateTutorialSection(idx, "heading", e.target.value)}
+                        className="h-8 text-xs font-medium"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <textarea
+                        placeholder="Section content and detailed descriptions..."
+                        value={sec.content}
+                        onChange={(e) => handleUpdateTutorialSection(idx, "content", e.target.value)}
+                        className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Save Buttons */}
+            <div className="flex gap-3 pt-4 border-t">
+              <Button
+                type="submit"
+                className="flex-1"
+                disabled={tutorialFormLoading}
+              >
+                {tutorialFormLoading ? "Processing transaction..." : "Apply Tutorial Changes"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setTutorialFormOpen(false)
+                  setEditingTutorial(null)
+                }}
+                disabled={tutorialFormLoading}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </SheetContent>
+      </Sheet>
+
+      {/* --- TUTORIAL DELETE CONFIRMATION DIALOG --- */}
+      {tutorialDeleteConfirmOpen && tutorialToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <Card className="w-full max-w-md border-destructive/30 shadow-2xl animate-in zoom-in-95 duration-200">
+            <CardHeader>
+              <CardTitle className="text-destructive flex items-center gap-1.5">
+                <AlertTriangle className="size-5" /> Confirm Tutorial Deletion
+              </CardTitle>
+              <CardDescription>
+                Are you absolutely sure you want to permanently delete the tutorial: <strong className="text-foreground">&quot;{tutorialToDelete.title}&quot;</strong>?
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-muted-foreground leading-normal">
+                This will completely remove the tutorial and all of its sections. This action cannot be undone.
+              </p>
+
+              {tutorialDeleteError && (
+                <div className="rounded-lg border border-destructive/30 bg-destructive/15 p-3 text-sm text-destructive font-medium">
+                  {tutorialDeleteError}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 border-t pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setTutorialDeleteConfirmOpen(false)
+                    setTutorialToDelete(null)
+                  }}
+                  disabled={tutorialDeleteLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteTutorial}
+                  disabled={tutorialDeleteLoading}
+                >
+                  {tutorialDeleteLoading ? "Deleting tutorial..." : "Confirm Deletion"}
                 </Button>
               </div>
             </CardContent>
