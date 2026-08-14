@@ -47,8 +47,8 @@ function normalizeRole(value: unknown): string {
 export default function AdminDashboard() {
   const supabase = createClient()
 
-  // Tabs: 'overview' | 'users' | 'materials'
-  const [activeTab, setActiveTab] = useState<"overview" | "users" | "materials">("overview")
+  // Tabs: 'overview' | 'users' | 'materials' | 'staff'
+  const [activeTab, setActiveTab] = useState<"overview" | "users" | "materials" | "staff">("overview")
 
   // Caller authorization info
   const [caller, setCaller] = useState<{
@@ -149,6 +149,40 @@ export default function AdminDashboard() {
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteError, setDeleteError] = useState("")
 
+  // --- STAFF STATE ---
+  const [staffList, setStaffList] = useState<any[]>([])
+  const [staffCount, setStaffCount] = useState(0)
+  const [staffLoading, setStaffLoading] = useState(false)
+  const [staffError, setStaffError] = useState("")
+
+  const [staffSearch, setStaffSearch] = useState("")
+  const [staffDebouncedSearch, setStaffDebouncedSearch] = useState("")
+  const [staffDeptFilter, setStaffDeptFilter] = useState("all")
+  const [staffPage, setStaffPage] = useState(1)
+
+  // Staff Form Sheet State
+  const [staffFormOpen, setStaffFormOpen] = useState(false)
+  const [staffFormMode, setStaffFormMode] = useState<"create" | "edit">("create")
+  const [editingStaff, setEditingStaff] = useState<any | null>(null)
+  const [staffFormLoading, setStaffFormLoading] = useState(false)
+  const [staffFormError, setStaffFormError] = useState("")
+  const [staffFormSuccess, setStaffFormSuccess] = useState("")
+
+  // Staff Editable Form Fields
+  const [formStaffName, setFormStaffName] = useState("")
+  const [formStaffPhotoUrl, setFormStaffPhotoUrl] = useState("")
+  const [formStaffTitle, setFormStaffTitle] = useState("")
+  const [formStaffDepartment, setFormStaffDepartment] = useState("")
+  const [formStaffSpecialty, setFormStaffSpecialty] = useState("")
+  const [formStaffCoursesText, setFormStaffCoursesText] = useState("") // comma-separated strings
+  const [formStaffStatus, setFormStaffStatus] = useState<"active" | "inactive">("active")
+
+  // Staff Delete Confirmation State
+  const [staffDeleteConfirmOpen, setStaffDeleteConfirmOpen] = useState(false)
+  const [staffToDelete, setStaffToDelete] = useState<any | null>(null)
+  const [staffDeleteLoading, setStaffDeleteLoading] = useState(false)
+  const [staffDeleteError, setStaffDeleteError] = useState("")
+
   // Debounce search query (Users)
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -164,6 +198,14 @@ export default function AdminDashboard() {
     }, 400)
     return () => clearTimeout(timer)
   }, [materialSearch])
+
+  // Debounce search query (Staff)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setStaffDebouncedSearch(staffSearch)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [staffSearch])
 
   // Get current caller session/role info
   useEffect(() => {
@@ -305,6 +347,32 @@ export default function AdminDashboard() {
     }
   }
 
+  // Fetch staff list
+  const fetchStaff = async () => {
+    setStaffLoading(true)
+    setStaffError("")
+    try {
+      const params = new URLSearchParams({
+        query: staffDebouncedSearch,
+        department: staffDeptFilter,
+        page: String(staffPage),
+        limit: String(itemsPerPage),
+      })
+
+      const res = await fetch(`/api/admin/staff?${params.toString()}`)
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to load staff")
+      }
+      setStaffList(data.staff || [])
+      setStaffCount(data.count || 0)
+    } catch (err: any) {
+      setStaffError(err.message || "An error occurred loading staff directory.")
+    } finally {
+      setStaffLoading(false)
+    }
+  }
+
   // Reload lists when active tab changes, or filters change
   useEffect(() => {
     if (activeTab === "overview") {
@@ -313,6 +381,8 @@ export default function AdminDashboard() {
       void fetchUsers()
     } else if (activeTab === "materials") {
       void fetchMaterials()
+    } else if (activeTab === "staff") {
+      void fetchStaff()
     }
   }, [
     activeTab,
@@ -327,7 +397,10 @@ export default function AdminDashboard() {
     materialTypeFilter,
     materialTierFilter,
     materialStatusFilter,
-    materialPage
+    materialPage,
+    staffDebouncedSearch,
+    staffDeptFilter,
+    staffPage
   ])
 
   // Open Edit User view & prefill values
@@ -615,6 +688,143 @@ export default function AdminDashboard() {
     }
   }
 
+  // --- STAFF MANAGEMENT FUNCTIONS ---
+  const handleOpenStaffCreate = () => {
+    setStaffFormMode("create")
+    setEditingStaff(null)
+    setFormStaffName("")
+    setFormStaffPhotoUrl("")
+    setFormStaffTitle("")
+    setFormStaffDepartment("Physiology") // default
+    setFormStaffSpecialty("")
+    setFormStaffCoursesText("")
+    setFormStaffStatus("active")
+    setStaffFormError("")
+    setStaffFormSuccess("")
+    setStaffFormOpen(true)
+  }
+
+  const handleOpenStaffEdit = (staff: any) => {
+    setStaffFormMode("edit")
+    setEditingStaff(staff)
+    setFormStaffName(staff.full_name || "")
+    setFormStaffPhotoUrl(staff.photo_url || "")
+    setFormStaffTitle(staff.title || "")
+    setFormStaffDepartment(staff.department || "Physiology")
+    setFormStaffSpecialty(staff.specialty || "")
+    setFormStaffCoursesText(Array.isArray(staff.courses) ? staff.courses.join(", ") : "")
+    setFormStaffStatus(staff.status === "inactive" ? "inactive" : "active")
+    setStaffFormError("")
+    setStaffFormSuccess("")
+    setStaffFormOpen(true)
+  }
+
+  const handleStaffFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!formStaffName.trim()) {
+      setStaffFormError("Full Name is required")
+      return
+    }
+    if (!formStaffTitle.trim()) {
+      setStaffFormError("Title is required")
+      return
+    }
+    if (!formStaffDepartment.trim()) {
+      setStaffFormError("Department is required")
+      return
+    }
+
+    setStaffFormLoading(true)
+    setStaffFormError("")
+    setStaffFormSuccess("")
+
+    try {
+      const coursesArray = formStaffCoursesText
+        .split(",")
+        .map((c) => c.trim())
+        .filter((c) => c.length > 0)
+
+      const payload: Record<string, any> = {
+        full_name: formStaffName.trim(),
+        photo_url: formStaffPhotoUrl.trim() || null,
+        title: formStaffTitle.trim(),
+        department: formStaffDepartment.trim(),
+        specialty: formStaffSpecialty.trim() || null,
+        courses: coursesArray,
+        status: formStaffStatus,
+      }
+
+      let res
+      if (staffFormMode === "create") {
+        res = await fetch("/api/admin/staff", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        })
+      } else {
+        payload.id = editingStaff?.id
+        res = await fetch("/api/admin/staff", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        })
+      }
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to save staff changes")
+      }
+
+      setStaffFormSuccess(
+        staffFormMode === "create"
+          ? "Staff member created and logged successfully!"
+          : "Staff member updated and logged successfully!"
+      )
+
+      void fetchStaff()
+
+      setTimeout(() => {
+        setStaffFormOpen(false)
+        setEditingStaff(null)
+      }, 1000)
+    } catch (err: any) {
+      setStaffFormError(err.message || "An unexpected error occurred saving staff.")
+    } finally {
+      setStaffFormLoading(false)
+    }
+  }
+
+  const handleOpenStaffDeleteConfirm = (staff: any) => {
+    setStaffToDelete(staff)
+    setStaffDeleteError("")
+    setStaffDeleteConfirmOpen(true)
+  }
+
+  const handleDeleteStaff = async () => {
+    if (!staffToDelete) return
+    setStaffDeleteLoading(true)
+    setStaffDeleteError("")
+
+    try {
+      const res = await fetch(`/api/admin/staff?id=${staffToDelete.id}`, {
+        method: "DELETE"
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to delete staff member")
+      }
+
+      void fetchStaff()
+      setStaffDeleteConfirmOpen(false)
+      setStaffToDelete(null)
+    } catch (err: any) {
+      setStaffDeleteError(err.message || "An error occurred deleting staff member.")
+    } finally {
+      setStaffDeleteLoading(false)
+    }
+  }
+
   if (callerLoading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -675,6 +885,13 @@ export default function AdminDashboard() {
               Materials
             </Button>
           )}
+          <Button
+            variant={activeTab === "staff" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setActiveTab("staff")}
+          >
+            Staff Directory
+          </Button>
         </div>
       </PageHeader>
 
@@ -1681,6 +1898,389 @@ export default function AdminDashboard() {
           </form>
         </SheetContent>
       </Sheet>
+
+      {/* --- STAFF MANAGEMENT TAB --- */}
+      {activeTab === "staff" && (
+        <div className="flex flex-col gap-6 animate-in fade-in duration-300">
+          {/* SEARCH & FILTERS PANEL */}
+          <Card className="border-border">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <UsersIcon className="size-5 text-primary" /> Staff Administration Directory
+                </CardTitle>
+                <CardDescription>Manage academic faculty, specialty badges, and system status configuration.</CardDescription>
+              </div>
+              <Button onClick={handleOpenStaffCreate} size="sm" className="flex items-center gap-1">
+                <Plus className="size-4" /> Add Staff Member
+              </Button>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+              <div className="relative col-span-2">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Search staff by name, title, or specialty..."
+                  className="pl-9"
+                  value={staffSearch}
+                  onChange={(e) => setStaffSearch(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <select
+                  value={staffDeptFilter}
+                  onChange={(e) => setStaffDeptFilter(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="all">All Departments</option>
+                  <option value="Physiology">Physiology</option>
+                  <option value="Pathology">Pathology</option>
+                  <option value="Pharmacology">Pharmacology</option>
+                  <option value="Anatomy">Anatomy</option>
+                  <option value="Community Medicine">Community Medicine</option>
+                  <option value="Clinical Skills">Clinical Skills</option>
+                </select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* STAFF LIST TABLE */}
+          <Card className="border-border">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b bg-muted/50 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      <th className="p-4">Staff Member</th>
+                      <th className="p-4">Title / Role</th>
+                      <th className="p-4">Department</th>
+                      <th className="p-4">Specialty</th>
+                      <th className="p-4">Courses Taught</th>
+                      <th className="p-4">Status</th>
+                      <th className="p-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border text-sm">
+                    {staffLoading ? (
+                      <tr>
+                        <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                          <RefreshCw className="mx-auto h-5 w-5 animate-spin text-primary" />
+                          <p className="mt-2">Retrieving staff index...</p>
+                        </td>
+                      </tr>
+                    ) : staffError ? (
+                      <tr>
+                        <td colSpan={7} className="p-8 text-center text-destructive font-medium">
+                          {staffError}
+                        </td>
+                      </tr>
+                    ) : staffList.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                          No matching staff members found.
+                        </td>
+                      </tr>
+                    ) : (
+                      staffList.map((item) => {
+                        const initials = item.full_name
+                          ?.split(" ")
+                          .map((n: string) => n[0])
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase() || "ST";
+
+                        return (
+                          <tr key={item.id} className="hover:bg-muted/30 transition-colors">
+                            <td className="p-4">
+                              <div className="flex items-center gap-3">
+                                {item.photo_url ? (
+                                  <img
+                                    src={item.photo_url}
+                                    alt={item.full_name}
+                                    className="size-10 rounded-full object-cover shrink-0"
+                                  />
+                                ) : (
+                                  <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                                    {initials}
+                                  </div>
+                                )}
+                                <div className="font-semibold text-foreground">{item.full_name}</div>
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <span className="text-foreground">{item.title}</span>
+                            </td>
+                            <td className="p-4">
+                              <Badge variant="outline">{item.department}</Badge>
+                            </td>
+                            <td className="p-4">
+                              <span className="text-xs text-muted-foreground">{item.specialty || "—"}</span>
+                            </td>
+                            <td className="p-4">
+                              <div className="flex flex-wrap gap-1 max-w-[180px]">
+                                {Array.isArray(item.courses) && item.courses.length > 0 ? (
+                                  item.courses.map((course: string, idx: number) => (
+                                    <Badge key={idx} variant="accent" className="text-[10px] px-1 py-0">
+                                      {course}
+                                    </Badge>
+                                  ))
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">—</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <Badge
+                                variant={item.status === "active" ? "default" : "destructive"}
+                              >
+                                {item.status || "active"}
+                              </Badge>
+                            </td>
+                            <td className="p-4 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenStaffEdit(item)}
+                                  className="h-8 px-2 text-primary"
+                                >
+                                  <Edit2 className="size-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenStaffDeleteConfirm(item)}
+                                  className="h-8 px-2 text-destructive hover:bg-destructive/10"
+                                >
+                                  <Trash2 className="size-4" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* PAGINATION PANEL */}
+              {staffCount > itemsPerPage && (
+                <div className="flex items-center justify-between p-4 border-t border-border">
+                  <span className="text-xs text-muted-foreground">
+                    Showing {(staffPage - 1) * itemsPerPage + 1} - {Math.min(staffPage * itemsPerPage, staffCount)} of {staffCount} staff records
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={staffPage === 1 || staffLoading}
+                      onClick={() => setStaffPage((c) => c - 1)}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={staffPage * itemsPerPage >= staffCount || staffLoading}
+                      onClick={() => setStaffPage((c) => c + 1)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* --- STAFF FORM DRAWER (SHEET) --- */}
+      <Sheet open={staffFormOpen} onOpenChange={setStaffFormOpen}>
+        <SheetContent side="right" className="sm:max-w-md overflow-y-auto w-full">
+          <SheetHeader>
+            <SheetTitle>
+              {staffFormMode === "create" ? "Add Staff Member" : "Modify Staff Member"}
+            </SheetTitle>
+            <SheetDescription>
+              Populate profile fields to maintain an accurate staff directory. All additions and modifications are audited and logged.
+            </SheetDescription>
+          </SheetHeader>
+
+          <form onSubmit={handleStaffFormSubmit} className="space-y-5 p-4">
+            {staffFormError && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/15 p-3 text-sm text-destructive font-medium">
+                {staffFormError}
+              </div>
+            )}
+            {staffFormSuccess && (
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-500 font-medium">
+                {staffFormSuccess}
+              </div>
+            )}
+
+            {/* Name */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="staff-name" className="text-xs font-medium text-foreground">Full Name</label>
+              <Input
+                id="staff-name"
+                placeholder="e.g., Prof. Kofi Boateng"
+                value={formStaffName}
+                onChange={(e) => setFormStaffName(e.target.value)}
+                required
+              />
+            </div>
+
+            {/* Photo URL */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="staff-photo-url" className="text-xs font-medium text-foreground">Photo URL (Optional)</label>
+              <Input
+                id="staff-photo-url"
+                placeholder="https://..."
+                value={formStaffPhotoUrl}
+                onChange={(e) => setFormStaffPhotoUrl(e.target.value)}
+              />
+            </div>
+
+            {/* Title */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="staff-title" className="text-xs font-medium text-foreground">Academic Title / Role</label>
+              <Input
+                id="staff-title"
+                placeholder="e.g., Professor of Physiology"
+                value={formStaffTitle}
+                onChange={(e) => setFormStaffTitle(e.target.value)}
+                required
+              />
+            </div>
+
+            {/* Department */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="staff-dept" className="text-xs font-medium text-foreground">Department</label>
+              <select
+                id="staff-dept"
+                value={formStaffDepartment}
+                onChange={(e) => setFormStaffDepartment(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                required
+              >
+                <option value="Physiology">Physiology</option>
+                <option value="Pathology">Pathology</option>
+                <option value="Pharmacology">Pharmacology</option>
+                <option value="Anatomy">Anatomy</option>
+                <option value="Community Medicine">Community Medicine</option>
+                <option value="Clinical Skills">Clinical Skills</option>
+              </select>
+            </div>
+
+            {/* Specialty */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="staff-specialty" className="text-xs font-medium text-foreground">Specialty (Optional)</label>
+              <Input
+                id="staff-specialty"
+                placeholder="e.g., Cardiovascular Physiology"
+                value={formStaffSpecialty}
+                onChange={(e) => setFormStaffSpecialty(e.target.value)}
+              />
+            </div>
+
+            {/* Courses text array via comma-separated list */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="staff-courses" className="text-xs font-medium text-foreground">Courses Taught (Comma-separated)</label>
+              <Input
+                id="staff-courses"
+                placeholder="e.g., ANA 201, PIO 201"
+                value={formStaffCoursesText}
+                onChange={(e) => setFormStaffCoursesText(e.target.value)}
+              />
+            </div>
+
+            {/* Status (active/inactive toggle) */}
+            <div className="flex flex-col gap-1.5 pt-2 border-t">
+              <label htmlFor="staff-status" className="text-xs font-medium text-foreground">Status</label>
+              <select
+                id="staff-status"
+                value={formStaffStatus}
+                onChange={(e) => setFormStaffStatus(e.target.value as "active" | "inactive")}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="active">Active (Visible to Students)</option>
+                <option value="inactive">Inactive (Hidden from Students)</option>
+              </select>
+            </div>
+
+            {/* Save Buttons */}
+            <div className="flex gap-3 pt-4 border-t">
+              <Button
+                type="submit"
+                className="flex-1"
+                disabled={staffFormLoading}
+              >
+                {staffFormLoading ? "Processing transaction..." : "Apply Staff Changes"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setStaffFormOpen(false)
+                  setEditingStaff(null)
+                }}
+                disabled={staffFormLoading}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </SheetContent>
+      </Sheet>
+
+      {/* --- STAFF DELETE CONFIRMATION DIALOG --- */}
+      {staffDeleteConfirmOpen && staffToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <Card className="w-full max-w-md border-destructive/30 shadow-2xl animate-in zoom-in-95 duration-200">
+            <CardHeader>
+              <CardTitle className="text-destructive flex items-center gap-1.5">
+                <AlertTriangle className="size-5" /> Confirm Staff Deletion
+              </CardTitle>
+              <CardDescription>
+                Are you absolutely sure you want to permanently delete the staff record: <strong className="text-foreground">&quot;{staffToDelete.full_name}&quot;</strong>?
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-muted-foreground leading-normal">
+                This will completely remove the staff profile, courses taught, and credentials from the system. This action cannot be undone.
+              </p>
+
+              {staffDeleteError && (
+                <div className="rounded-lg border border-destructive/30 bg-destructive/15 p-3 text-sm text-destructive font-medium">
+                  {staffDeleteError}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 border-t pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setStaffDeleteConfirmOpen(false)
+                    setStaffToDelete(null)
+                  }}
+                  disabled={staffDeleteLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteStaff}
+                  disabled={staffDeleteLoading}
+                >
+                  {staffDeleteLoading ? "Deleting profile..." : "Confirm Deletion"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* --- DELETE CONFIRMATION DIALOG --- */}
       {deleteConfirmOpen && materialToDelete && (
