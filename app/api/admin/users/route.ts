@@ -77,7 +77,6 @@ export async function GET(request: NextRequest) {
     const fields = [
       "id",
       "full_name",
-      "avatar_url",
       "role",
       "current_level",
       "department",
