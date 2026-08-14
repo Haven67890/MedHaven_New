@@ -38,6 +38,52 @@ function Toggle({ checked, onChange, label, description }: { checked: boolean; o
   )
 }
 
+function VisibilitySelector({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const options = [
+    { id: "all", label: "All levels", description: "Show reference materials and past questions from all academic levels." },
+    { id: "group", label: "My group only", description: "Show only content matching your academic level group (e.g., Pre-clinical vs Clinical)." },
+    { id: "exact", label: "My exact level only", description: "Show only content that is specifically linked to your exact current level." },
+  ]
+
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-border p-4 bg-card">
+      <div className="flex flex-col gap-0.5 pb-2 border-b border-border mb-1">
+        <span className="text-sm font-medium text-foreground">Content visibility</span>
+        <span className="text-xs text-muted-foreground">Control what academic levels are visible across the platform.</span>
+      </div>
+      <div className="flex flex-col gap-2">
+        {options.map((opt) => {
+          const isSelected = value === opt.id
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => onChange(opt.id)}
+              className={cn(
+                "flex items-start gap-3 rounded-lg border p-3 text-left transition-all hover:bg-muted/50",
+                isSelected ? "border-primary bg-primary/5" : "border-border"
+              )}
+            >
+              <div className="flex h-5 items-center">
+                <div className={cn(
+                  "flex size-4 items-center justify-center rounded-full border",
+                  isSelected ? "border-primary bg-primary" : "border-muted-foreground/30"
+                )}>
+                  {isSelected && <span className="size-1.5 rounded-full bg-background" />}
+                </div>
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <span className="text-sm font-medium text-foreground">{opt.label}</span>
+                <span className="text-xs text-muted-foreground">{opt.description}</span>
+              </div>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export default function SettingsPage() {
   const supabase = createClient()
   const { user } = useAuth()
@@ -45,6 +91,8 @@ export default function SettingsPage() {
   const [notifications, setNotifications] = useState({ announcements: true, tutorials: true, marketplace: false, weekly: true })
   const [appearance, setAppearance] = useState({ darkMode: true, reducedMotion: false })
   const [profile, setProfile] = useState<{ first_name?: string; last_name?: string; email?: string } | null>(null)
+  const [contentVisibility, setContentVisibility] = useState<string>("all")
+  const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
     if (!user?.id) return
@@ -80,10 +128,76 @@ export default function SettingsPage() {
           email: sessionEmail,
         })
       }
+
+      // Fetch user_preferences
+      try {
+        const { data: prefData } = await supabase
+          .from("user_preferences")
+          .select("*")
+          .eq("user_id", user.id)
+          .maybeSingle()
+
+        if (prefData) {
+          if (prefData.content_visibility) {
+            setContentVisibility(prefData.content_visibility)
+          } else if (prefData.show_other_levels === false) {
+            setContentVisibility("group")
+          } else {
+            setContentVisibility("all")
+          }
+        } else {
+          setContentVisibility("all")
+        }
+      } catch (err) {
+        console.warn("Failed to fetch user preferences:", err)
+      }
     }
 
     void loadProfile()
   }, [user?.id, user?.email, supabase])
+
+  const handleContentVisibilityChange = async (val: string) => {
+    setContentVisibility(val)
+    if (!user?.id) return
+    try {
+      const { error } = await supabase
+        .from("user_preferences")
+        .upsert({
+          user_id: user.id,
+          content_visibility: val,
+          show_other_levels: val === "all"
+        }, { onConflict: "user_id" })
+      if (error) {
+        console.error("Failed to save content_visibility preference:", error)
+      }
+    } catch (err) {
+      console.error("Error saving content_visibility preference:", err)
+    }
+  }
+
+  const handleSaveAllChanges = async () => {
+    if (!user?.id) return
+    setIsSaving(true)
+    try {
+      const { error } = await supabase
+        .from("user_preferences")
+        .upsert({
+          user_id: user.id,
+          content_visibility: contentVisibility,
+          show_other_levels: contentVisibility === "all"
+        }, { onConflict: "user_id" })
+
+      if (error) {
+        alert("Failed to save changes: " + error.message)
+      } else {
+        alert("All preferences saved successfully!")
+      }
+    } catch (err: any) {
+      alert("Error saving preferences: " + (err.message || err))
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -172,14 +286,15 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        <SectionHeading title="Appearance" description="How MedHaven looks for you." />
+        <SectionHeading title="Appearance & Content" description="How MedHaven looks and filters content for you." />
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base"><Palette className="size-4 text-primary" aria-hidden="true" /> Display preferences</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-base"><Palette className="size-4 text-primary" aria-hidden="true" /> Display & content preferences</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             <Toggle checked={appearance.darkMode} onChange={(v) => setAppearance((a) => ({ ...a, darkMode: v }))} label="Dark mode" description="Use a darker theme that's easier on the eyes." />
             <Toggle checked={appearance.reducedMotion} onChange={(v) => setAppearance((a) => ({ ...a, reducedMotion: v }))} label="Reduce motion" description="Minimize animations and transitions." />
+            <VisibilitySelector value={contentVisibility} onChange={handleContentVisibilityChange} />
             <div className="flex items-center justify-between gap-4 rounded-xl border border-border p-4">
               <div className="flex flex-col gap-0.5">
                 <span className="flex items-center gap-2 text-sm font-medium text-foreground"><Moon className="size-4 text-primary" aria-hidden="true" /> Theme</span>
@@ -192,7 +307,9 @@ export default function SettingsPage() {
 
         <div className="flex justify-end gap-2">
           <Button variant="outline">Cancel</Button>
-          <Button>Save all changes</Button>
+          <Button onClick={handleSaveAllChanges} disabled={isSaving}>
+            {isSaving ? "Saving..." : "Save all changes"}
+          </Button>
         </div>
       </FieldSet>
     </div>
