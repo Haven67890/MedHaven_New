@@ -203,6 +203,56 @@ export default function AIQuizzesPage() {
           }
         }
 
+        // Check for quizId query parameter to preload quiz
+        let urlQuizId: string | null = null
+        if (typeof window !== "undefined") {
+          const params = new URLSearchParams(window.location.search)
+          urlQuizId = params.get("quizId")
+        }
+
+        if (urlQuizId && active) {
+          const { data: quizData, error: quizError } = await supabase
+            .from("quizzes")
+            .select(`
+              id,
+              course_id,
+              topic,
+              format,
+              quiz_questions (
+                id,
+                question_text,
+                options,
+                correct_answer,
+                explanation
+              )
+            `)
+            .eq("id", urlQuizId)
+            .maybeSingle()
+
+          if (!quizError && quizData) {
+            const formattedQs = (quizData.quiz_questions || []).map((q: any) => ({
+              id: q.id,
+              question: q.question_text,
+              options: q.options || [],
+              correct_answer: q.correct_answer,
+              explanation: q.explanation || "No explanation provided."
+            }))
+
+            setQuestions(formattedQs)
+            setActiveQuizId(quizData.id)
+            setSelectedFormat((quizData.format || "MCQ") as any)
+            setSelectedCourseId(quizData.course_id || "")
+            setCurrentQuestionIndex(0)
+            setSelectedAnswer(null)
+            setTypedShortAnswer("")
+            setIsAnswerSubmitted(false)
+            setAnswersState({})
+            setIsFinished(false)
+          } else {
+            console.error("Error fetching preloaded quiz:", quizError)
+          }
+        }
+
         // 2. Fetch courses
         const { data: coursesData, error: coursesError } = await supabase
           .from("courses")
