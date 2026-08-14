@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useTransition } from "react"
-import { ShieldAlert, Users as UsersIcon, ShieldCheck, UserCheck, AlertTriangle, RefreshCw, Search, SlidersHorizontal, Edit2, Plus, Trash2, CheckCircle, Ban, Archive, ExternalLink, Sparkles, FileText, Upload, ChevronUp, ChevronDown, Stethoscope } from "lucide-react"
+import { ShieldAlert, Users as UsersIcon, ShieldCheck, UserCheck, AlertTriangle, RefreshCw, Search, SlidersHorizontal, Edit2, Plus, Trash2, CheckCircle, Ban, Archive, ExternalLink, Sparkles, FileText, Upload, ChevronUp, ChevronDown, Stethoscope, BookOpen, GraduationCap, Building } from "lucide-react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -48,7 +48,7 @@ export default function AdminDashboard() {
   const supabase = createClient()
 
   // Tabs: 'overview' | 'users' | 'materials' | 'staff' | 'guides' | 'tutorials'
-  const [activeTab, setActiveTab] = useState<"overview" | "users" | "materials" | "staff" | "guides" | "tutorials">("overview")
+  const [activeTab, setActiveTab] = useState<"overview" | "users" | "materials" | "staff" | "guides" | "tutorials" | "curriculum">("overview")
 
   // Caller authorization info
   const [caller, setCaller] = useState<{
@@ -85,6 +85,91 @@ export default function AdminDashboard() {
   const [universities, setUniversities] = useState<University[]>([])
   const [faculties, setFaculties] = useState<Faculty[]>([])
   const [courses, setCourses] = useState<Course[]>([])
+
+  // --- CURRICULUM STATE ---
+  const [curriculumTab, setCurriculumTab] = useState<"universities" | "faculties" | "courses">("universities")
+
+  // Universities state
+  const [unisList, setUnisList] = useState<any[]>([])
+  const [unisCount, setUnisCount] = useState(0)
+  const [unisLoading, setUnisLoading] = useState(false)
+  const [unisError, setUnisError] = useState("")
+  const [uniSearch, setUniSearch] = useState("")
+  const [uniDebouncedSearch, setUniDebouncedSearch] = useState("")
+  const [uniPage, setUniPage] = useState(1)
+
+  // University Sheet / Form State
+  const [uniFormOpen, setUniFormOpen] = useState(false)
+  const [uniFormMode, setUniFormMode] = useState<"create" | "edit">("create")
+  const [editingUni, setEditingUni] = useState<any | null>(null)
+  const [uniFormLoading, setUniFormLoading] = useState(false)
+  const [uniFormError, setUniFormError] = useState("")
+  const [uniFormSuccess, setUniFormSuccess] = useState("")
+  const [formUniName, setFormUniName] = useState("")
+  const [formUniShortName, setFormUniShortName] = useState("")
+
+  // University Delete modal
+  const [uniDeleteConfirmOpen, setUniDeleteConfirmOpen] = useState(false)
+  const [uniToDelete, setUniToDelete] = useState<any | null>(null)
+  const [uniDeleteLoading, setUniDeleteLoading] = useState(false)
+  const [uniDeleteError, setUniDeleteError] = useState("")
+
+  // Faculties state
+  const [facsList, setFacsList] = useState<any[]>([])
+  const [facsCount, setFacsCount] = useState(0)
+  const [facsLoading, setFacsLoading] = useState(false)
+  const [facsError, setFacsError] = useState("")
+  const [facSearch, setFacSearch] = useState("")
+  const [facDebouncedSearch, setFacDebouncedSearch] = useState("")
+  const [facUniFilter, setFacUniFilter] = useState("all")
+  const [facPage, setFacPage] = useState(1)
+
+  // Faculty Sheet / Form State
+  const [facFormOpen, setFacFormOpen] = useState(false)
+  const [facFormMode, setFacFormMode] = useState<"create" | "edit">("create")
+  const [editingFac, setEditingFac] = useState<any | null>(null)
+  const [facFormLoading, setFacFormLoading] = useState(false)
+  const [facFormError, setFacFormError] = useState("")
+  const [facFormSuccess, setFacFormSuccess] = useState("")
+  const [formFacName, setFormFacName] = useState("")
+  const [formFacUniId, setFormFacUniId] = useState("")
+
+  // Faculty Delete modal
+  const [facDeleteConfirmOpen, setFacDeleteConfirmOpen] = useState(false)
+  const [facToDelete, setFacToDelete] = useState<any | null>(null)
+  const [facDeleteLoading, setFacDeleteLoading] = useState(false)
+  const [facDeleteError, setFacDeleteError] = useState("")
+
+  // Courses (Curriculum tab specific)
+  const [adminCoursesList, setAdminCoursesList] = useState<any[]>([])
+  const [adminCoursesCount, setAdminCoursesCount] = useState(0)
+  const [adminCoursesLoading, setAdminCoursesLoading] = useState(false)
+  const [adminCoursesError, setAdminCoursesError] = useState("")
+  const [adminCourseSearch, setAdminCourseSearch] = useState("")
+  const [adminCourseDebouncedSearch, setAdminCourseDebouncedSearch] = useState("")
+  const [adminCourseLevelFilter, setAdminCourseLevelFilter] = useState("all")
+  const [adminCourseFacultyFilter, setAdminCourseFacultyFilter] = useState("all")
+  const [adminCoursePage, setAdminCoursePage] = useState(1)
+
+  // Course Sheet / Form State
+  const [courseFormOpen, setCourseFormOpen] = useState(false)
+  const [courseFormMode, setCourseFormMode] = useState<"create" | "edit">("create")
+  const [editingCourseObj, setEditingCourseObj] = useState<any | null>(null)
+  const [courseFormLoading, setCourseFormLoading] = useState(false)
+  const [courseFormError, setCourseFormError] = useState("")
+  const [courseFormSuccess, setCourseFormSuccess] = useState("")
+  const [formCourseFacultyId, setFormCourseFacultyId] = useState("")
+  const [formCourseLevel, setFormCourseLevel] = useState("")
+  const [formCourseCode, setFormCourseCode] = useState("")
+  const [formCourseTitle, setFormCourseTitle] = useState("")
+  const [formCourseDescription, setFormCourseDescription] = useState("")
+  const [formCourseParentId, setFormCourseParentId] = useState("")
+
+  // Course Delete modal
+  const [courseDeleteConfirmOpen, setCourseDeleteConfirmOpen] = useState(false)
+  const [courseToDeleteObj, setCourseToDeleteObj] = useState<any | null>(null)
+  const [courseDeleteLoading, setCourseDeleteLoading] = useState(false)
+  const [courseDeleteError, setCourseDeleteError] = useState("")
 
   // Edit User Sheet State
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null)
@@ -297,6 +382,30 @@ export default function AdminDashboard() {
     return () => clearTimeout(timer)
   }, [tutorialsSearch])
 
+  // Debounce search query (Universities)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setUniDebouncedSearch(uniSearch)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [uniSearch])
+
+  // Debounce search query (Faculties)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setFacDebouncedSearch(facSearch)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [facSearch])
+
+  // Debounce search query (Courses admin tab)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAdminCourseDebouncedSearch(adminCourseSearch)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [adminCourseSearch])
+
   // Get current caller session/role info
   useEffect(() => {
     async function loadCaller() {
@@ -343,21 +452,22 @@ export default function AdminDashboard() {
   }, [])
 
   // Load universities, faculties, and courses metadata
-  useEffect(() => {
-    async function loadMetadata() {
-      try {
-        const [uniRes, facRes, courseRes] = await Promise.all([
-          supabase.from("universities").select("id, name, short_name"),
-          supabase.from("faculties").select("id, name, university_id"),
-          supabase.from("courses").select("id, code, title").order("code", { ascending: true })
-        ])
-        if (uniRes.data) setUniversities(uniRes.data)
-        if (facRes.data) setFaculties(facRes.data)
-        if (courseRes.data) setCourses(courseRes.data)
-      } catch (err) {
-        console.error("Error loading metadata directories:", err)
-      }
+  const loadMetadata = async () => {
+    try {
+      const [uniRes, facRes, courseRes] = await Promise.all([
+        supabase.from("universities").select("id, name, short_name"),
+        supabase.from("faculties").select("id, name, university_id"),
+        supabase.from("courses").select("id, code, title").order("code", { ascending: true })
+      ])
+      if (uniRes.data) setUniversities(uniRes.data)
+      if (facRes.data) setFaculties(facRes.data)
+      if (courseRes.data) setCourses(courseRes.data)
+    } catch (err) {
+      console.error("Error loading metadata directories:", err)
     }
+  }
+
+  useEffect(() => {
     void loadMetadata()
   }, [])
 
@@ -1405,6 +1515,471 @@ export default function AdminDashboard() {
     }
   }
 
+  // Fetch Universities list
+  const fetchUniversities = async () => {
+    setUnisLoading(true)
+    setUnisError("")
+    try {
+      const params = new URLSearchParams({
+        query: uniDebouncedSearch,
+        page: String(uniPage),
+        limit: String(itemsPerPage),
+      })
+      const res = await fetch(`/api/admin/universities?${params.toString()}`)
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to load universities")
+      }
+      setUnisList(data.universities || [])
+      setUnisCount(data.count || 0)
+    } catch (err: any) {
+      setUnisError(err.message || "An error occurred loading universities.")
+    } finally {
+      setUnisLoading(false)
+    }
+  }
+
+  // Fetch Faculties list
+  const fetchFaculties = async () => {
+    setFacsLoading(true)
+    setFacsError("")
+    try {
+      const params = new URLSearchParams({
+        query: facDebouncedSearch,
+        university_id: facUniFilter,
+        page: String(facPage),
+        limit: String(itemsPerPage),
+      })
+      const res = await fetch(`/api/admin/faculties?${params.toString()}`)
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to load faculties")
+      }
+      setFacsList(data.faculties || [])
+      setFacsCount(data.count || 0)
+    } catch (err: any) {
+      setFacsError(err.message || "An error occurred loading faculties.")
+    } finally {
+      setFacsLoading(false)
+    }
+  }
+
+  // Fetch Courses list for admin curriculum tab
+  const fetchAdminCourses = async () => {
+    setAdminCoursesLoading(true)
+    setAdminCoursesError("")
+    try {
+      const params = new URLSearchParams({
+        query: adminCourseDebouncedSearch,
+        level: adminCourseLevelFilter,
+        faculty_id: adminCourseFacultyFilter,
+        page: String(adminCoursePage),
+        limit: String(itemsPerPage),
+      })
+      const res = await fetch(`/api/admin/courses?${params.toString()}`)
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to load courses")
+      }
+      setAdminCoursesList(data.courses || [])
+      setAdminCoursesCount(data.count || 0)
+    } catch (err: any) {
+      setAdminCoursesError(err.message || "An error occurred loading courses.")
+    } finally {
+      setAdminCoursesLoading(false)
+    }
+  }
+
+  // Reload curriculum lists when active tab/filters change
+  useEffect(() => {
+    if (activeTab === "curriculum") {
+      if (curriculumTab === "universities") {
+        void fetchUniversities()
+      } else if (curriculumTab === "faculties") {
+        void fetchFaculties()
+      } else if (curriculumTab === "courses") {
+        void fetchAdminCourses()
+      }
+    }
+  }, [
+    activeTab,
+    curriculumTab,
+    uniDebouncedSearch,
+    uniPage,
+    facDebouncedSearch,
+    facUniFilter,
+    facPage,
+    adminCourseDebouncedSearch,
+    adminCourseLevelFilter,
+    adminCourseFacultyFilter,
+    adminCoursePage
+  ])
+
+  // --- UNIVERSITY HANDLERS ---
+  const handleOpenUniCreate = () => {
+    setUniFormMode("create")
+    setEditingUni(null)
+    setFormUniName("")
+    setFormUniShortName("")
+    setUniFormError("")
+    setUniFormSuccess("")
+    setUniFormOpen(true)
+  }
+
+  const handleOpenUniEdit = (uni: any) => {
+    setUniFormMode("edit")
+    setEditingUni(uni)
+    setFormUniName(uni.name || "")
+    setFormUniShortName(uni.short_name || "")
+    setUniFormError("")
+    setUniFormSuccess("")
+    setUniFormOpen(true)
+  }
+
+  const handleUniFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!formUniName.trim()) {
+      setUniFormError("Name is required")
+      return
+    }
+    if (!formUniShortName.trim()) {
+      setUniFormError("Short Name is required")
+      return
+    }
+
+    setUniFormLoading(true)
+    setUniFormError("")
+    setUniFormSuccess("")
+
+    try {
+      const payload: Record<string, any> = {
+        name: formUniName.trim(),
+        short_name: formUniShortName.trim(),
+      }
+
+      let res
+      if (uniFormMode === "create") {
+        res = await fetch("/api/admin/universities", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+      } else {
+        payload.id = editingUni?.id
+        res = await fetch("/api/admin/universities", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+      }
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to save university")
+      }
+
+      setUniFormSuccess(
+        uniFormMode === "create"
+          ? "University created and audited successfully!"
+          : "University updated and audited successfully!"
+      )
+
+      void fetchUniversities()
+      void loadMetadata()
+
+      setTimeout(() => {
+        setUniFormOpen(false)
+        setEditingUni(null)
+      }, 1000)
+    } catch (err: any) {
+      setUniFormError(err.message || "An unexpected error occurred.")
+    } finally {
+      setUniFormLoading(false)
+    }
+  }
+
+  const handleOpenUniDeleteConfirm = (uni: any) => {
+    setUniToDelete(uni)
+    setUniDeleteError("")
+    setUniDeleteConfirmOpen(true)
+  }
+
+  const handleDeleteUni = async () => {
+    if (!uniToDelete) return
+    setUniDeleteLoading(true)
+    setUniDeleteError("")
+
+    try {
+      const res = await fetch(`/api/admin/universities?id=${uniToDelete.id}`, {
+        method: "DELETE",
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to delete university")
+      }
+
+      void fetchUniversities()
+      void loadMetadata()
+      setUniDeleteConfirmOpen(false)
+      setUniToDelete(null)
+    } catch (err: any) {
+      setUniDeleteError(err.message || "An error occurred.")
+    } finally {
+      setUniDeleteLoading(false)
+    }
+  }
+
+  // --- FACULTY HANDLERS ---
+  const handleOpenFacCreate = () => {
+    setFacFormMode("create")
+    setEditingFac(null)
+    setFormFacName("")
+    setFormFacUniId(universities[0]?.id || "")
+    setFacFormError("")
+    setFacFormSuccess("")
+    setFacFormOpen(true)
+  }
+
+  const handleOpenFacEdit = (fac: any) => {
+    setFacFormMode("edit")
+    setEditingFac(fac)
+    setFormFacName(fac.name || "")
+    setFormFacUniId(fac.university_id || "")
+    setFacFormError("")
+    setFacFormSuccess("")
+    setFacFormOpen(true)
+  }
+
+  const handleFacFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!formFacName.trim()) {
+      setFacFormError("Name is required")
+      return
+    }
+    if (!formFacUniId) {
+      setFacFormError("University selection is required")
+      return
+    }
+
+    setFacFormLoading(true)
+    setFacFormError("")
+    setFacFormSuccess("")
+
+    try {
+      const payload: Record<string, any> = {
+        name: formFacName.trim(),
+        university_id: formFacUniId,
+      }
+
+      let res
+      if (facFormMode === "create") {
+        res = await fetch("/api/admin/faculties", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+      } else {
+        payload.id = editingFac?.id
+        res = await fetch("/api/admin/faculties", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+      }
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to save faculty")
+      }
+
+      setFacFormSuccess(
+        facFormMode === "create"
+          ? "Faculty created and audited successfully!"
+          : "Faculty updated and audited successfully!"
+      )
+
+      void fetchFaculties()
+      void loadMetadata()
+
+      setTimeout(() => {
+        setFacFormOpen(false)
+        setEditingFac(null)
+      }, 1000)
+    } catch (err: any) {
+      setFacFormError(err.message || "An unexpected error occurred.")
+    } finally {
+      setFacFormLoading(false)
+    }
+  }
+
+  const handleOpenFacDeleteConfirm = (fac: any) => {
+    setFacToDelete(fac)
+    setFacDeleteError("")
+    setFacDeleteConfirmOpen(true)
+  }
+
+  const handleDeleteFac = async () => {
+    if (!facToDelete) return
+    setFacDeleteLoading(true)
+    setFacDeleteError("")
+
+    try {
+      const res = await fetch(`/api/admin/faculties?id=${facToDelete.id}`, {
+        method: "DELETE",
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to delete faculty")
+      }
+
+      void fetchFaculties()
+      void loadMetadata()
+      setFacDeleteConfirmOpen(false)
+      setFacToDelete(null)
+    } catch (err: any) {
+      setFacDeleteError(err.message || "An error occurred.")
+    } finally {
+      setFacDeleteLoading(false)
+    }
+  }
+
+  // --- COURSE HANDLERS ---
+  const handleOpenCourseCreate = () => {
+    setCourseFormMode("create")
+    setEditingCourseObj(null)
+    setFormCourseFacultyId(faculties[0]?.id || "")
+    setFormCourseLevel("100L")
+    setFormCourseCode("")
+    setFormCourseTitle("")
+    setFormCourseDescription("")
+    setFormCourseParentId("")
+    setCourseFormError("")
+    setCourseFormSuccess("")
+    setCourseFormOpen(true)
+  }
+
+  const handleOpenCourseEdit = (course: any) => {
+    setCourseFormMode("edit")
+    setEditingCourseObj(course)
+    setFormCourseFacultyId(course.faculty_id || "")
+    setFormCourseLevel(course.level || "100L")
+    setFormCourseCode(course.code || "")
+    setFormCourseTitle(course.title || "")
+    setFormCourseDescription(course.description || "")
+    setFormCourseParentId(course.parent_id || "")
+    setCourseFormError("")
+    setCourseFormSuccess("")
+    setCourseFormOpen(true)
+  }
+
+  const handleCourseFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!formCourseFacultyId) {
+      setCourseFormError("Faculty selection is required")
+      return
+    }
+    if (!formCourseLevel) {
+      setCourseFormError("Level selection is required")
+      return
+    }
+    if (!formCourseCode.trim()) {
+      setCourseFormError("Course Code is required")
+      return
+    }
+    if (!formCourseTitle.trim()) {
+      setCourseFormError("Course Title is required")
+      return
+    }
+
+    setCourseFormLoading(true)
+    setCourseFormError("")
+    setCourseFormSuccess("")
+
+    try {
+      const payload: Record<string, any> = {
+        faculty_id: formCourseFacultyId,
+        level: formCourseLevel,
+        code: formCourseCode.trim(),
+        title: formCourseTitle.trim(),
+        description: formCourseDescription.trim() || null,
+        parent_id: formCourseParentId || null,
+      }
+
+      let res
+      if (courseFormMode === "create") {
+        res = await fetch("/api/admin/courses", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+      } else {
+        payload.id = editingCourseObj?.id
+        res = await fetch("/api/admin/courses", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+      }
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to save course")
+      }
+
+      setCourseFormSuccess(
+        courseFormMode === "create"
+          ? "Course created and audited successfully!"
+          : "Course updated and audited successfully!"
+      )
+
+      void fetchAdminCourses()
+      void loadMetadata()
+
+      setTimeout(() => {
+        setCourseFormOpen(false)
+        setEditingCourseObj(null)
+      }, 1000)
+    } catch (err: any) {
+      setCourseFormError(err.message || "An unexpected error occurred.")
+    } finally {
+      setCourseFormLoading(false)
+    }
+  }
+
+  const handleOpenCourseDeleteConfirm = (course: any) => {
+    setCourseToDeleteObj(course)
+    setCourseDeleteError("")
+    setCourseDeleteConfirmOpen(true)
+  }
+
+  const handleDeleteCourse = async () => {
+    if (!courseToDeleteObj) return
+    setCourseDeleteLoading(true)
+    setCourseDeleteError("")
+
+    try {
+      const res = await fetch(`/api/admin/courses?id=${courseToDeleteObj.id}`, {
+        method: "DELETE",
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to delete course")
+      }
+
+      void fetchAdminCourses()
+      void loadMetadata()
+      setCourseDeleteConfirmOpen(false)
+      setCourseToDeleteObj(null)
+    } catch (err: any) {
+      setCourseDeleteError(err.message || "An error occurred.")
+    } finally {
+      setCourseDeleteLoading(false)
+    }
+  }
+
   if (callerLoading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -1485,6 +2060,13 @@ export default function AdminDashboard() {
             onClick={() => setActiveTab("tutorials")}
           >
             Tutorials
+          </Button>
+          <Button
+            variant={activeTab === "curriculum" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setActiveTab("curriculum")}
+          >
+            Curriculum
           </Button>
         </div>
       </PageHeader>
@@ -3834,6 +4416,899 @@ export default function AdminDashboard() {
                   disabled={tutorialDeleteLoading}
                 >
                   {tutorialDeleteLoading ? "Deleting tutorial..." : "Confirm Deletion"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* --- CURRICULUM TAB --- */}
+      {activeTab === "curriculum" && (
+        <div className="flex flex-col gap-6 animate-in fade-in duration-300">
+          <Card className="border-border">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between flex-wrap gap-4">
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <GraduationCap className="size-5 text-primary" /> Curriculum Workspace Manager
+                </CardTitle>
+                <CardDescription>Define universities, associate faculties, and organize standard course hierarchies.</CardDescription>
+              </div>
+              <div className="flex items-center gap-2 border rounded-lg p-1 bg-muted/20">
+                <Button
+                  variant={curriculumTab === "universities" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => setCurriculumTab("universities")}
+                  className="h-8"
+                >
+                  Universities
+                </Button>
+                <Button
+                  variant={curriculumTab === "faculties" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => setCurriculumTab("faculties")}
+                  className="h-8"
+                >
+                  Faculties
+                </Button>
+                <Button
+                  variant={curriculumTab === "courses" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => setCurriculumTab("courses")}
+                  className="h-8"
+                >
+                  Courses
+                </Button>
+              </div>
+            </CardHeader>
+          </Card>
+
+          {/* SECTION: UNIVERSITIES */}
+          {curriculumTab === "universities" && (
+            <div className="flex flex-col gap-6">
+              <Card className="border-border">
+                <CardHeader className="pb-3 flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base">Universities Directory</CardTitle>
+                    <CardDescription>Manage parent institutions</CardDescription>
+                  </div>
+                  <Button onClick={handleOpenUniCreate} size="sm" className="flex items-center gap-1">
+                    <Plus className="size-4" /> Add University
+                  </Button>
+                </CardHeader>
+                <CardContent className="grid gap-4 sm:grid-cols-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="search"
+                      placeholder="Search by name or acronym..."
+                      className="pl-9"
+                      value={uniSearch}
+                      onChange={(e) => setUniSearch(e.target.value)}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-border">
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b bg-muted/50 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                          <th className="p-4">Name</th>
+                          <th className="p-4">Acronym / Short Name</th>
+                          <th className="p-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border text-sm">
+                        {unisLoading ? (
+                          <tr>
+                            <td colSpan={3} className="p-8 text-center text-muted-foreground">
+                              <RefreshCw className="mx-auto h-5 w-5 animate-spin text-primary" />
+                              <p className="mt-2">Retrieving universities...</p>
+                            </td>
+                          </tr>
+                        ) : unisError ? (
+                          <tr>
+                            <td colSpan={3} className="p-8 text-center text-destructive font-medium">
+                              {unisError}
+                            </td>
+                          </tr>
+                        ) : unisList.length === 0 ? (
+                          <tr>
+                            <td colSpan={3} className="p-8 text-center text-muted-foreground">
+                              No universities found.
+                            </td>
+                          </tr>
+                        ) : (
+                          unisList.map((uni) => (
+                            <tr key={uni.id} className="hover:bg-muted/30 transition-colors">
+                              <td className="p-4 font-semibold text-foreground">{uni.name}</td>
+                              <td className="p-4 font-mono text-xs">{uni.short_name}</td>
+                              <td className="p-4 text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleOpenUniEdit(uni)}
+                                    className="h-8 px-2 text-primary"
+                                  >
+                                    <Edit2 className="size-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleOpenUniDeleteConfirm(uni)}
+                                    className="h-8 px-2 text-destructive hover:bg-destructive/10"
+                                  >
+                                    <Trash2 className="size-4" />
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {unisCount > itemsPerPage && (
+                    <div className="flex items-center justify-between p-4 border-t border-border">
+                      <span className="text-xs text-muted-foreground">
+                        Showing {(uniPage - 1) * itemsPerPage + 1} - {Math.min(uniPage * itemsPerPage, unisCount)} of {unisCount} universities
+                      </span>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={uniPage === 1 || unisLoading}
+                          onClick={() => setUniPage((c) => c - 1)}
+                        >
+                          Previous
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={uniPage * itemsPerPage >= unisCount || unisLoading}
+                          onClick={() => setUniPage((c) => c + 1)}
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* SECTION: FACULTIES */}
+          {curriculumTab === "faculties" && (
+            <div className="flex flex-col gap-6">
+              <Card className="border-border">
+                <CardHeader className="pb-3 flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base">Faculties Directory</CardTitle>
+                    <CardDescription>Manage academic faculties</CardDescription>
+                  </div>
+                  <Button onClick={handleOpenFacCreate} size="sm" className="flex items-center gap-1">
+                    <Plus className="size-4" /> Add Faculty
+                  </Button>
+                </CardHeader>
+                <CardContent className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="search"
+                      placeholder="Search faculty name..."
+                      className="pl-9"
+                      value={facSearch}
+                      onChange={(e) => setFacSearch(e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <select
+                      value={facUniFilter}
+                      onChange={(e) => setFacUniFilter(e.target.value)}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none"
+                    >
+                      <option value="all">All Universities</option>
+                      {universities.map((uni) => (
+                        <option key={uni.id} value={uni.id}>
+                          {uni.short_name || uni.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-border">
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b bg-muted/50 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                          <th className="p-4">Faculty Name</th>
+                          <th className="p-4">Belongs To</th>
+                          <th className="p-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border text-sm">
+                        {facsLoading ? (
+                          <tr>
+                            <td colSpan={3} className="p-8 text-center text-muted-foreground">
+                              <RefreshCw className="mx-auto h-5 w-5 animate-spin text-primary" />
+                              <p className="mt-2">Retrieving faculties...</p>
+                            </td>
+                          </tr>
+                        ) : facsError ? (
+                          <tr>
+                            <td colSpan={3} className="p-8 text-center text-destructive font-medium">
+                              {facsError}
+                            </td>
+                          </tr>
+                        ) : facsList.length === 0 ? (
+                          <tr>
+                            <td colSpan={3} className="p-8 text-center text-muted-foreground">
+                              No faculties found.
+                            </td>
+                          </tr>
+                        ) : (
+                          facsList.map((fac) => (
+                            <tr key={fac.id} className="hover:bg-muted/30 transition-colors">
+                              <td className="p-4 font-semibold text-foreground">{fac.name}</td>
+                              <td className="p-4">
+                                <Badge variant="secondary">
+                                  {fac.universities?.name} ({fac.universities?.short_name})
+                                </Badge>
+                              </td>
+                              <td className="p-4 text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleOpenFacEdit(fac)}
+                                    className="h-8 px-2 text-primary"
+                                  >
+                                    <Edit2 className="size-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleOpenFacDeleteConfirm(fac)}
+                                    className="h-8 px-2 text-destructive hover:bg-destructive/10"
+                                  >
+                                    <Trash2 className="size-4" />
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {facsCount > itemsPerPage && (
+                    <div className="flex items-center justify-between p-4 border-t border-border">
+                      <span className="text-xs text-muted-foreground">
+                        Showing {(facPage - 1) * itemsPerPage + 1} - {Math.min(facPage * itemsPerPage, facsCount)} of {facsCount} faculties
+                      </span>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={facPage === 1 || facsLoading}
+                          onClick={() => setFacPage((c) => c - 1)}
+                        >
+                          Previous
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={facPage * itemsPerPage >= facsCount || facsLoading}
+                          onClick={() => setFacPage((c) => c + 1)}
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* SECTION: COURSES */}
+          {curriculumTab === "courses" && (
+            <div className="flex flex-col gap-6">
+              <Card className="border-border">
+                <CardHeader className="pb-3 flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base">Courses Directory</CardTitle>
+                    <CardDescription>Manage core curriculum course lists and sub-topics</CardDescription>
+                  </div>
+                  <Button onClick={handleOpenCourseCreate} size="sm" className="flex items-center gap-1">
+                    <Plus className="size-4" /> Add Course
+                  </Button>
+                </CardHeader>
+                <CardContent className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="search"
+                      placeholder="Search course title or code..."
+                      className="pl-9"
+                      value={adminCourseSearch}
+                      onChange={(e) => setAdminCourseSearch(e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <select
+                      value={adminCourseFacultyFilter}
+                      onChange={(e) => setAdminCourseFacultyFilter(e.target.value)}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none"
+                    >
+                      <option value="all">All Faculties</option>
+                      {faculties.map((fac) => (
+                        <option key={fac.id} value={fac.id}>
+                          {fac.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <select
+                      value={adminCourseLevelFilter}
+                      onChange={(e) => setAdminCourseLevelFilter(e.target.value)}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none"
+                    >
+                      <option value="all">All Levels</option>
+                      <option value="100L">100L</option>
+                      <option value="200L">200L</option>
+                      <option value="300L">300L</option>
+                      <option value="400L">400L</option>
+                      <option value="500L">500L</option>
+                      <option value="600L">600L</option>
+                      <option value="Final Year">Final Year</option>
+                    </select>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-border">
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b bg-muted/50 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                          <th className="p-4">Code</th>
+                          <th className="p-4">Title</th>
+                          <th className="p-4">Academic Level</th>
+                          <th className="p-4">Faculty / University</th>
+                          <th className="p-4">Parent Topic</th>
+                          <th className="p-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border text-sm">
+                        {adminCoursesLoading ? (
+                          <tr>
+                            <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                              <RefreshCw className="mx-auto h-5 w-5 animate-spin text-primary" />
+                              <p className="mt-2">Retrieving courses list...</p>
+                            </td>
+                          </tr>
+                        ) : adminCoursesError ? (
+                          <tr>
+                            <td colSpan={6} className="p-8 text-center text-destructive font-medium">
+                              {adminCoursesError}
+                            </td>
+                          </tr>
+                        ) : adminCoursesList.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                              No courses found.
+                            </td>
+                          </tr>
+                        ) : (
+                          adminCoursesList.map((course) => (
+                            <tr key={course.id} className="hover:bg-muted/30 transition-colors">
+                              <td className="p-4 font-mono font-bold text-foreground text-xs">{course.code}</td>
+                              <td className="p-4 font-semibold text-foreground">
+                                <div>{course.title}</div>
+                                {course.description && (
+                                  <div className="text-xs text-muted-foreground mt-0.5 max-w-xs truncate" title={course.description}>
+                                    {course.description}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="p-4 font-mono text-xs">{course.level}</td>
+                              <td className="p-4 text-xs">
+                                <div>{course.faculties?.name || "No Faculty"}</div>
+                                <div className="text-muted-foreground font-semibold">
+                                  {course.faculties?.universities?.short_name || course.faculties?.universities?.name || ""}
+                                </div>
+                              </td>
+                              <td className="p-4 text-xs">
+                                {course.parent ? (
+                                  <Badge variant="outline">
+                                    {course.parent.code}: {course.parent.title}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-muted-foreground italic">—</span>
+                                )}
+                              </td>
+                              <td className="p-4 text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleOpenCourseEdit(course)}
+                                    className="h-8 px-2 text-primary"
+                                  >
+                                    <Edit2 className="size-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleOpenCourseDeleteConfirm(course)}
+                                    className="h-8 px-2 text-destructive hover:bg-destructive/10"
+                                  >
+                                    <Trash2 className="size-4" />
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {adminCoursesCount > itemsPerPage && (
+                    <div className="flex items-center justify-between p-4 border-t border-border">
+                      <span className="text-xs text-muted-foreground">
+                        Showing {(adminCoursePage - 1) * itemsPerPage + 1} - {Math.min(adminCoursePage * itemsPerPage, adminCoursesCount)} of {adminCoursesCount} courses
+                      </span>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={adminCoursePage === 1 || adminCoursesLoading}
+                          onClick={() => setAdminCoursePage((c) => c - 1)}
+                        >
+                          Previous
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={adminCoursePage * itemsPerPage >= adminCoursesCount || adminCoursesLoading}
+                          onClick={() => setAdminCoursePage((c) => c + 1)}
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* --- CURRICULUM DRAWER SHEETS & DELETE CONFIRMATION DIALOGS --- */}
+      {/* University sheet */}
+      <Sheet open={uniFormOpen} onOpenChange={setUniFormOpen}>
+        <SheetContent side="right" className="sm:max-w-md overflow-y-auto w-full">
+          <SheetHeader>
+            <SheetTitle>
+              {uniFormMode === "create" ? "Add Parent University" : "Modify Parent University"}
+            </SheetTitle>
+            <SheetDescription>
+              Introduce or update university details. Changes immediately update academic mapping fields.
+            </SheetDescription>
+          </SheetHeader>
+
+          <form onSubmit={handleUniFormSubmit} className="space-y-5 p-4">
+            {uniFormError && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/15 p-3 text-sm text-destructive font-medium">
+                {uniFormError}
+              </div>
+            )}
+            {uniFormSuccess && (
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-500 font-medium">
+                {uniFormSuccess}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="uni-name" className="text-xs font-medium text-foreground">University Full Name</label>
+              <Input
+                id="uni-name"
+                placeholder="e.g., University of Ibadan"
+                value={formUniName}
+                onChange={(e) => setFormUniName(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="uni-short-name" className="text-xs font-medium text-foreground">Acronym / Abbreviation</label>
+              <Input
+                id="uni-short-name"
+                placeholder="e.g., UI"
+                value={formUniShortName}
+                onChange={(e) => setFormUniShortName(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="flex gap-3 pt-4 border-t">
+              <Button type="submit" className="flex-1" disabled={uniFormLoading}>
+                {uniFormLoading ? "Processing transaction..." : "Apply University Changes"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setUniFormOpen(false)
+                  setEditingUni(null)
+                }}
+                disabled={uniFormLoading}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </SheetContent>
+      </Sheet>
+
+      {/* University delete dialog */}
+      {uniDeleteConfirmOpen && uniToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <Card className="w-full max-w-md border-destructive/30 shadow-2xl animate-in zoom-in-95 duration-200">
+            <CardHeader>
+              <CardTitle className="text-destructive flex items-center gap-1.5">
+                <AlertTriangle className="size-5" /> Confirm University Deletion
+              </CardTitle>
+              <CardDescription>
+                Are you absolutely sure you want to permanently delete: <strong className="text-foreground">&quot;{uniToDelete.name}&quot;</strong>?
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-muted-foreground leading-normal">
+                This will completely remove the university from the system. It will block if any faculties are currently attached.
+              </p>
+
+              {uniDeleteError && (
+                <div className="rounded-lg border border-destructive/30 bg-destructive/15 p-3 text-sm text-destructive font-medium">
+                  {uniDeleteError}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 border-t pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setUniDeleteConfirmOpen(false)
+                    setUniToDelete(null)
+                  }}
+                  disabled={uniDeleteLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteUni}
+                  disabled={uniDeleteLoading}
+                >
+                  {uniDeleteLoading ? "Deleting..." : "Confirm Deletion"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Faculty sheet */}
+      <Sheet open={facFormOpen} onOpenChange={setFacFormOpen}>
+        <SheetContent side="right" className="sm:max-w-md overflow-y-auto w-full">
+          <SheetHeader>
+            <SheetTitle>
+              {facFormMode === "create" ? "Add Faculty" : "Modify Faculty"}
+            </SheetTitle>
+            <SheetDescription>
+              Introduce or update faculty details and map them to their parent university.
+            </SheetDescription>
+          </SheetHeader>
+
+          <form onSubmit={handleFacFormSubmit} className="space-y-5 p-4">
+            {facFormError && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/15 p-3 text-sm text-destructive font-medium">
+                {facFormError}
+              </div>
+            )}
+            {facFormSuccess && (
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-500 font-medium">
+                {facFormSuccess}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="fac-name" className="text-xs font-medium text-foreground">Faculty Name</label>
+              <Input
+                id="fac-name"
+                placeholder="e.g., Clinical Sciences"
+                value={formFacName}
+                onChange={(e) => setFormFacName(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="fac-uni" className="text-xs font-medium text-foreground">Parent University Mapping</label>
+              <select
+                id="fac-uni"
+                value={formFacUniId}
+                onChange={(e) => setFormFacUniId(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none"
+                required
+              >
+                <option value="">-- Choose University --</option>
+                {universities.map((uni) => (
+                  <option key={uni.id} value={uni.id}>
+                    {uni.name} ({uni.short_name})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex gap-3 pt-4 border-t">
+              <Button type="submit" className="flex-1" disabled={facFormLoading}>
+                {facFormLoading ? "Processing transaction..." : "Apply Faculty Changes"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setFacFormOpen(false)
+                  setEditingFac(null)
+                }}
+                disabled={facFormLoading}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </SheetContent>
+      </Sheet>
+
+      {/* Faculty delete dialog */}
+      {facDeleteConfirmOpen && facToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <Card className="w-full max-w-md border-destructive/30 shadow-2xl animate-in zoom-in-95 duration-200">
+            <CardHeader>
+              <CardTitle className="text-destructive flex items-center gap-1.5">
+                <AlertTriangle className="size-5" /> Confirm Faculty Deletion
+              </CardTitle>
+              <CardDescription>
+                Are you absolutely sure you want to permanently delete: <strong className="text-foreground">&quot;{facToDelete.name}&quot;</strong>?
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-muted-foreground leading-normal">
+                This will completely remove the faculty. It will block if any courses are currently mapped to this faculty.
+              </p>
+
+              {facDeleteError && (
+                <div className="rounded-lg border border-destructive/30 bg-destructive/15 p-3 text-sm text-destructive font-medium">
+                  {facDeleteError}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 border-t pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setFacDeleteConfirmOpen(false)
+                    setFacToDelete(null)
+                  }}
+                  disabled={facDeleteLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteFac}
+                  disabled={facDeleteLoading}
+                >
+                  {facDeleteLoading ? "Deleting..." : "Confirm Deletion"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Course sheet */}
+      <Sheet open={courseFormOpen} onOpenChange={setCourseFormOpen}>
+        <SheetContent side="right" className="sm:max-w-md overflow-y-auto w-full">
+          <SheetHeader>
+            <SheetTitle>
+              {courseFormMode === "create" ? "Add Course / Sub-Topic" : "Modify Course / Sub-Topic"}
+            </SheetTitle>
+            <SheetDescription>
+              Define curriculum items mapped to their academic level and faculty parent. Excludes self-referencing hierarchy.
+            </SheetDescription>
+          </SheetHeader>
+
+          <form onSubmit={handleCourseFormSubmit} className="space-y-5 p-4">
+            {courseFormError && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/15 p-3 text-sm text-destructive font-medium">
+                {courseFormError}
+              </div>
+            )}
+            {courseFormSuccess && (
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-500 font-medium">
+                {courseFormSuccess}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="course-fac" className="text-xs font-medium text-foreground">Faculty Mapping</label>
+              <select
+                id="course-fac"
+                value={formCourseFacultyId}
+                onChange={(e) => setFormCourseFacultyId(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none"
+                required
+              >
+                <option value="">-- Choose Faculty --</option>
+                {faculties.map((fac) => (
+                  <option key={fac.id} value={fac.id}>
+                    {fac.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="course-level" className="text-xs font-medium text-foreground">Academic Level Mapping</label>
+              <select
+                id="course-level"
+                value={formCourseLevel}
+                onChange={(e) => setFormCourseLevel(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none"
+                required
+              >
+                <option value="100L">100L</option>
+                <option value="200L">200L</option>
+                <option value="300L">300L</option>
+                <option value="400L">400L</option>
+                <option value="500L">500L</option>
+                <option value="600L">600L</option>
+                <option value="Final Year">Final Year</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="course-code" className="text-xs font-medium text-foreground">Course Code</label>
+              <Input
+                id="course-code"
+                placeholder="e.g., PIO 201"
+                value={formCourseCode}
+                onChange={(e) => setFormCourseCode(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="course-title" className="text-xs font-medium text-foreground">Course Title</label>
+              <Input
+                id="course-title"
+                placeholder="e.g., Cardiovascular System"
+                value={formCourseTitle}
+                onChange={(e) => setFormCourseTitle(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="course-desc" className="text-xs font-medium text-foreground">Description (Optional)</label>
+              <textarea
+                id="course-desc"
+                placeholder="Optional brief outline of the course topic..."
+                value={formCourseDescription}
+                onChange={(e) => setFormCourseDescription(e.target.value)}
+                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="course-parent" className="text-xs font-medium text-foreground">Parent Course Mapping (For sub-topics, optional)</label>
+              <select
+                id="course-parent"
+                value={formCourseParentId}
+                onChange={(e) => setFormCourseParentId(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none"
+              >
+                <option value="">-- No Parent (Top level topic) --</option>
+                {courses
+                  .filter((c) => !editingCourseObj || c.id !== editingCourseObj.id)
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.code}: {c.title}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <div className="flex gap-3 pt-4 border-t">
+              <Button type="submit" className="flex-1" disabled={courseFormLoading}>
+                {courseFormLoading ? "Processing transaction..." : "Apply Course Changes"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setCourseFormOpen(false)
+                  setEditingCourseObj(null)
+                }}
+                disabled={courseFormLoading}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </SheetContent>
+      </Sheet>
+
+      {/* Course delete dialog */}
+      {courseDeleteConfirmOpen && courseToDeleteObj && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <Card className="w-full max-w-md border-destructive/30 shadow-2xl animate-in zoom-in-95 duration-200">
+            <CardHeader>
+              <CardTitle className="text-destructive flex items-center gap-1.5">
+                <AlertTriangle className="size-5" /> Confirm Course Deletion
+              </CardTitle>
+              <CardDescription>
+                Are you absolutely sure you want to permanently delete course: <strong className="text-foreground">&quot;{courseToDeleteObj.code}: {courseToDeleteObj.title}&quot;</strong>?
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-muted-foreground leading-normal">
+                This will completely remove the course topic. Deletion will be rejected if any materials, tutorials, clinical guides, or sub-topics are currently associated with this course.
+              </p>
+
+              {courseDeleteError && (
+                <div className="rounded-lg border border-destructive/30 bg-destructive/15 p-3 text-sm text-destructive font-medium">
+                  {courseDeleteError}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 border-t pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setCourseDeleteConfirmOpen(false)
+                    setCourseToDeleteObj(null)
+                  }}
+                  disabled={courseDeleteLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteCourse}
+                  disabled={courseDeleteLoading}
+                >
+                  {courseDeleteLoading ? "Deleting..." : "Confirm Deletion"}
                 </Button>
               </div>
             </CardContent>
