@@ -91,6 +91,7 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const pathname = usePathname()
   const [isAdmin, setIsAdmin] = useState(false)
+  const [open, setOpen] = useState(false)
 
   useEffect(() => {
     if (!user?.id) return
@@ -119,7 +120,7 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-16 items-center justify-between gap-4 border-b bg-background px-4 sm:px-6">
           <div className="flex items-center gap-2 lg:hidden">
-            <Sheet>
+            <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" aria-label="Open sidebar">
                   <MenuIcon aria-hidden="true" />
@@ -130,7 +131,7 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
                   <SheetTitle>Application navigation</SheetTitle>
                   <SheetDescription>Navigate the MedHaven workspace.</SheetDescription>
                 </SheetHeader>
-                <SidebarContent isAdmin={isAdmin} />
+                <SidebarContent isAdmin={isAdmin} onNavigate={() => setOpen(false)} />
               </SheetContent>
             </Sheet>
             <MedHavenLogo compact />
