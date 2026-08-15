@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
+import { useDebounce } from "@/hooks/useDebounce"
 import { ArrowRight, BookOpen, Clock, Search, HelpCircle, GraduationCap, Layers, Award, Sparkles } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -59,6 +60,7 @@ export default function TutorialsPage() {
 
   // Filter States
   const [searchQuery, setSearchQuery] = useState("")
+  const debouncedSearchQuery = useDebounce(searchQuery, 300)
   const [selectedCourse, setSelectedCourse] = useState("all")
 
   // Selected Tutorial for Reader view
@@ -174,8 +176,8 @@ export default function TutorialsPage() {
       }
 
       // Text Search Filter (Title, Overview, Course Title/Code)
-      if (searchQuery.trim() !== "") {
-        const query = searchQuery.toLowerCase()
+      if (debouncedSearchQuery.trim() !== "") {
+        const query = debouncedSearchQuery.toLowerCase()
         const titleMatch = tut.title?.toLowerCase().includes(query)
         const overviewMatch = tut.overview?.toLowerCase().includes(query)
         const codeMatch = tut.courses?.code?.toLowerCase().includes(query)
@@ -185,7 +187,7 @@ export default function TutorialsPage() {
 
       return true
     })
-  }, [levelFilteredTutorials, selectedCourse, searchQuery])
+  }, [levelFilteredTutorials, selectedCourse, debouncedSearchQuery])
 
   // Stats
   const stats = useMemo(() => {

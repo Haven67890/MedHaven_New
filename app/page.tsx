@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { SiteShell } from "@/components/layout/site-shell"
+import { MedHavenLogo } from "@/components/brand/medhaven-logo"
 import useAuth from "@/hooks/useAuth"
 
 export default function HomePage() {
@@ -15,6 +16,9 @@ export default function HomePage() {
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-12 px-4 py-12 sm:px-6 lg:py-20">
         <div className="grid gap-8 lg:grid-cols-[1.25fr_0.75fr] lg:items-center">
           <div className="flex flex-col gap-6">
+            <div className="mb-2">
+              <MedHavenLogo className="h-16 w-auto" />
+            </div>
             <span className="w-fit rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium uppercase tracking-[0.2em] text-primary">
               MedHaven
             </span>

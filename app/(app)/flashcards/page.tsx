@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useDebounce } from "@/hooks/useDebounce"
 import {
   ArrowRight,
   ArrowLeft,
@@ -152,6 +153,7 @@ export default function FlashcardsPage() {
   const [userLevel, setUserLevel] = useState<string | null>(null)
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const debouncedSearchQuery = useDebounce(searchQuery, 300)
 
   // Active recall review states
   const [isReviewActive, setIsReviewActive] = useState(false)
@@ -581,7 +583,7 @@ export default function FlashcardsPage() {
 
   // Filter decks
   const filteredDecks = decks.filter((deck) => {
-    const query = searchQuery.toLowerCase()
+    const query = debouncedSearchQuery.toLowerCase()
     const matchTopic = deck.topic?.toLowerCase().includes(query)
     const matchCourse = deck.courses
       ? `${deck.courses.code || ""} ${deck.courses.title || ""}`.toLowerCase().includes(query)

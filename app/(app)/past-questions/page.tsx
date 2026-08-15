@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react"
 import useAuth from "@/hooks/useAuth"
+import { useDebounce } from "@/hooks/useDebounce"
 import {
   BookMarked,
   BookOpen,
@@ -319,6 +320,7 @@ export default function PastQuestionsPage() {
 
   // Filters State
   const [searchQuery, setSearchQuery] = useState("")
+  const debouncedSearchQuery = useDebounce(searchQuery, 300)
   const [selectedCourseId, setSelectedCourseId] = useState<string>("all")
   const [selectedTier, setSelectedTier] = useState<string>("all")
 
@@ -527,8 +529,8 @@ export default function PastQuestionsPage() {
   // Filtering Logic
   const filteredMaterials = levelFilteredMaterials.filter((material) => {
     // 1. Search Query Filter
-    if (searchQuery.trim() !== "") {
-      const q = searchQuery.toLowerCase()
+    if (debouncedSearchQuery.trim() !== "") {
+      const q = debouncedSearchQuery.toLowerCase()
       const titleMatch = material.title?.toLowerCase().includes(q)
       const descMatch = material.description?.toLowerCase().includes(q)
       const courseCodeMatch = material.courses?.code?.toLowerCase().includes(q)
