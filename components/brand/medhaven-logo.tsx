@@ -4,11 +4,12 @@ import { cn } from "@/lib/utils"
 type MedHavenLogoProps = {
   compact?: boolean
   className?: string
+  imgClassName?: string
   href?: string
   inverse?: boolean
 }
 
-export function MedHavenLogo({ compact = false, className, href = "/", inverse = false }: MedHavenLogoProps) {
+export function MedHavenLogo({ compact = false, className, imgClassName, href = "/", inverse = false }: MedHavenLogoProps) {
   const logoUrl = "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/Untitled%20design.png"
 
   // Sizing of the logo that respects location and does not distort:
@@ -28,7 +29,7 @@ export function MedHavenLogo({ compact = false, className, href = "/", inverse =
       <img
         src={logoUrl}
         alt="MedHaven Logo"
-        className={cn(imageSizeClass)}
+        className={cn(imageSizeClass, imgClassName)}
       />
     </Link>
   )

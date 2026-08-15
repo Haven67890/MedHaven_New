@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Menu as MenuIcon } from "lucide-react"
+import { Menu as MenuIcon, Heart } from "lucide-react"
 
 import { MedHavenLogo } from "@/components/brand/medhaven-logo"
 import { ThemeToggle } from "@/components/layout/theme-toggle"
@@ -42,6 +42,12 @@ export function TopNavigation() {
               </Button>
             </>
           )}
+          <Button variant="ghost" size="sm" asChild className="gap-1.5 text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300">
+            <Link href="/donate">
+              <Heart className="h-4 w-4 fill-rose-500 text-rose-500" />
+              Donate
+            </Link>
+          </Button>
           <ThemeToggle />
         </nav>
         <div className="flex items-center gap-1 md:hidden">
@@ -92,6 +98,14 @@ export function TopNavigation() {
                     </SheetClose>
                   </>
                 )}
+                <SheetClose asChild>
+                  <Button variant="outline" className="mt-2 justify-start gap-2 border-rose-500/30 text-rose-600 dark:text-rose-400" asChild>
+                    <Link href="/donate">
+                      <Heart className="h-4 w-4 fill-rose-500 text-rose-500" />
+                      Donate
+                    </Link>
+                  </Button>
+                </SheetClose>
               </nav>
             </SheetContent>
           </Sheet>

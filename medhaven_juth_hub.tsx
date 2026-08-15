@@ -6,7 +6,7 @@ import { createClient } from './lib/supabase/client';
 import { 
   BookOpen, Search, Calendar, Folder,
   ChevronRight, Sparkles, MapPin, CheckCircle,
-  HeartPulse, AlertCircle, X, ShoppingBag
+  HeartPulse, AlertCircle, X, ShoppingBag, Heart
 } from 'lucide-react';
 import AIChatDrawer from '@/components/dashboard/ai-chat-drawer';
 
@@ -751,6 +751,26 @@ export default function App() {
                   </button>
                 );
               })}
+            </div>
+
+            {/* Support MedHaven Banner Card */}
+            <div className="bg-gradient-to-r from-rose-500/10 via-card to-rose-500/5 border border-rose-500/20 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+              <div className="flex items-center gap-3.5">
+                <div className="bg-rose-500/10 p-3 rounded-xl border border-rose-500/20 shrink-0">
+                  <Heart className="w-5 h-5 text-rose-500 fill-rose-500" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-extrabold text-foreground">Support Open Access Medical Learning</h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">Help keep MedHaven accessible and updated for medical scholars across Jos and beyond.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => router.push('/donate')}
+                className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition shadow-md shrink-0 flex items-center gap-2"
+              >
+                <Heart className="w-3.5 h-3.5 fill-white" />
+                <span>Donate Now</span>
+              </button>
             </div>
 
           </div>
