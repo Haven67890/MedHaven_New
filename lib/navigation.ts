@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react"
 
-import { LayoutDashboard, Library, FileQuestionMark as FileQuestion, FileText, Clapperboard, BrainCircuit, ListChecks, CalendarDays, TrendingUp, Store, Stethoscope, GraduationCap, Users, Bell, CircleUser as UserCircle, Settings, ShieldCheck } from "lucide-react"
+import { LayoutDashboard, Library, FileQuestionMark as FileQuestion, FileText, Clapperboard, BrainCircuit, ListChecks, CalendarDays, TrendingUp, Store, Stethoscope, GraduationCap, Users, Bell, CircleUser as UserCircle, Settings, ShieldCheck, Heart } from "lucide-react"
 
 export type NavItem = {
   label: string
@@ -26,6 +26,7 @@ export const communityNav: NavItem[] = [
   { label: "Clinical Posting Guides", href: "/clinical-guides", icon: Stethoscope, description: "Posting references" },
   { label: "Tutorials", href: "/tutorials", icon: GraduationCap, description: "Group and peer sessions" },
   { label: "Staff Directory", href: "/directory", icon: Users, description: "Find lecturers and staff" },
+  { label: "Donate", href: "/donate", icon: Heart, description: "Support MedHaven" },
 ]
 
 export const accountNav: NavItem[] = [
