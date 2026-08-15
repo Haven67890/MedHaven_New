@@ -345,7 +345,7 @@ export default function MarketplacePage() {
     return `https://wa.me/${digitsForLink}`
   }
 
-  // Image Upload helper with folder creation fallback
+  // Image Upload helper
   const uploadImage = async (file: File): Promise<string> => {
     const fileExt = file.name.split(".").pop() || "jpg"
     const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`
@@ -353,25 +353,9 @@ export default function MarketplacePage() {
 
     setUploadProgress("Uploading listing image...")
 
-    let { data, error: uploadError } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from("marketplace-images")
       .upload(filePath, file, { cacheControl: "3600", upsert: true })
-
-    // Handle bucket not found error
-    if (uploadError && uploadError.message?.toLowerCase().includes("bucket")) {
-      setUploadProgress("Creating marketplace images bucket...")
-      const { error: bucketError } = await supabase.storage.createBucket("marketplace-images", {
-        public: true,
-      })
-      if (!bucketError) {
-        setUploadProgress("Retrying image upload...")
-        const retryResult = await supabase.storage.from("marketplace-images").upload(filePath, file)
-        data = retryResult.data
-        uploadError = retryResult.error
-      } else {
-        throw new Error("Could not initialize storage bucket: " + bucketError.message)
-      }
-    }
 
     if (uploadError) {
       throw uploadError
