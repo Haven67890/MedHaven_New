@@ -1,5 +1,4 @@
-"use client"
-
+import type { Metadata } from "next"
 import Link from "next/link"
 import { Heart } from "lucide-react"
 
@@ -7,11 +6,35 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { SiteShell } from "@/components/layout/site-shell"
 import { MedHavenLogo } from "@/components/brand/medhaven-logo"
-import useAuth from "@/hooks/useAuth"
+import { HomeActions } from "@/components/home/home-actions"
+
+export const metadata: Metadata = {
+  title: "MedHaven — Medical Study Platform for UNIJOS & JUTH Students",
+  description: "MedHaven is the dedicated medical study platform for UNIJOS and JUTH medical students. Access organized course materials, clinical guides, past questions, flashcards, and timetable schedules in one workspace.",
+  openGraph: {
+    title: "MedHaven — Medical Study Platform for UNIJOS & JUTH Students",
+    description: "MedHaven is the dedicated medical study platform for UNIJOS and JUTH medical students. Access organized course materials, clinical guides, past questions, flashcards, and timetable schedules in one workspace.",
+    url: "https://medhaven.onrender.com",
+    siteName: "MedHaven",
+    images: [
+      {
+        url: "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/Untitled%20design.png",
+        width: 1200,
+        height: 630,
+        alt: "MedHaven Logo",
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "MedHaven — Medical Study Platform for UNIJOS & JUTH Students",
+    description: "MedHaven is the dedicated medical study platform for UNIJOS and JUTH medical students. Access organized course materials, clinical guides, past questions, flashcards, and timetable schedules in one workspace.",
+    images: ["https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/Untitled%20design.png"],
+  },
+}
 
 export default function HomePage() {
-  const { user, loading } = useAuth()
-
   return (
     <SiteShell>
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-12 px-4 py-12 sm:px-6 lg:py-20">
@@ -34,28 +57,7 @@ export default function HomePage() {
                 Access study resources, track your progress, and stay connected to your academic community in one clear workspace.
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-              {!loading && user ? (
-                <Button asChild size="lg">
-                  <Link href="/dashboard">Go to Dashboard</Link>
-                </Button>
-              ) : (
-                <>
-                  <Button asChild size="lg">
-                    <Link href="/login">Sign in</Link>
-                  </Button>
-                  <Button asChild variant="outline" size="lg">
-                    <Link href="/register">Register</Link>
-                  </Button>
-                </>
-              )}
-              <Button asChild variant="secondary" size="lg" className="gap-2 border border-rose-500/30 bg-rose-500/10 text-rose-600 hover:bg-rose-500/20 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950/60">
-                <Link href="/donate">
-                  <Heart className="h-4 w-4 fill-rose-500 text-rose-500" />
-                  Support MedHaven
-                </Link>
-              </Button>
-            </div>
+            <HomeActions />
           </div>
 
           <Card className="border-border shadow-xl shadow-primary/5">
