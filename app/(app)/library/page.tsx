@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import useAuth from "@/hooks/useAuth"
+import { useDebounce } from "@/hooks/useDebounce"
 import {
   BookMarked,
   BookOpen,
@@ -38,6 +39,7 @@ interface Course {
   code?: string | null
   title?: string | null
   level?: string | number | null
+  level_group?: string | null
   parent_id?: string | null
   faculties?: Faculty | null
 }
@@ -63,6 +65,15 @@ const colorMap: Record<string, string> = {
 }
 
 const collectionIcons = { BookOpen, BookMarked, Library } as const
+
+function getLevelGroupForLevel(level: string | number | null | undefined): string | null {
+  if (!level) return null
+  const lvl = String(level).toUpperCase().trim()
+  if (lvl === "100L") return "pre-medical"
+  if (lvl === "200L" || lvl === "300L") return "preclinical"
+  if (["400L", "500L", "600L", "FINAL YEAR"].includes(lvl)) return "clinical"
+  return null
+}
 
 function getLevelPhase(level: string | number | null | undefined): "pre-clinical" | "clinical" {
   if (!level) return "pre-clinical"
@@ -333,6 +344,7 @@ function SmartLibraryPageContent() {
 
   // Filters State
   const [searchQuery, setSearchQuery] = useState("")
+  const debouncedSearchQuery = useDebounce(searchQuery, 300)
   const [selectedCourseId, setSelectedCourseId] = useState<string>("all")
   const [selectedTier, setSelectedTier] = useState<string>("all")
   const [selectedType, setSelectedType] = useState<string>("all")
@@ -403,7 +415,7 @@ function SmartLibraryPageContent() {
         // 1. Fetch courses
         const { data: coursesData, error: coursesError } = await supabase
           .from("courses")
-          .select("id, code, title, level, parent_id")
+          .select("id, code, title, level, level_group, parent_id")
           .order("code", { ascending: true })
 
         if (coursesError) throw coursesError
@@ -581,18 +593,16 @@ function SmartLibraryPageContent() {
     }
   }, [supabase])
 
-  // Filter courses and materials according to preference settings
+  // Filter courses for "Browse collections" strictly by level_group matching student's current_level level_group.
+  // Courses with null level_group are excluded.
   const levelFilteredCourses = useMemo(() => {
-    if (contentVisibility === "all" || !userLevel) return courses
-    const userPhase = getLevelPhase(userLevel)
-    return courses.filter((course) => {
-      if (!course.level) return true
-      if (contentVisibility === "exact") {
-        return String(course.level).toUpperCase().trim() === String(userLevel).toUpperCase().trim()
-      }
-      return getLevelPhase(course.level) === userPhase
-    })
-  }, [courses, contentVisibility, userLevel])
+    const studentGroup = getLevelGroupForLevel(userLevel)
+    if (!studentGroup) {
+      // If student has no level or unrecognized level, exclude courses with null level_group
+      return courses.filter((course) => course.level_group != null)
+    }
+    return courses.filter((course) => course.level_group === studentGroup)
+  }, [courses, userLevel])
 
   const levelFilteredMaterials = useMemo(() => {
     if (contentVisibility === "all" || !userLevel) return materials
@@ -607,8 +617,8 @@ function SmartLibraryPageContent() {
     })
   }, [materials, contentVisibility, userLevel])
 
-  // Get dynamic collection statistics & display
-  const collectionData = levelFilteredCourses.slice(0, 6).map((course, index) => {
+  // Get dynamic collection statistics & display for all courses in student's level_group
+  const collectionData = levelFilteredCourses.map((course, index) => {
     const courseMaterialsCount = levelFilteredMaterials.filter((m) => m.course_id === course.id).length
     return {
       id: course.id,
@@ -623,8 +633,8 @@ function SmartLibraryPageContent() {
   // Filtering Logic
   const filteredMaterials = levelFilteredMaterials.filter((material) => {
     // 1. Search Query Filter
-    if (searchQuery.trim() !== "") {
-      const q = searchQuery.toLowerCase()
+    if (debouncedSearchQuery.trim() !== "") {
+      const q = debouncedSearchQuery.toLowerCase()
       const titleMatch = material.title?.toLowerCase().includes(q)
       const descMatch = material.description?.toLowerCase().includes(q)
       const courseCodeMatch = material.courses?.code?.toLowerCase().includes(q)

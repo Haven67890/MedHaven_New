@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { useDebounce } from "@/hooks/useDebounce"
 import { ArrowRight, Mail, MapPin, Phone, Search, Users, RefreshCw } from "lucide-react"
 
 import { Avatar } from "@/components/ui/avatar"
@@ -47,6 +48,7 @@ export default function StaffDirectoryPage() {
 
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState("")
+  const debouncedSearchQuery = useDebounce(searchQuery, 300)
   const [selectedDept, setSelectedDept] = useState<string>("all")
 
   // Load staff on mount
@@ -79,8 +81,8 @@ export default function StaffDirectoryPage() {
   // Filter logic
   const filteredStaff = allStaff.filter((member) => {
     // Search bar filters by name, department, or specialty
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim()
+    if (debouncedSearchQuery.trim()) {
+      const q = debouncedSearchQuery.toLowerCase().trim()
       const nameMatch = member.full_name?.toLowerCase().includes(q)
       const deptMatch = member.department?.toLowerCase().includes(q)
       const specialtyMatch = member.specialty?.toLowerCase().includes(q)

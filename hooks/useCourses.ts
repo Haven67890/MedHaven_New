@@ -7,6 +7,7 @@ type CourseRecord = {
   name?: string | null
   title?: string | null
   level?: string | null
+  level_group?: string | null
   parent_id?: string | null
   department_id?: string | number | null
   faculty_id?: string | number | null
@@ -28,7 +29,7 @@ export function useCourses(level?: string) {
     try {
       let query = supabase
         .from('courses')
-        .select('id, code, name, title, level, parent_id, department_id, faculty_id, university_id, description')
+        .select('id, code, name, title, level, level_group, parent_id, department_id, faculty_id, university_id, description')
         .order('name', { ascending: true })
 
       if (selectedLevel) {
@@ -58,7 +59,7 @@ export function useCourses(level?: string) {
       try {
         let query = supabase
           .from('courses')
-          .select('id, code, name, title, level, parent_id, department_id, faculty_id, university_id, description')
+          .select('id, code, name, title, level, level_group, parent_id, department_id, faculty_id, university_id, description')
           .order('name', { ascending: true })
 
         if (level) {

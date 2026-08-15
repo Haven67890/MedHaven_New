@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
+import { useDebounce } from "@/hooks/useDebounce"
 import { ArrowRight, Clock, MapPin, Search, Stethoscope, ChevronDown, ChevronUp, BookOpen, Layers, Award } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -51,6 +52,7 @@ export default function ClinicalPostingGuidesPage() {
 
   // Filter State
   const [searchQuery, setSearchQuery] = useState("")
+  const debouncedSearchQuery = useDebounce(searchQuery, 300)
   const [selectedSpecialty, setSelectedSpecialty] = useState("all")
 
   // Accordion State
@@ -159,8 +161,8 @@ export default function ClinicalPostingGuidesPage() {
       }
 
       // Text Search Filter (Title or Specialty)
-      if (searchQuery.trim() !== "") {
-        const query = searchQuery.toLowerCase()
+      if (debouncedSearchQuery.trim() !== "") {
+        const query = debouncedSearchQuery.toLowerCase()
         const titleMatch = guide.title?.toLowerCase().includes(query)
         const specialtyMatch = guide.specialty?.toLowerCase().includes(query)
         return titleMatch || specialtyMatch
@@ -168,7 +170,7 @@ export default function ClinicalPostingGuidesPage() {
 
       return true
     })
-  }, [levelFilteredGuides, selectedSpecialty, searchQuery])
+  }, [levelFilteredGuides, selectedSpecialty, debouncedSearchQuery])
 
   // Stat metrics based on filtered lists
   const stats = useMemo(() => {

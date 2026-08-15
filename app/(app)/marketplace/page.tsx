@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useMemo } from "react"
+import { useDebounce } from "@/hooks/useDebounce"
 import {
   ArrowRight,
   Search,
@@ -65,6 +66,7 @@ export default function MarketplacePage() {
   // Tabs & Filters
   const [activeTab, setActiveTab] = useState<"browse" | "my-listings">("browse")
   const [searchQuery, setSearchQuery] = useState("")
+  const debouncedSearchQuery = useDebounce(searchQuery, 300)
   const [selectedCategory, setSelectedCategory] = useState<CategoryType | "all">("all")
 
   // Modals state
@@ -322,12 +324,12 @@ export default function MarketplacePage() {
   // Filtered browse listings
   const filteredListings = useMemo(() => {
     return listings.filter(listing => {
-      const matchesSearch = listing.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                            listing.description.toLowerCase().includes(searchQuery.toLowerCase())
+      const matchesSearch = listing.title.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+                            listing.description.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
       const matchesCategory = selectedCategory === "all" || listing.category === selectedCategory
       return matchesSearch && matchesCategory
     })
-  }, [listings, searchQuery, selectedCategory])
+  }, [listings, debouncedSearchQuery, selectedCategory])
 
   // Contact info formatting helper
   const isEmail = (contact: string) => {
