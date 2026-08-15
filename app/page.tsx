@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { Heart } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -17,7 +18,10 @@ export default function HomePage() {
         <div className="grid gap-8 lg:grid-cols-[1.25fr_0.75fr] lg:items-center">
           <div className="flex flex-col gap-6">
             <div className="mb-2">
-              <MedHavenLogo className="h-16 w-auto" />
+              <MedHavenLogo
+                className="h-auto w-auto"
+                imgClassName="h-20 sm:h-28 md:h-32 w-auto max-w-full drop-shadow-md"
+              />
             </div>
             <span className="w-fit rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium uppercase tracking-[0.2em] text-primary">
               MedHaven
@@ -30,7 +34,7 @@ export default function HomePage() {
                 Access study resources, track your progress, and stay connected to your academic community in one clear workspace.
               </p>
             </div>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               {!loading && user ? (
                 <Button asChild size="lg">
                   <Link href="/dashboard">Go to Dashboard</Link>
@@ -45,6 +49,12 @@ export default function HomePage() {
                   </Button>
                 </>
               )}
+              <Button asChild variant="secondary" size="lg" className="gap-2 border border-rose-500/30 bg-rose-500/10 text-rose-600 hover:bg-rose-500/20 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950/60">
+                <Link href="/donate">
+                  <Heart className="h-4 w-4 fill-rose-500 text-rose-500" />
+                  Support MedHaven
+                </Link>
+              </Button>
             </div>
           </div>
 
@@ -64,6 +74,30 @@ export default function HomePage() {
               </div>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Dedicated Support & Donate CTA Section */}
+        <div className="mt-8 rounded-2xl border border-rose-500/20 bg-gradient-to-r from-rose-500/5 via-primary/5 to-rose-500/5 p-6 sm:p-10 shadow-lg">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="space-y-2 text-center md:text-left">
+              <div className="inline-flex items-center gap-2 rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-xs font-semibold text-rose-600 dark:text-rose-300">
+                <Heart className="h-3.5 w-3.5 fill-rose-500 text-rose-500" />
+                <span>Empower Medical Education</span>
+              </div>
+              <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                Support open access for medical scholars
+              </h2>
+              <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
+                Your contributions keep study resources, practical guides, and learning tools accessible to medical students and trainees across campuses.
+              </p>
+            </div>
+            <Button asChild size="lg" className="shrink-0 gap-2 bg-rose-600 text-white hover:bg-rose-700 dark:bg-rose-600 dark:hover:bg-rose-700 shadow-md">
+              <Link href="/donate">
+                <Heart className="h-4 w-4 fill-white" />
+                Make a Donation
+              </Link>
+            </Button>
+          </div>
         </div>
       </section>
     </SiteShell>
