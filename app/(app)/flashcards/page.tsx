@@ -32,6 +32,7 @@ import { PageHeader } from "@/components/dashboard/page-header"
 import { Progress } from "@/components/ui/progress"
 import { SectionHeading } from "@/components/dashboard/section-heading"
 import { StatCard } from "@/components/dashboard/stat-card"
+import { EmptyState } from "@/components/dashboard/empty-state"
 import { createClient } from "@/lib/supabase/client"
 
 interface Course {
@@ -918,17 +919,20 @@ export default function FlashcardsPage() {
       <section>
         <SectionHeading title="Your decks" description="Track mastery across each deck." />
         {filteredDecks.length === 0 ? (
-          <div className="mt-4 flex flex-col items-center justify-center text-center p-12 border border-dashed rounded-xl text-muted-foreground bg-muted/5">
-            <BrainCircuit className="size-10 text-muted-foreground/30 mb-3" />
-            <p className="text-sm font-semibold text-foreground">No decks found</p>
-            <p className="text-xs max-w-md mt-1">
-              {searchQuery ? "No decks match your active search filter." : "Get started by generating your first high-yield medical flashcards deck using our premium AI."}
-            </p>
-            {!showGenerator && (
-              <Button onClick={() => setShowGenerator(true)} className="mt-4 gap-1.5 size-sm">
-                <PlusCircle className="size-4" /> Create your first deck
-              </Button>
-            )}
+          <div className="mt-4">
+            <EmptyState
+              imageSrc="https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/f8ab5be218d74bcaa2721d46f7cb6e1f.jpg"
+              imageAlt="Medical study environment"
+              title="No decks found"
+              description={searchQuery ? "No decks match your active search filter." : "Get started by generating your first high-yield medical flashcards deck using our premium AI."}
+              action={
+                !showGenerator ? (
+                  <Button onClick={() => setShowGenerator(true)} className="gap-1.5" size="sm">
+                    <PlusCircle className="size-4" /> Create your first deck
+                  </Button>
+                ) : null
+              }
+            />
           </div>
         ) : (
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
