@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import Image from "next/image"
 import { Heart } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -60,8 +61,19 @@ export default function HomePage() {
             <HomeActions />
           </div>
 
-          <Card className="border-border shadow-xl shadow-primary/5">
-            <CardHeader>
+          <Card className="border-border shadow-xl shadow-primary/5 overflow-hidden">
+            <div className="relative h-48 w-full border-b border-border/50">
+              <Image
+                src="https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/20260622_130116.jpg"
+                alt="Medical students reviewing study materials in clinical group session"
+                fill
+                className="object-cover"
+                priority
+                sizes="(max-width: 1024px) 100vw, 450px"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-card via-card/40 to-transparent" />
+            </div>
+            <CardHeader className="-mt-6 relative z-10">
               <CardTitle>Built for medical training</CardTitle>
               <CardDescription>Connected tools for students, faculty, and administrators.</CardDescription>
             </CardHeader>
