@@ -50,7 +50,7 @@ function resolveMaterialUrl(row: MaterialRow): string | null {
 async function checkUrlStatus(url: string): Promise<{ statusCode: number | string; ok: boolean }> {
   try {
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 10000)
+    const timeoutId = setTimeout(() => controller.abort(), 3000)
 
     // Try HEAD request first
     let res = await fetch(url, {
@@ -64,7 +64,7 @@ async function checkUrlStatus(url: string): Promise<{ statusCode: number | strin
     // Fallback to lightweight GET if HEAD fails, returns 405 Method Not Allowed, or non-200
     if (!res || !res.ok || res.status === 405) {
       const getController = new AbortController()
-      const getTimeoutId = setTimeout(() => getController.abort(), 10000)
+      const getTimeoutId = setTimeout(() => getController.abort(), 3000)
 
       const getRes = await fetch(url, {
         method: "GET",
@@ -192,49 +192,56 @@ async function runAudit() {
 
   const allMaterials: MaterialRow[] = materials || []
   const totalRows = allMaterials.length
-  console.log(`Fetched ${totalRows} total material rows.`)
+  console.log(`Fetched ${totalRows} total material rows. Processing in parallel batches...`)
 
   const brokenUrls: BrokenUrlFlag[] = []
   const tierInconsistencies: TierInconsistentFlag[] = []
 
-  let processedCount = 0
+  const CONCURRENCY = 20
+  let completedCount = 0
 
-  for (const row of allMaterials) {
-    processedCount++
-    if (processedCount % 10 === 0 || processedCount === totalRows) {
-      console.log(`Auditing row ${processedCount}/${totalRows}...`)
-    }
+  for (let i = 0; i < allMaterials.length; i += CONCURRENCY) {
+    const chunk = allMaterials.slice(i, i + CONCURRENCY)
 
-    const resolvedUrl = resolveMaterialUrl(row)
+    await Promise.all(
+      chunk.map(async (row) => {
+        const resolvedUrl = resolveMaterialUrl(row)
 
-    if (!resolvedUrl) {
-      brokenUrls.push({
-        id: row.id,
-        title: row.title,
-        source_url: "[NO URL OR STORAGE PATH]",
-        status: "MISSING_URL"
+        if (!resolvedUrl) {
+          brokenUrls.push({
+            id: row.id,
+            title: row.title,
+            source_url: "[NO URL OR STORAGE PATH]",
+            status: "MISSING_URL"
+          })
+        } else {
+          const urlResult = await checkUrlStatus(resolvedUrl)
+          if (!urlResult.ok) {
+            brokenUrls.push({
+              id: row.id,
+              title: row.title,
+              source_url: resolvedUrl,
+              status: String(urlResult.statusCode)
+            })
+          }
+        }
+
+        const inconsistencyReason = checkTierTypeConsistency(row)
+        if (inconsistencyReason) {
+          tierInconsistencies.push({
+            id: row.id,
+            title: row.title,
+            tier: row.tier || "[EMPTY]",
+            type: row.type || "[EMPTY]",
+            reason: inconsistencyReason
+          })
+        }
       })
-    } else {
-      const urlResult = await checkUrlStatus(resolvedUrl)
-      if (!urlResult.ok) {
-        brokenUrls.push({
-          id: row.id,
-          title: row.title,
-          source_url: resolvedUrl,
-          status: String(urlResult.statusCode)
-        })
-      }
-    }
+    )
 
-    const inconsistencyReason = checkTierTypeConsistency(row)
-    if (inconsistencyReason) {
-      tierInconsistencies.push({
-        id: row.id,
-        title: row.title,
-        tier: row.tier || "[EMPTY]",
-        type: row.type || "[EMPTY]",
-        reason: inconsistencyReason
-      })
+    completedCount += chunk.length
+    if (completedCount % 100 === 0 || completedCount === totalRows) {
+      console.log(`Audited ${completedCount}/${totalRows} rows...`)
     }
   }
 
