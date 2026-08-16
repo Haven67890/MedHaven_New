@@ -23,6 +23,55 @@
 
 import { createClient } from "@supabase/supabase-js"
 
+interface StorageFileItem {
+  path: string
+  name: string
+  id: string | null
+  metadata: Record<string, any> | null
+}
+
+async function listAllStorageFiles(supabase: any, dir = ""): Promise<StorageFileItem[]> {
+  let results: StorageFileItem[] = []
+  let offset = 0
+  const pageSize = 1000
+
+  while (true) {
+    const { data: items, error } = await supabase.storage.from("materials").list(dir, {
+      limit: pageSize,
+      offset: offset,
+      sortBy: { column: "name", order: "asc" },
+    })
+
+    if (error || !items) {
+      console.error(`[ERROR] Listing failed for path "${dir}":`, error)
+      break
+    }
+
+    if (items.length === 0) break
+
+    for (const item of items) {
+      const fullPath = dir ? `${dir}/${item.name}` : item.name
+      if (item.id === null) {
+        // Directory entry -> recursively traverse
+        const subFiles = await listAllStorageFiles(supabase, fullPath)
+        results = results.concat(subFiles)
+      } else {
+        results.push({
+          path: fullPath,
+          name: item.name,
+          id: item.id,
+          metadata: item.metadata,
+        })
+      }
+    }
+
+    if (items.length < pageSize) break
+    offset += pageSize
+  }
+
+  return results
+}
+
 async function fixPdfContentType() {
   const args = process.argv.slice(2)
   const isDryRunArg = args.includes("--dry-run")
@@ -64,31 +113,9 @@ async function fixPdfContentType() {
     auth: { persistSession: false, autoRefreshToken: false },
   })
 
-  console.log("Fetching file listing from 'materials' bucket...")
-
-  let allFiles: any[] = []
-  let offset = 0
-  const pageSize = 100
-
-  while (true) {
-    const { data: pageFiles, error: listError } = await supabase.storage.from("materials").list("", {
-      limit: pageSize,
-      offset: offset,
-      sortBy: { column: "name", order: "asc" },
-    })
-
-    if (listError) {
-      console.error("[FATAL] Failed to list files in materials bucket:", listError)
-      process.exit(1)
-    }
-
-    if (!pageFiles || pageFiles.length === 0) break
-    allFiles = allFiles.concat(pageFiles)
-    if (pageFiles.length < pageSize) break
-    offset += pageSize
-  }
-
-  console.log(`Total items retrieved from 'materials' bucket: ${allFiles.length}`)
+  console.log("Fetching complete recursive file listing from 'materials' bucket...")
+  const allFiles = await listAllStorageFiles(supabase)
+  console.log(`Total files retrieved from 'materials' bucket: ${allFiles.length}`)
 
   // Filter for PDF candidates (.pdf extension)
   const pdfCandidates = allFiles.filter((f) => f.name.toLowerCase().endsWith(".pdf"))
@@ -102,12 +129,7 @@ async function fixPdfContentType() {
   const candidateSummary: Array<{ id: string; name: string; currentMime: string; status: string }> = []
 
   for (const file of pdfCandidates) {
-    if (limitParam && !isNaN(limitParam) && processedCount >= limitParam) {
-      console.log(`\n[LIMIT REACHED] Reached limit of ${limitParam} files. Stopping batch processing.`)
-      break
-    }
-
-    const filePath = file.name
+    const filePath = file.path
     const currentMime = file.metadata?.mimetype || file.metadata?.contentType || "unknown"
 
     // IDEMPOTENCY CHECK: If file already has application/pdf MIME type, skip it
@@ -116,6 +138,11 @@ async function fixPdfContentType() {
       skippedCount++
       candidateSummary.push({ id: file.id || filePath, name: filePath, currentMime, status: "SKIPPED (Already PDF)" })
       continue
+    }
+
+    if (limitParam && !isNaN(limitParam) && processedCount >= limitParam) {
+      console.log(`\n[LIMIT REACHED] Reached limit of ${limitParam} files. Stopping batch processing.`)
+      break
     }
 
     processedCount++
@@ -166,7 +193,7 @@ async function fixPdfContentType() {
   console.log(`Total PDF files found: ${pdfCandidates.length}`)
   console.log(`Skipped (Already application/pdf): ${skippedCount}`)
   if (isDryRun) {
-    console.log(`Dry-run candidates logged: ${processedCount}`)
+    console.log(`Dry-run candidates requiring update: ${processedCount}`)
   } else {
     console.log(`Live files processed: ${processedCount}`)
     console.log(`Successfully updated: ${successCount}`)
@@ -176,11 +203,11 @@ async function fixPdfContentType() {
 
   if (candidateSummary.length > 0) {
     console.log("\n--- Sample Candidates Log ---")
-    candidateSummary.slice(0, 10).forEach((item, idx) => {
-      console.log(`${idx + 1}. File: ${item.name} | Current Mime: ${item.currentMime} | Action: ${item.status}`)
+    candidateSummary.slice(0, 15).forEach((item, idx) => {
+      console.log(`${idx + 1}. File: ${item.name} | Current Mime: ${item.currentMime} | Status: ${item.status}`)
     })
-    if (candidateSummary.length > 10) {
-      console.log(`... and ${candidateSummary.length - 10} more.`)
+    if (candidateSummary.length > 15) {
+      console.log(`... and ${candidateSummary.length - 15} more.`)
     }
   }
 }
