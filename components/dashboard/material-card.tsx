@@ -187,8 +187,6 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
           if (data.thumbnail_url && active) {
             setSlideShareThumbnail(data.thumbnail_url)
             slideShareThumbnailCache[cacheKey] = data.thumbnail_url
-          } else {
-            failedSlideShareCache[cacheKey] = true
           }
         } catch (err) {
           console.error("Failed to load SlideShare thumbnail", err)
