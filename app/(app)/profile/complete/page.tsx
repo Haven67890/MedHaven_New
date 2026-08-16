@@ -138,7 +138,6 @@ function ProfileCompleteContent() {
           .from("profiles")
           .upsert({
             id: userId,
-            email: userEmail.trim().toLowerCase() || null,
             full_name: fullName,
             university_id: selectedUniversityId || null,
             faculty_id: selectedFacultyId || null,

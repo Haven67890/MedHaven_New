@@ -145,14 +145,13 @@ function RegisterContent() {
 
       // Step 2: Create the profile row in the profiles table safely via upsert
       // SECURITY AUDIT: This write payload strictly contains only allowed registration fields
-      // (university_id, faculty_id, department, current_level, email, full_name). It must NEVER contain
+      // (university_id, faculty_id, department, current_level, full_name). It must NEVER contain
       // role, account_status, suspended_reason, suspended_until, or admin_permissions.
       try {
         const { error: profileError } = await supabase
           .from("profiles")
           .upsert({
             id: authData.user.id,
-            email: email.trim().toLowerCase(),
             full_name: fullName.trim(),
             university_id: selectedUniversityId || null,
             faculty_id: selectedFacultyId || null,

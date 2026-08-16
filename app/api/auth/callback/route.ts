@@ -62,9 +62,7 @@ export async function GET(request: Request) {
               if (!profile) {
                 await supabase.from('profiles').upsert({
                   id: user.id,
-                  email: user.email?.trim().toLowerCase(),
                   full_name: user.user_metadata?.full_name || '',
-                  role: 'student'
                 }, { onConflict: 'id' })
               }
               return NextResponse.redirect(`${finalOrigin}/profile/complete`)

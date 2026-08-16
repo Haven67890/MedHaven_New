@@ -99,7 +99,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .from("profiles")
             .upsert({
               id: res.data.user.id,
-              email: email.trim().toLowerCase(),
               full_name: fullName ?? null,
             }, { onConflict: "id" })
           if (profileError) {

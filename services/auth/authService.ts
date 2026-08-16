@@ -23,7 +23,6 @@ export async function register(email: string, password: string, fullName?: strin
       .from("profiles")
       .insert({
         id: res.data.user.id,
-        email: email.trim().toLowerCase(),
         full_name: fullName ?? null,
       })
   }
