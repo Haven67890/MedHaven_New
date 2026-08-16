@@ -831,13 +831,29 @@ export default function AdminDashboard() {
 
   const uploadFileToStorage = async (file: File): Promise<string> => {
     setFileUploadProgress("Uploading document to materials bucket...")
-    const fileExt = file.name.split(".").pop() || "pdf"
+    const fileExt = file.name.split(".").pop()?.toLowerCase() || "pdf"
     const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`
     const filePath = fileName
 
+    const mimeTypes: Record<string, string> = {
+      pdf: "application/pdf",
+      png: "image/png",
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      webp: "image/webp",
+      gif: "image/gif",
+      doc: "application/msword",
+      docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      ppt: "application/vnd.ms-powerpoint",
+      pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      xls: "application/vnd.ms-excel",
+      xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }
+    const contentType = file.type || mimeTypes[fileExt] || "application/pdf"
+
     const { error: uploadError } = await supabase.storage
       .from("materials")
-      .upload(filePath, file, { cacheControl: "3600", upsert: true })
+      .upload(filePath, file, { cacheControl: "3600", upsert: true, contentType })
 
     if (uploadError) {
       throw new Error("Supabase Storage Upload failed: " + uploadError.message)
