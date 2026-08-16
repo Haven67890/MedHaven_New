@@ -14,6 +14,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { cn } from "@/lib/utils"
 import useAuth from "@/hooks/useAuth"
 import { createClient } from "@/lib/supabase/client"
+import { getCachedData, setCachedData } from "@/lib/cache"
 
 function normalizeRole(value: unknown): string {
   if (typeof value !== "string") return ""
@@ -91,7 +92,16 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user?.id) return
 
+    const cacheKey = `user_is_admin_${user.id}`
+    const cachedIsAdmin = getCachedData<boolean>(cacheKey)
+
+    if (cachedIsAdmin !== null) {
+      setIsAdmin(cachedIsAdmin)
+    }
+
     const checkAdmin = async () => {
+      if (cachedIsAdmin !== null) return
+
       const { data: profileData } = await supabase
         .from("profiles")
         .select("role")
@@ -102,10 +112,11 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
       const role = normalizeRole(profile?.role ?? "")
       const admin = role === "admin" || role === "super_admin" || role === "moderator"
       setIsAdmin(admin)
+      setCachedData(cacheKey, admin, 30 * 1000) // 30 second TTL
     }
 
     void checkAdmin()
-  }, [user?.id])
+  }, [user?.id, pathname])
 
   return (
     <div className="flex min-h-svh bg-muted/40">
