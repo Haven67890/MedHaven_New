@@ -308,7 +308,7 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
 
   // File action configurations
   const isOffice = ["pptx", "ppt", "docx", "doc", "xlsx", "xls"].includes(ext)
-  const isImage = ["jpg", "jpeg", "png"].includes(ext)
+  const isImage = ["jpg", "jpeg", "png", "webp", "gif", "svg"].includes(ext)
   const isSupabaseStorage = fileUrl.includes("supabase.co/storage")
   const isStudyTier = material.tier?.toLowerCase() === "study"
   const isExternalLinkOnly = !isSupabaseStorage
@@ -335,6 +335,8 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
       onPreview(material, "pdf", true)
     } else if (isOffice) {
       onPreview(material, "office", true)
+    } else {
+      onPreview(material, "pdf", true)
     }
   }
 

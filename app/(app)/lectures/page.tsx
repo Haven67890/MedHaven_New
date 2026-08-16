@@ -1,5 +1,6 @@
 "use client"
 
+import { getSlideDeckProvider, getSlideEmbedApiUrl } from "@/lib/embed"
 import { useState, useEffect, useRef, useMemo } from "react"
 import useAuth from "@/hooks/useAuth"
 import { useDebounce } from "@/hooks/useDebounce"
@@ -110,6 +111,93 @@ function getMaterialUrl(material: Material): string {
   return "#"
 }
 
+interface SlideShareEmbedProps {
+  url: string
+  title: string
+  onError: () => void
+}
+
+function SlideShareEmbed({ url, title, onError }: SlideShareEmbedProps) {
+  const [embedSrc, setEmbedSrc] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const onErrorRef = useRef(onError)
+
+  useEffect(() => {
+    onErrorRef.current = onError
+  }, [onError])
+
+  useEffect(() => {
+    let active = true
+    async function fetchEmbed() {
+      try {
+        const provider = getSlideDeckProvider(url) || "slideshare"
+        const res = await fetch(getSlideEmbedApiUrl(provider, url))
+        if (!res.ok) {
+          throw new Error("Failed to fetch")
+        }
+        const data = await res.json()
+        if (!data.html) {
+          throw new Error("No HTML field in response")
+        }
+
+        const parser = new DOMParser()
+        const doc = parser.parseFromString(data.html, "text/html")
+        const iframe = doc.querySelector("iframe")
+        let src = iframe ? iframe.getAttribute("src") : null
+
+        if (!src && data.html && (data.html.startsWith("http") || data.html.startsWith("//"))) {
+          src = data.html
+        }
+
+        if (src && active) {
+          const normalizedSrc = src.startsWith("//") ? `https:${src}` : src
+          setEmbedSrc(normalizedSrc)
+        } else {
+          throw new Error("Could not extract iframe src")
+        }
+      } catch (err) {
+        console.error("SlideShare embed failed:", err)
+        if (active) {
+          onErrorRef.current()
+        }
+      } finally {
+        if (active) {
+          setLoading(false)
+        }
+      }
+    }
+
+    void fetchEmbed()
+
+    return () => {
+      active = false
+    }
+  }, [url])
+
+  if (loading) {
+    return (
+      <div className="relative aspect-video w-full overflow-hidden rounded-lg border bg-muted flex items-center justify-center">
+        <p className="text-xs text-muted-foreground animate-pulse">Loading slide embed...</p>
+      </div>
+    )
+  }
+
+  if (!embedSrc) {
+    return null
+  }
+
+  return (
+    <div className="relative aspect-video w-full overflow-hidden rounded-lg border bg-muted">
+      <iframe
+        src={embedSrc}
+        title={title}
+        allowFullScreen
+        className="absolute inset-0 h-full w-full border-0"
+      />
+    </div>
+  )
+}
+
 export default function LectureVideosPage() {
   const supabase = createClient()
   const { user } = useAuth()
@@ -118,6 +206,7 @@ export default function LectureVideosPage() {
   const [courses, setCourses] = useState<Course[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [failedSlideShareEmbeds, setFailedSlideShareEmbeds] = useState<Record<string, boolean>>({})
   const [userLevel, setUserLevel] = useState<string | null>(null)
   const [contentVisibility, setContentVisibility] = useState<string>("all")
 
@@ -235,61 +324,16 @@ export default function LectureVideosPage() {
         if (mounted) {
           const finalCourses = (coursesData as Course[]) || []
           const finalMaterials = (mData as unknown as Material[]) || []
-
-          if (finalCourses.length === 0) {
-            setCourses([
-              { id: "mock-course-1", code: "ANA 201", title: "Gross Anatomy", level: "200L" },
-              { id: "mock-course-2", code: "BCH 201", title: "Medical Biochemistry", level: "200L" },
-              { id: "mock-course-3", code: "PIO 201", title: "Medical Physiology", level: "200L" }
-            ])
-          } else {
-            setCourses(finalCourses)
-          }
-
-          if (finalMaterials.length === 0) {
-            const fallbackMats = [
-              {
-                id: "mock-video-1",
-                course_id: "mock-course-1",
-                title: "The Skeletal System - Clinical Anatomy and Functions",
-                type: "video",
-                tier: "recommended",
-                source_url: "https://www.youtube.com/watch?v=J8y87V74FHg",
-                storage_path: null,
-                description: "An exhaustive clinical overview of the human skeletal system, focusing on bone anatomy, joints, and biomechanics.",
-                created_at: "2025-01-01T00:00:00.000Z",
-                courses: { id: "mock-course-1", code: "ANA 201", title: "Gross Anatomy", level: "200L" }
-              }
-            ]
-            setMaterials(fallbackMats)
-            setCachedData("lecture_videos_data", { courses: finalCourses, materials: fallbackMats })
-          } else {
-            setMaterials(finalMaterials)
-            setCachedData("lecture_videos_data", { courses: finalCourses, materials: finalMaterials })
-          }
+          setCourses(finalCourses)
+          setMaterials(finalMaterials)
+          setCachedData("lecture_videos_data", { courses: finalCourses, materials: finalMaterials })
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Error loading lecture videos data:", err)
         if (mounted) {
-          setCourses([
-            { id: "mock-course-1", code: "ANA 201", title: "Gross Anatomy", level: "200L" },
-            { id: "mock-course-2", code: "BCH 201", title: "Medical Biochemistry", level: "200L" },
-            { id: "mock-course-3", code: "PIO 201", title: "Medical Physiology", level: "200L" }
-          ])
-          setMaterials([
-            {
-              id: "mock-video-1",
-              course_id: "mock-course-1",
-              title: "The Skeletal System - Clinical Anatomy and Functions",
-              type: "video",
-              tier: "recommended",
-              source_url: "https://www.youtube.com/watch?v=J8y87V74FHg",
-              storage_path: null,
-              description: "An exhaustive clinical overview of the human skeletal system, focusing on bone anatomy, joints, and biomechanics.",
-              created_at: "2025-01-01T00:00:00.000Z",
-              courses: { id: "mock-course-1", code: "ANA 201", title: "Gross Anatomy", level: "200L" }
-            }
-          ])
+          setError(err?.message || "Failed to load materials. Please try again.")
+          setCourses([])
+          setMaterials([])
         }
       } finally {
         if (mounted) {
@@ -536,9 +580,14 @@ export default function LectureVideosPage() {
 
       {/* Error and Loading States */}
       {error && (
-        <div className="bg-destructive/15 border border-destructive/30 text-destructive text-sm rounded-lg p-4 font-medium">
-          <span className="font-extrabold uppercase text-xs tracking-wider block">Error:</span>
-          <p>{error}</p>
+        <div className="bg-destructive/15 border border-destructive/30 text-destructive text-sm rounded-lg p-4 font-medium flex items-center justify-between gap-4">
+          <div>
+            <span className="font-extrabold uppercase text-xs tracking-wider block">Error:</span>
+            <p>{error}</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+            Retry
+          </Button>
         </div>
       )}
 
@@ -651,6 +700,13 @@ export default function LectureVideosPage() {
                     </a>
                   </Button>
                 )}
+                {previewModal.type === "slideshare" && (
+                  <Button variant="outline" size="sm" asChild className="text-xs h-8">
+                    <a href={previewModal.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
+                      View Slides <ExternalLink className="size-3.5" />
+                    </a>
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="icon"
@@ -665,7 +721,13 @@ export default function LectureVideosPage() {
 
             {/* Content */}
             <div className="flex-1 bg-muted relative flex items-center justify-center p-4 overflow-auto">
-              {previewModal.type === "video" ? (
+              {previewModal.type === "image" ? (
+                <img
+                  src={previewModal.url}
+                  alt={previewModal.title}
+                  className="max-w-full max-h-full object-contain rounded-lg shadow-md"
+                />
+              ) : previewModal.type === "video" ? (
                 (() => {
                   const ytId = getYouTubeId(previewModal.url)
                   const ytEmbedUrl = getYouTubeEmbedUrl(previewModal.url)
@@ -726,18 +788,45 @@ export default function LectureVideosPage() {
                     </div>
                   )
                 })()
+              ) : previewModal.type === "slideshare" ? (
+                failedSlideShareEmbeds[previewModal.url] ? (
+                  <div className="flex flex-col items-center justify-center text-center p-6 max-w-md bg-card rounded-xl border border-border shadow-sm">
+                    <h4 className="font-semibold text-foreground text-base mb-1">Slide preview unavailable</h4>
+                    <p className="text-xs text-muted-foreground mb-4">
+                      We were unable to load the slide preview. You can view the slides directly on the source platform.
+                    </p>
+                    <Button asChild variant="outline" size="sm">
+                      <a href={previewModal.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
+                        View Slides <ExternalLink className="size-3.5" />
+                      </a>
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="absolute inset-0 w-full h-full p-4 flex items-center justify-center">
+                    <SlideShareEmbed
+                      url={previewModal.url}
+                      title={previewModal.title}
+                      onError={() => {
+                        setFailedSlideShareEmbeds((prev) => ({
+                          ...prev,
+                          [previewModal.url]: true,
+                        }))
+                      }}
+                    />
+                  </div>
+                )
               ) : (
-                <div className="flex flex-col items-center justify-center text-center p-6 max-w-md bg-card rounded-xl border border-border shadow-sm">
-                  <h4 className="font-semibold text-foreground text-base mb-1">Preview restricted</h4>
-                  <p className="text-xs text-muted-foreground mb-4">
-                    Only video materials are previewable on this portal.
-                  </p>
-                  <Button asChild variant="outline" size="sm">
-                    <a href={previewModal.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
-                      Open Link <ExternalLink className="size-3.5" />
-                    </a>
-                  </Button>
-                </div>
+                <iframe
+                  src={
+                    previewModal.type === "office"
+                      ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewModal.url)}`
+                      : previewModal.type === "pdf"
+                      ? previewModal.url
+                      : `https://docs.google.com/viewer?url=${encodeURIComponent(previewModal.url)}&embedded=true`
+                  }
+                  className="absolute inset-0 w-full h-full border-0"
+                  title={previewModal.title}
+                />
               )}
             </div>
           </div>
