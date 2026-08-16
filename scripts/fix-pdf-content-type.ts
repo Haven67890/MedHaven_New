@@ -2,22 +2,61 @@
  * Script: fix-pdf-content-type.ts
  * Purpose: One-time migration script to update Content-Type metadata for existing PDF objects in Supabase Storage.
  *
- * Supabase Storage API does NOT support metadata-only updates (e.g., updating content-type without file body).
- * Therefore, this script re-uploads each PDF object to the 'materials' bucket with explicit
- * { contentType: 'application/pdf', upsert: true } options so Supabase Storage serves it with Content-Disposition: inline.
+ * Safety Features:
+ * 1. DRY-RUN MODE: Set DRY_RUN=true or pass --dry-run. Lists affected files without mutating Storage.
+ * 2. IDEMPOTENCY: Skips files whose metadata mimetype is already 'application/pdf'.
+ * 3. PER-FILE LOGGING: Logs clear status ([SKIP], [DRY-RUN], [SUCCESS], [FAILED]) for every file evaluated.
+ * 4. SMALL-BATCH TEST: Set LIMIT=N or pass --limit N to process only N files.
  *
- * Usage:
- *   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... npx tsx scripts/fix-pdf-content-type.ts
+ * Usage Examples:
+ *   Dry-run (all files):
+ *     DRY_RUN=true npx tsx scripts/fix-pdf-content-type.ts
+ *
+ *   Dry-run (limit 5 files):
+ *     DRY_RUN=true LIMIT=5 npx tsx scripts/fix-pdf-content-type.ts
+ *     npx tsx scripts/fix-pdf-content-type.ts --dry-run --limit 5
+ *
+ *   Live migration (batch of 5 files):
+ *     LIMIT=5 npx tsx scripts/fix-pdf-content-type.ts
+ *     npx tsx scripts/fix-pdf-content-type.ts --limit 5
  */
 
 import { createClient } from "@supabase/supabase-js"
 
 async function fixPdfContentType() {
+  const args = process.argv.slice(2)
+  const isDryRunArg = args.includes("--dry-run")
+  const isDryRunEnv = process.env.DRY_RUN === "true" || process.env.DRY_RUN === "1"
+  const isDryRun = isDryRunArg || isDryRunEnv
+
+  let limitParam: number | null = null
+  const limitArgIdx = args.indexOf("--limit")
+  if (limitArgIdx !== -1 && args[limitArgIdx + 1]) {
+    limitParam = parseInt(args[limitArgIdx + 1], 10)
+  } else if (process.env.LIMIT) {
+    limitParam = parseInt(process.env.LIMIT, 10)
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
+  console.log("=== MedHaven PDF Content-Type Migration Script ===")
+  console.log(`Mode: ${isDryRun ? "DRY-RUN (No files will be modified)" : "LIVE MIGRATION"}`)
+  if (limitParam && !isNaN(limitParam)) {
+    console.log(`Batch Limit: ${limitParam} files`)
+  } else {
+    console.log("Batch Limit: Unlimited (All candidate files)")
+  }
+  console.log("==================================================\n")
+
   if (!supabaseUrl || !serviceRoleKey) {
-    console.error("Error: Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables.")
+    console.warn("[WARNING] Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.")
+    console.warn("Script cannot connect to Supabase Storage without environment credentials.\n")
+    if (isDryRun) {
+      console.log("[DRY-RUN REPORT] No environment variables set for production DB execution.")
+      console.log("To run against production, execute with SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY set.")
+      return
+    }
     process.exit(1)
   }
 
@@ -25,41 +64,82 @@ async function fixPdfContentType() {
     auth: { persistSession: false, autoRefreshToken: false },
   })
 
-  console.log("Listing materials bucket files...")
-  const { data: files, error: listError } = await supabase.storage.from("materials").list("", {
-    limit: 1000,
-    sortBy: { column: "name", order: "asc" },
-  })
+  console.log("Fetching file listing from 'materials' bucket...")
 
-  if (listError) {
-    console.error("Failed to list files in materials bucket:", listError)
-    process.exit(1)
+  let allFiles: any[] = []
+  let offset = 0
+  const pageSize = 100
+
+  while (true) {
+    const { data: pageFiles, error: listError } = await supabase.storage.from("materials").list("", {
+      limit: pageSize,
+      offset: offset,
+      sortBy: { column: "name", order: "asc" },
+    })
+
+    if (listError) {
+      console.error("[FATAL] Failed to list files in materials bucket:", listError)
+      process.exit(1)
+    }
+
+    if (!pageFiles || pageFiles.length === 0) break
+    allFiles = allFiles.concat(pageFiles)
+    if (pageFiles.length < pageSize) break
+    offset += pageSize
   }
 
-  const pdfFiles = (files || []).filter((f) => f.name.toLowerCase().endsWith(".pdf"))
-  console.log(`Found ${pdfFiles.length} PDF files out of ${files?.length || 0} total files in 'materials' bucket.`)
+  console.log(`Total items retrieved from 'materials' bucket: ${allFiles.length}`)
 
+  // Filter for PDF candidates (.pdf extension)
+  const pdfCandidates = allFiles.filter((f) => f.name.toLowerCase().endsWith(".pdf"))
+  console.log(`Found ${pdfCandidates.length} PDF candidate files ending in .pdf\n`)
+
+  let processedCount = 0
+  let skippedCount = 0
   let successCount = 0
   let failCount = 0
 
-  for (const file of pdfFiles) {
-    const filePath = file.name
-    console.log(`Processing: ${filePath}...`)
+  const candidateSummary: Array<{ id: string; name: string; currentMime: string; status: string }> = []
 
+  for (const file of pdfCandidates) {
+    if (limitParam && !isNaN(limitParam) && processedCount >= limitParam) {
+      console.log(`\n[LIMIT REACHED] Reached limit of ${limitParam} files. Stopping batch processing.`)
+      break
+    }
+
+    const filePath = file.name
+    const currentMime = file.metadata?.mimetype || file.metadata?.contentType || "unknown"
+
+    // IDEMPOTENCY CHECK: If file already has application/pdf MIME type, skip it
+    if (currentMime.toLowerCase() === "application/pdf") {
+      console.log(`[SKIP] File: "${filePath}" | Current Mime: "${currentMime}" — Already application/pdf`)
+      skippedCount++
+      candidateSummary.push({ id: file.id || filePath, name: filePath, currentMime, status: "SKIPPED (Already PDF)" })
+      continue
+    }
+
+    processedCount++
+
+    if (isDryRun) {
+      console.log(`[DRY-RUN] Candidate #${processedCount}: "${filePath}" | Current Mime: "${currentMime}" — Would update to application/pdf`)
+      candidateSummary.push({ id: file.id || filePath, name: filePath, currentMime, status: "WOULD_UPDATE" })
+      continue
+    }
+
+    // LIVE MODE RE-UPLOAD
+    console.log(`[PROCESSING #${processedCount}] Re-uploading: "${filePath}" (Current Mime: "${currentMime}")...`)
     try {
-      // Download current file binary
       const { data: blob, error: downloadError } = await supabase.storage.from("materials").download(filePath)
       if (downloadError || !blob) {
-        console.error(`  [FAILED] Download failed for ${filePath}:`, downloadError)
+        console.error(`  [FAILED] Download failed for "${filePath}":`, downloadError?.message || downloadError)
         failCount++
+        candidateSummary.push({ id: file.id || filePath, name: filePath, currentMime, status: "FAILED (Download error)" })
         continue
       }
 
-      // Convert Blob to ArrayBuffer
       const arrayBuffer = await blob.arrayBuffer()
       const buffer = Buffer.from(arrayBuffer)
 
-      // Re-upload with explicit contentType
       const { error: uploadError } = await supabase.storage.from("materials").upload(filePath, buffer, {
         cacheControl: "3600",
         upsert: true,
@@ -67,25 +147,45 @@ async function fixPdfContentType() {
       })
 
       if (uploadError) {
-        console.error(`  [FAILED] Re-upload failed for ${filePath}:`, uploadError)
+        console.error(`  [FAILED] Re-upload failed for "${filePath}":`, uploadError.message)
         failCount++
+        candidateSummary.push({ id: file.id || filePath, name: filePath, currentMime, status: "FAILED (Upload error)" })
       } else {
-        console.log(`  [SUCCESS] Updated content-type to application/pdf for ${filePath}`)
+        console.log(`  [SUCCESS] Updated content-type to application/pdf for "${filePath}"`)
         successCount++
+        candidateSummary.push({ id: file.id || filePath, name: filePath, currentMime, status: "SUCCESS" })
       }
     } catch (err: any) {
-      console.error(`  [ERROR] Exception processing ${filePath}:`, err.message)
+      console.error(`  [ERROR] Exception processing "${filePath}":`, err.message)
       failCount++
+      candidateSummary.push({ id: file.id || filePath, name: filePath, currentMime, status: `ERROR (${err.message})` })
     }
   }
 
-  console.log("\n--- Summary ---")
-  console.log(`Total PDF files processed: ${pdfFiles.length}`)
-  console.log(`Successfully updated: ${successCount}`)
-  console.log(`Failed: ${failCount}`)
+  console.log("\n=================== SUMMARY ===================")
+  console.log(`Total PDF files found: ${pdfCandidates.length}`)
+  console.log(`Skipped (Already application/pdf): ${skippedCount}`)
+  if (isDryRun) {
+    console.log(`Dry-run candidates logged: ${processedCount}`)
+  } else {
+    console.log(`Live files processed: ${processedCount}`)
+    console.log(`Successfully updated: ${successCount}`)
+    console.log(`Failed: ${failCount}`)
+  }
+  console.log("===============================================")
+
+  if (candidateSummary.length > 0) {
+    console.log("\n--- Sample Candidates Log ---")
+    candidateSummary.slice(0, 10).forEach((item, idx) => {
+      console.log(`${idx + 1}. File: ${item.name} | Current Mime: ${item.currentMime} | Action: ${item.status}`)
+    })
+    if (candidateSummary.length > 10) {
+      console.log(`... and ${candidateSummary.length - 10} more.`)
+    }
+  }
 }
 
 fixPdfContentType().catch((err) => {
-  console.error("Migration script failed:", err)
+  console.error("[FATAL] Unhandled error during migration:", err)
   process.exit(1)
 })
