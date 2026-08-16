@@ -48,17 +48,13 @@ export function getIframePreviewSrc(url: string, type?: string | null): string {
   const isPdfExt = ext === "pdf"
 
   // PDF files must ALWAYS use direct fileUrl for inline browser preview
-  if (isPdfExt) {
+  if (isPdfExt || type === "pdf") {
     return url
   }
 
   // PowerPoint (.ppt/.pptx) and Word (.doc/.docx) files route through Office Online Viewer
   if (isOfficeExt || type === "office") {
     return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`
-  }
-
-  if (type === "pdf") {
-    return url
   }
 
   return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`
