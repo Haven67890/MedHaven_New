@@ -30,6 +30,8 @@ import { SectionHeading } from "@/components/dashboard/section-heading"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { createClient } from "@/lib/supabase/client"
 import { MaterialCard } from "@/components/dashboard/material-card"
+import { getCachedData, setCachedData } from "@/lib/cache"
+import { MaterialGridSkeleton } from "@/components/feedback/loading-skeletons"
 
 interface Faculty {
   id: string
@@ -179,7 +181,14 @@ export default function LectureVideosPage() {
 
     const fetchData = async () => {
       try {
-        setIsLoading(true)
+        const cached = getCachedData<{ courses: Course[]; materials: Material[] }>("lecture_videos_data")
+        if (cached) {
+          setCourses(cached.courses)
+          setMaterials(cached.materials)
+          setIsLoading(false)
+        } else {
+          setIsLoading(true)
+        }
         setError(null)
 
         // 1. Fetch courses
@@ -237,7 +246,7 @@ export default function LectureVideosPage() {
           }
 
           if (finalMaterials.length === 0) {
-            setMaterials([
+            const fallbackMats = [
               {
                 id: "mock-video-1",
                 course_id: "mock-course-1",
@@ -250,9 +259,12 @@ export default function LectureVideosPage() {
                 created_at: "2025-01-01T00:00:00.000Z",
                 courses: { id: "mock-course-1", code: "ANA 201", title: "Gross Anatomy", level: "200L" }
               }
-            ])
+            ]
+            setMaterials(fallbackMats)
+            setCachedData("lecture_videos_data", { courses: finalCourses, materials: fallbackMats })
           } else {
             setMaterials(finalMaterials)
+            setCachedData("lecture_videos_data", { courses: finalCourses, materials: finalMaterials })
           }
         }
       } catch (err) {
@@ -486,9 +498,13 @@ export default function LectureVideosPage() {
       )}
 
       {isLoading ? (
-        <div className="flex min-h-[20vh] items-center justify-center">
-          <p className="text-sm text-muted-foreground">Loading lecture videos...</p>
-        </div>
+        <section>
+          <SectionHeading
+            title="All lectures"
+            description="Browse and review active curriculum video sessions."
+          />
+          <MaterialGridSkeleton count={6} />
+        </section>
       ) : (
         <section>
           <div className="flex items-center justify-between">

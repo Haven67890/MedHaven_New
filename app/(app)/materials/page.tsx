@@ -29,6 +29,8 @@ import { StatCard } from "@/components/dashboard/stat-card"
 import { createClient } from "@/lib/supabase/client"
 import { MaterialCard } from "@/components/dashboard/material-card"
 import { logMaterialActivity } from "@/utils/activity"
+import { getCachedData, setCachedData } from "@/lib/cache"
+import { MaterialGridSkeleton } from "@/components/feedback/loading-skeletons"
 
 interface Faculty {
   id: string
@@ -361,7 +363,14 @@ export default function StudyMaterialsPage() {
 
     const fetchData = async () => {
       try {
-        setIsLoading(true)
+        const cached = getCachedData<{ courses: Course[]; materials: Material[] }>("study_materials_data")
+        if (cached) {
+          setCourses(cached.courses)
+          setMaterials(cached.materials)
+          setIsLoading(false)
+        } else {
+          setIsLoading(true)
+        }
         setError(null)
 
         // 1. Fetch courses
@@ -419,8 +428,7 @@ export default function StudyMaterialsPage() {
           }
 
           if (finalMaterials.length === 0) {
-            // Fallback mock materials for study tier
-            setMaterials([
+            const fallbackMats = [
               {
                 id: "mock-img-1",
                 course_id: "mock-course-2",
@@ -433,9 +441,12 @@ export default function StudyMaterialsPage() {
                 created_at: "2025-01-01T00:00:00.000Z",
                 courses: { id: "mock-course-2", code: "BCH 201", title: "Medical Biochemistry", level: "200L" }
               }
-            ])
+            ]
+            setMaterials(fallbackMats)
+            setCachedData("study_materials_data", { courses: finalCourses, materials: fallbackMats })
           } else {
             setMaterials(finalMaterials)
+            setCachedData("study_materials_data", { courses: finalCourses, materials: finalMaterials })
           }
         }
       } catch (err) {
@@ -705,9 +716,13 @@ export default function StudyMaterialsPage() {
       )}
 
       {isLoading ? (
-        <div className="flex min-h-[20vh] items-center justify-center">
-          <p className="text-sm text-muted-foreground">Loading study materials...</p>
-        </div>
+        <section>
+          <SectionHeading
+            title="All Study Materials"
+            description="Browse the study catalog, curated reference resources, and slide packs."
+          />
+          <MaterialGridSkeleton count={6} />
+        </section>
       ) : (
         <section>
           <div className="flex items-center justify-between">

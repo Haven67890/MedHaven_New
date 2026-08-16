@@ -30,11 +30,6 @@ function NavLink({ item, onNavigate }: { item: NavItem; onNavigate?: () => void 
     if (onNavigate) {
       onNavigate()
     }
-    if (item.href === "/admin") {
-      e.preventDefault()
-      router.refresh()
-      router.push("/admin")
-    }
   }
 
   return (
@@ -110,7 +105,7 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
     }
 
     void checkAdmin()
-  }, [user?.id, pathname])
+  }, [user?.id])
 
   return (
     <div className="flex min-h-svh bg-muted/40">
@@ -151,7 +146,9 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
             </Button>
           </div>
         </header>
-        <main className="flex-1 p-4 sm:p-6">{children}</main>
+        <main key={pathname} className="flex-1 p-4 sm:p-6 animate-in fade-in slide-in-from-bottom-1 duration-200">
+          {children}
+        </main>
       </div>
     </div>
   )

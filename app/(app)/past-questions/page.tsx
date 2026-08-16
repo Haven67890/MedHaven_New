@@ -29,6 +29,8 @@ import { StatCard } from "@/components/dashboard/stat-card"
 import { createClient } from "@/lib/supabase/client"
 import { MaterialCard } from "@/components/dashboard/material-card"
 import { logMaterialActivity } from "@/utils/activity"
+import { getCachedData, setCachedData } from "@/lib/cache"
+import { CollectionsSkeleton, MaterialGridSkeleton } from "@/components/feedback/loading-skeletons"
 
 interface Faculty {
   id: string
@@ -361,7 +363,14 @@ export default function PastQuestionsPage() {
 
     const fetchData = async () => {
       try {
-        setIsLoading(true)
+        const cached = getCachedData<{ courses: Course[]; materials: Material[] }>("past_questions_data")
+        if (cached) {
+          setCourses(cached.courses)
+          setMaterials(cached.materials)
+          setIsLoading(false)
+        } else {
+          setIsLoading(true)
+        }
         setError(null)
 
         // 1. Fetch courses
@@ -419,7 +428,7 @@ export default function PastQuestionsPage() {
           }
 
           if (finalMaterials.length === 0) {
-            setMaterials([
+            const fallbackMats = [
               {
                 id: "mock-img-1",
                 course_id: "mock-course-2",
@@ -432,9 +441,12 @@ export default function PastQuestionsPage() {
                 created_at: "2025-01-01T00:00:00.000Z",
                 courses: { id: "mock-course-2", code: "BCH 201", title: "Medical Biochemistry", level: "200L" }
               }
-            ])
+            ]
+            setMaterials(fallbackMats)
+            setCachedData("past_questions_data", { courses: finalCourses, materials: fallbackMats })
           } else {
             setMaterials(finalMaterials)
+            setCachedData("past_questions_data", { courses: finalCourses, materials: finalMaterials })
           }
         }
       } catch (err) {
@@ -694,7 +706,7 @@ export default function PastQuestionsPage() {
                     setSelectedCourseId(matched.id)
                   }
                 }}
-                className="group flex flex-col items-start gap-2 rounded-xl border border-border bg-card p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md text-left w-full"
+                className="group flex flex-col items-start gap-2 rounded-xl border border-border bg-card p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] hover:border-primary/40 hover:shadow-md text-left w-full cursor-pointer"
               >
                 <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
                   <Library className="size-5" aria-hidden="true" />
@@ -724,8 +736,15 @@ export default function PastQuestionsPage() {
       )}
 
       {isLoading ? (
-        <div className="flex min-h-[20vh] items-center justify-center">
-          <p className="text-sm text-muted-foreground">Loading past questions...</p>
+        <div className="flex flex-col gap-8">
+          <section>
+            <SectionHeading title="Browse by subject" description="Pick a subject to see available papers." />
+            <CollectionsSkeleton count={6} />
+          </section>
+          <section>
+            <SectionHeading title="Available papers" description="Recently added and popular past papers." />
+            <MaterialGridSkeleton count={6} />
+          </section>
         </div>
       ) : (
         <section>
