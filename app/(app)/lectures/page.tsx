@@ -324,61 +324,16 @@ export default function LectureVideosPage() {
         if (mounted) {
           const finalCourses = (coursesData as Course[]) || []
           const finalMaterials = (mData as unknown as Material[]) || []
-
-          if (finalCourses.length === 0) {
-            setCourses([
-              { id: "mock-course-1", code: "ANA 201", title: "Gross Anatomy", level: "200L" },
-              { id: "mock-course-2", code: "BCH 201", title: "Medical Biochemistry", level: "200L" },
-              { id: "mock-course-3", code: "PIO 201", title: "Medical Physiology", level: "200L" }
-            ])
-          } else {
-            setCourses(finalCourses)
-          }
-
-          if (finalMaterials.length === 0) {
-            const fallbackMats = [
-              {
-                id: "mock-video-1",
-                course_id: "mock-course-1",
-                title: "The Skeletal System - Clinical Anatomy and Functions",
-                type: "video",
-                tier: "recommended",
-                source_url: "https://www.youtube.com/watch?v=J8y87V74FHg",
-                storage_path: null,
-                description: "An exhaustive clinical overview of the human skeletal system, focusing on bone anatomy, joints, and biomechanics.",
-                created_at: "2025-01-01T00:00:00.000Z",
-                courses: { id: "mock-course-1", code: "ANA 201", title: "Gross Anatomy", level: "200L" }
-              }
-            ]
-            setMaterials(fallbackMats)
-            setCachedData("lecture_videos_data", { courses: finalCourses, materials: fallbackMats })
-          } else {
-            setMaterials(finalMaterials)
-            setCachedData("lecture_videos_data", { courses: finalCourses, materials: finalMaterials })
-          }
+          setCourses(finalCourses)
+          setMaterials(finalMaterials)
+          setCachedData("lecture_videos_data", { courses: finalCourses, materials: finalMaterials })
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Error loading lecture videos data:", err)
         if (mounted) {
-          setCourses([
-            { id: "mock-course-1", code: "ANA 201", title: "Gross Anatomy", level: "200L" },
-            { id: "mock-course-2", code: "BCH 201", title: "Medical Biochemistry", level: "200L" },
-            { id: "mock-course-3", code: "PIO 201", title: "Medical Physiology", level: "200L" }
-          ])
-          setMaterials([
-            {
-              id: "mock-video-1",
-              course_id: "mock-course-1",
-              title: "The Skeletal System - Clinical Anatomy and Functions",
-              type: "video",
-              tier: "recommended",
-              source_url: "https://www.youtube.com/watch?v=J8y87V74FHg",
-              storage_path: null,
-              description: "An exhaustive clinical overview of the human skeletal system, focusing on bone anatomy, joints, and biomechanics.",
-              created_at: "2025-01-01T00:00:00.000Z",
-              courses: { id: "mock-course-1", code: "ANA 201", title: "Gross Anatomy", level: "200L" }
-            }
-          ])
+          setError(err?.message || "Failed to load materials. Please try again.")
+          setCourses([])
+          setMaterials([])
         }
       } finally {
         if (mounted) {
@@ -625,9 +580,14 @@ export default function LectureVideosPage() {
 
       {/* Error and Loading States */}
       {error && (
-        <div className="bg-destructive/15 border border-destructive/30 text-destructive text-sm rounded-lg p-4 font-medium">
-          <span className="font-extrabold uppercase text-xs tracking-wider block">Error:</span>
-          <p>{error}</p>
+        <div className="bg-destructive/15 border border-destructive/30 text-destructive text-sm rounded-lg p-4 font-medium flex items-center justify-between gap-4">
+          <div>
+            <span className="font-extrabold uppercase text-xs tracking-wider block">Error:</span>
+            <p>{error}</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+            Retry
+          </Button>
         </div>
       )}
 

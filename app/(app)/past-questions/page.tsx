@@ -425,61 +425,16 @@ export default function PastQuestionsPage() {
         if (mounted) {
           const finalCourses = (coursesData as Course[]) || []
           const finalMaterials = (mData as unknown as Material[]) || []
-
-          if (finalCourses.length === 0) {
-            setCourses([
-              { id: "mock-course-1", code: "ANA 201", title: "Gross Anatomy", level: "200L" },
-              { id: "mock-course-2", code: "BCH 201", title: "Medical Biochemistry", level: "200L" },
-              { id: "mock-course-3", code: "PIO 201", title: "Medical Physiology", level: "200L" }
-            ])
-          } else {
-            setCourses(finalCourses)
-          }
-
-          if (finalMaterials.length === 0) {
-            const fallbackMats = [
-              {
-                id: "mock-img-1",
-                course_id: "mock-course-2",
-                title: "BCH 201 Midterm Question Paper 2024",
-                type: "past_question",
-                tier: "study",
-                source_url: "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/bch_midterm_2024.jpg",
-                storage_path: "bch_midterm_2024.jpg",
-                description: "Scanned copy of the 2024 biochemistry midterm examination paper.",
-                created_at: "2025-01-01T00:00:00.000Z",
-                courses: { id: "mock-course-2", code: "BCH 201", title: "Medical Biochemistry", level: "200L" }
-              }
-            ]
-            setMaterials(fallbackMats)
-            setCachedData("past_questions_data", { courses: finalCourses, materials: fallbackMats })
-          } else {
-            setMaterials(finalMaterials)
-            setCachedData("past_questions_data", { courses: finalCourses, materials: finalMaterials })
-          }
+          setCourses(finalCourses)
+          setMaterials(finalMaterials)
+          setCachedData("past_questions_data", { courses: finalCourses, materials: finalMaterials })
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Error loading past questions data:", err)
         if (mounted) {
-          setCourses([
-            { id: "mock-course-1", code: "ANA 201", title: "Gross Anatomy", level: "200L" },
-            { id: "mock-course-2", code: "BCH 201", title: "Medical Biochemistry", level: "200L" },
-            { id: "mock-course-3", code: "PIO 201", title: "Medical Physiology", level: "200L" }
-          ])
-          setMaterials([
-            {
-              id: "mock-img-1",
-              course_id: "mock-course-2",
-              title: "BCH 201 Midterm Question Paper 2024",
-              type: "past_question",
-              tier: "study",
-              source_url: "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/bch_midterm_2024.jpg",
-              storage_path: "bch_midterm_2024.jpg",
-              description: "Scanned copy of the 2024 biochemistry midterm examination paper.",
-              created_at: "2025-01-01T00:00:00.000Z",
-              courses: { id: "mock-course-2", code: "BCH 201", title: "Medical Biochemistry", level: "200L" }
-            }
-          ])
+          setError(err?.message || "Failed to load materials. Please try again.")
+          setCourses([])
+          setMaterials([])
         }
       } finally {
         if (mounted) {
@@ -782,9 +737,14 @@ export default function PastQuestionsPage() {
 
       {/* Error and Loading States */}
       {error && (
-        <div className="bg-destructive/15 border border-destructive/30 text-destructive text-sm rounded-lg p-4 font-medium">
-          <span className="font-extrabold uppercase text-xs tracking-wider block">Error:</span>
-          <p>{error}</p>
+        <div className="bg-destructive/15 border border-destructive/30 text-destructive text-sm rounded-lg p-4 font-medium flex items-center justify-between gap-4">
+          <div>
+            <span className="font-extrabold uppercase text-xs tracking-wider block">Error:</span>
+            <p>{error}</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+            Retry
+          </Button>
         </div>
       )}
 
