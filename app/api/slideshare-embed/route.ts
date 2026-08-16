@@ -18,11 +18,13 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await response.json()
-    if (!data.html) {
-      return NextResponse.json({ error: "No embed HTML returned from SlideShare" }, { status: 404 })
+    if (!data.html && !data.thumbnail_url && !data.thumbnail) {
+      return NextResponse.json({ error: "No embed HTML or thumbnail returned from SlideShare" }, { status: 404 })
     }
 
-    return NextResponse.json({ html: data.html })
+    const thumbnailUrl = data.thumbnail_url || data.thumbnail || data.thumbnail_link || null
+
+    return NextResponse.json({ html: data.html || null, thumbnail_url: thumbnailUrl })
   } catch (error: any) {
     console.error("Error in slideshare-embed API route:", error)
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })

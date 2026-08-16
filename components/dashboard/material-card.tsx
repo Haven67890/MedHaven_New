@@ -24,6 +24,11 @@ import { logMaterialActivity } from "@/utils/activity"
 
 // Memory cache for PDF thumbnails to avoid regenerating on every render
 const pdfThumbnailCache: Record<string, string> = {}
+const failedPdfCache: Record<string, boolean> = {}
+
+// Memory cache for SlideShare thumbnails
+const slideShareThumbnailCache: Record<string, string> = {}
+const failedSlideShareCache: Record<string, boolean> = {}
 
 // Memory cache for YouTube embed checks (true = embeddable, false = not embeddable)
 const youtubeEmbedCheckCache: Record<string, boolean> = {}
@@ -70,12 +75,9 @@ interface MaterialCardProps {
 // Helper to get YouTube ID
 function getYouTubeId(url: string | null | undefined): string | null {
   if (!url) return null
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/
+  const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts|live)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i
   const match = url.match(regExp)
-  if (match && match[2].length === 11) {
-    return match[2]
-  }
-  return null
+  return match && match[1] ? match[1] : null
 }
 
 // Helper to resolve material URL
@@ -115,6 +117,7 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
   const { user } = useAuth()
   const fileUrl = getMaterialUrl(material)
   const ext = getFileExtension(fileUrl)
+  const isPdf = ext === "pdf" || material.type?.toLowerCase() === "pdf"
   const isVideo = material.type?.toLowerCase() === "video"
   const isSlideShare =
     material.type?.toLowerCase() === "lecture_slide" &&
@@ -134,8 +137,11 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
 
   // Load cache/localStorage on mount
   useEffect(() => {
-    if (material.type?.toLowerCase() === "pdf") {
+    if (isPdf) {
       const cacheKey = `medhaven_pdf_thumb_${material.id}`
+      if (failedPdfCache[cacheKey]) {
+        return
+      }
       // Check memory cache first
       if (pdfThumbnailCache[cacheKey]) {
         setPdfThumbnail(pdfThumbnailCache[cacheKey])
@@ -156,11 +162,20 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
       // Generate if not cached
       generatePdfThumbnail()
     }
-  }, [material.id, material.type])
+  }, [material.id, material.type, isPdf])
 
   // SlideShare thumbnail fetching
   useEffect(() => {
     if (isSlideShare && material.source_url) {
+      const cacheKey = material.source_url
+      if (failedSlideShareCache[cacheKey]) {
+        return
+      }
+      if (slideShareThumbnailCache[cacheKey]) {
+        setSlideShareThumbnail(slideShareThumbnailCache[cacheKey])
+        return
+      }
+
       let active = true
       const fetchSlideShareThumb = async () => {
         setIsSlideShareLoading(true)
@@ -169,22 +184,17 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
           if (!res.ok) throw new Error("SlideShare fetch failed")
           const data = await res.json()
 
-          // SlideShare oEmbed has html, let's extract images if available, or fetch direct oEmbed metadata
-          // Actually, let's fetch SlideShare oEmbed data directly from a server route if we need more fields,
-          // or we can request SlideShare oEmbed API again.
-          // Let's call official slideshare oembed directly since thumbnail_url is returned
-          const rawOembed = await fetch(
-            `https://www.slideshare.net/api/oembed/2?url=${encodeURIComponent(material.source_url!)}&format=json`
-          )
-          if (rawOembed.ok) {
-            const json = await rawOembed.json()
-            const thumb = json.thumbnail_url || json.thumbnail || json.thumbnail_link
-            if (thumb && active) {
-              setSlideShareThumbnail(thumb)
-            }
+          if (data.thumbnail_url && active) {
+            setSlideShareThumbnail(data.thumbnail_url)
+            slideShareThumbnailCache[cacheKey] = data.thumbnail_url
+          } else {
+            failedSlideShareCache[cacheKey] = true
           }
         } catch (err) {
           console.error("Failed to load SlideShare thumbnail", err)
+          if (active) {
+            failedSlideShareCache[cacheKey] = true
+          }
         } finally {
           if (active) {
             setIsSlideShareLoading(false)
@@ -201,6 +211,12 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
   // YouTube embed restriction check
   useEffect(() => {
     if (isVideo && material.source_url) {
+      if (!youtubeId) {
+        // Not a YouTube video URL (e.g. direct mp4 or other host)
+        setIsYoutubeEmbeddable(false)
+        return
+      }
+
       const cacheKey = material.source_url
       if (youtubeEmbedCheckCache[cacheKey] !== undefined) {
         setIsYoutubeEmbeddable(youtubeEmbedCheckCache[cacheKey])
@@ -237,11 +253,12 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
         active = false
       }
     }
-  }, [isVideo, material.source_url])
+  }, [isVideo, material.source_url, youtubeId])
 
   // Helper to dynamically import and render pdf first page
   const generatePdfThumbnail = async () => {
     if (!fileUrl || fileUrl === "#") return
+    const cacheKey = `medhaven_pdf_thumb_${material.id}`
     setIsGeneratingPdfThumb(true)
     try {
       // Dynamically import pdfjs-dist on client side only
@@ -272,23 +289,24 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
         setPdfThumbnail(dataUrl)
 
         // Save to cache
-        const cacheKey = `medhaven_pdf_thumb_${material.id}`
         pdfThumbnailCache[cacheKey] = dataUrl
         try {
           localStorage.setItem(cacheKey, dataUrl)
         } catch (e) {
           // Handle potential localStorage size limit gracefully
         }
+      } else {
+        failedPdfCache[cacheKey] = true
       }
     } catch (err) {
       console.warn("Failed to generate PDF thumbnail client-side:", err)
+      failedPdfCache[cacheKey] = true
     } finally {
       setIsGeneratingPdfThumb(false)
     }
   }
 
   // File action configurations
-  const isPdf = ext === "pdf"
   const isOffice = ["pptx", "ppt", "docx", "doc", "xlsx", "xls"].includes(ext)
   const isImage = ["jpg", "jpeg", "png"].includes(ext)
   const isSupabaseStorage = fileUrl.includes("supabase.co/storage")

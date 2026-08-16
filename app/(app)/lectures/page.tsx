@@ -84,24 +84,16 @@ function formatTypeName(type: string): string {
 }
 
 // Helper to extract YouTube ID and build embed URL
-function getYouTubeEmbedUrl(url: string | null | undefined): string | null {
-  if (!url) return null
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/
-  const match = url.match(regExp)
-  if (match && match[2].length === 11) {
-    return `https://www.youtube.com/embed/${match[2]}`
-  }
-  return null
-}
-
 function getYouTubeId(url: string | null | undefined): string | null {
   if (!url) return null
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/
+  const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts|live)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i
   const match = url.match(regExp)
-  if (match && match[2].length === 11) {
-    return match[2]
-  }
-  return null
+  return match && match[1] ? match[1] : null
+}
+
+function getYouTubeEmbedUrl(url: string | null | undefined): string | null {
+  const id = getYouTubeId(url)
+  return id ? `https://www.youtube.com/embed/${id}` : null
 }
 
 // Helper to resolve material URL
@@ -613,37 +605,66 @@ export default function LectureVideosPage() {
             {/* Content */}
             <div className="flex-1 bg-muted relative flex items-center justify-center p-4 overflow-auto">
               {previewModal.type === "video" ? (
-                previewModal.isEmbeddable !== false ? (
-                  <iframe
-                    src={getYouTubeEmbedUrl(previewModal.url) || ""}
-                    title={previewModal.title}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    className="absolute inset-0 w-full h-full border-0"
-                  />
-                ) : (
-                  <div className="flex flex-col items-center justify-center text-center p-6 max-w-md bg-card rounded-xl border border-border shadow-sm">
-                    <div className="relative aspect-video w-64 overflow-hidden rounded-lg border bg-muted mb-4 shadow-sm">
-                      <img
-                        src={`https://img.youtube.com/vi/${getYouTubeId(previewModal.url)}/hqdefault.jpg`}
-                        alt={previewModal.title}
-                        className="w-full h-full object-cover"
+                (() => {
+                  const ytId = getYouTubeId(previewModal.url)
+                  const ytEmbedUrl = getYouTubeEmbedUrl(previewModal.url)
+
+                  if (ytEmbedUrl && previewModal.isEmbeddable !== false) {
+                    return (
+                      <iframe
+                        src={ytEmbedUrl}
+                        title={previewModal.title}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        className="absolute inset-0 w-full h-full border-0"
                       />
-                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                        <Video className="size-10 text-white/90" />
+                    )
+                  }
+
+                  if (ytId) {
+                    return (
+                      <div className="flex flex-col items-center justify-center text-center p-6 max-w-md bg-card rounded-xl border border-border shadow-sm">
+                        <div className="relative aspect-video w-64 overflow-hidden rounded-lg border bg-muted mb-4 shadow-sm">
+                          <img
+                            src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`}
+                            alt={previewModal.title}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                            <Video className="size-10 text-white/90" />
+                          </div>
+                        </div>
+                        <h4 className="font-semibold text-foreground text-base mb-1">Embedding restricted by uploader</h4>
+                        <p className="text-xs text-muted-foreground mb-4">
+                          This video is restricted and can only be watched directly on YouTube.
+                        </p>
+                        <Button asChild variant="destructive" size="sm">
+                          <a href={previewModal.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
+                            Watch on YouTube <ExternalLink className="size-3.5" />
+                          </a>
+                        </Button>
                       </div>
+                    )
+                  }
+
+                  // Non-YouTube video (e.g. direct MP4 or external video URL)
+                  return (
+                    <div className="flex flex-col items-center justify-center text-center p-6 max-w-md bg-card rounded-xl border border-border shadow-sm">
+                      <div className="flex size-14 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-950/50 dark:text-red-400 mb-4">
+                        <Video className="size-7" />
+                      </div>
+                      <h4 className="font-semibold text-foreground text-base mb-1">External Video Stream</h4>
+                      <p className="text-xs text-muted-foreground mb-4">
+                        This video material is hosted externally and cannot be embedded inline.
+                      </p>
+                      <Button asChild variant="default" size="sm">
+                        <a href={previewModal.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
+                          Open Video Stream <ExternalLink className="size-3.5" />
+                        </a>
+                      </Button>
                     </div>
-                    <h4 className="font-semibold text-foreground text-base mb-1">Embedding restricted by uploader</h4>
-                    <p className="text-xs text-muted-foreground mb-4">
-                      This video is restricted and can only be watched directly on YouTube.
-                    </p>
-                    <Button asChild variant="destructive" size="sm">
-                      <a href={previewModal.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
-                        Watch on YouTube <ExternalLink className="size-3.5" />
-                      </a>
-                    </Button>
-                  </div>
-                )
+                  )
+                })()
               ) : (
                 <div className="flex flex-col items-center justify-center text-center p-6 max-w-md bg-card rounded-xl border border-border shadow-sm">
                   <h4 className="font-semibold text-foreground text-base mb-1">Preview restricted</h4>
