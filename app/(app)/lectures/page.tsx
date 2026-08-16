@@ -1,6 +1,6 @@
 "use client"
 
-import { getSlideDeckProvider, getSlideEmbedApiUrl } from "@/lib/embed"
+import { getSlideDeckProvider, getSlideEmbedApiUrl, getIframePreviewSrc } from "@/lib/embed"
 import { useState, useEffect, useRef, useMemo } from "react"
 import useAuth from "@/hooks/useAuth"
 import { useDebounce } from "@/hooks/useDebounce"
@@ -817,13 +817,7 @@ export default function LectureVideosPage() {
                 )
               ) : (
                 <iframe
-                  src={
-                    previewModal.type === "office"
-                      ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewModal.url)}`
-                      : previewModal.type === "pdf"
-                      ? previewModal.url
-                      : `https://docs.google.com/viewer?url=${encodeURIComponent(previewModal.url)}&embedded=true`
-                  }
+                  src={getIframePreviewSrc(previewModal.url, previewModal.type)}
                   className="absolute inset-0 w-full h-full border-0"
                   title={previewModal.title}
                 />

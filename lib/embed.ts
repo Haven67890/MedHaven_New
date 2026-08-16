@@ -30,3 +30,36 @@ export function getSlideDeckProviderName(provider?: SlideDeckProvider | string |
 export function getSlideEmbedApiUrl(provider: SlideDeckProvider | string, url: string): string {
   return `/api/embed/${provider}?url=${encodeURIComponent(url)}`
 }
+
+export function getFileExtensionFromUrl(url?: string | null): string {
+  if (!url) return ""
+  try {
+    const path = url.split('?')[0]
+    const parts = path.split('.')
+    return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : ""
+  } catch (e) {
+    return ""
+  }
+}
+
+export function getIframePreviewSrc(url: string, type?: string | null): string {
+  const ext = getFileExtensionFromUrl(url)
+  const isOfficeExt = ["pptx", "ppt", "pps", "ppsx", "docx", "doc", "xlsx", "xls"].includes(ext)
+  const isPdfExt = ext === "pdf"
+
+  // PDF files must ALWAYS use direct fileUrl for inline browser preview
+  if (isPdfExt) {
+    return url
+  }
+
+  // PowerPoint (.ppt/.pptx) and Word (.doc/.docx) files route through Office Online Viewer
+  if (isOfficeExt || type === "office") {
+    return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`
+  }
+
+  if (type === "pdf") {
+    return url
+  }
+
+  return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`
+}
