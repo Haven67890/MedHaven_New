@@ -1,5 +1,7 @@
 "use client"
 
+import { getSlideDeckProvider, getSlideEmbedApiUrl, getSlideDeckProviderName } from "@/lib/embed"
+
 import { useState, useEffect, useRef, useMemo, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import useAuth from "@/hooks/useAuth"
@@ -157,7 +159,8 @@ function SlideShareEmbed({ url, title, onError }: SlideShareEmbedProps) {
     let active = true
     async function fetchEmbed() {
       try {
-        const res = await fetch(`/api/slideshare-embed?url=${encodeURIComponent(url)}`)
+        const provider = getSlideDeckProvider(url) || "slideshare"
+        const res = await fetch(getSlideEmbedApiUrl(provider, url))
         if (!res.ok) {
           throw new Error("Failed to fetch")
         }
@@ -1013,7 +1016,7 @@ function SmartLibraryPageContent() {
                 {previewModal.type === "slideshare" && (
                   <Button variant="outline" size="sm" asChild className="text-xs h-8">
                     <a href={previewModal.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
-                      View on SlideShare <ExternalLink className="size-3.5" />
+                      View Slides <ExternalLink className="size-3.5" />
                     </a>
                   </Button>
                 )}
@@ -1103,11 +1106,11 @@ function SmartLibraryPageContent() {
                   <div className="flex flex-col items-center justify-center text-center p-6 max-w-md bg-card rounded-xl border border-border shadow-sm">
                     <h4 className="font-semibold text-foreground text-base mb-1">Slide preview unavailable</h4>
                     <p className="text-xs text-muted-foreground mb-4">
-                      We were unable to load the slide preview. You can view the slides directly on SlideShare.
+                      We were unable to load the slide preview. You can view the slides directly on the source platform.
                     </p>
                     <Button asChild variant="outline" size="sm">
                       <a href={previewModal.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
-                        View on SlideShare <ExternalLink className="size-3.5" />
+                        View Slides <ExternalLink className="size-3.5" />
                       </a>
                     </Button>
                   </div>

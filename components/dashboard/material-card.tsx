@@ -21,14 +21,15 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import useAuth from "@/hooks/useAuth"
 import { logMaterialActivity } from "@/utils/activity"
+import { getSlideDeckProvider, getSlideEmbedApiUrl } from "@/lib/embed"
 
 // Memory cache for PDF thumbnails to avoid regenerating on every render
 const pdfThumbnailCache: Record<string, string> = {}
 const failedPdfCache: Record<string, boolean> = {}
 
-// Memory cache for SlideShare thumbnails
-const slideShareThumbnailCache: Record<string, string> = {}
-const failedSlideShareCache: Record<string, boolean> = {}
+// Memory cache for Slide deck thumbnails (SlideShare, SlideServe, Scribd, Slides.com)
+const slideDeckThumbnailCache: Record<string, string> = {}
+const failedSlideDeckCache: Record<string, boolean> = {}
 
 // Memory cache for YouTube embed checks (true = embeddable, false = not embeddable)
 const youtubeEmbedCheckCache: Record<string, boolean> = {}
@@ -119,17 +120,17 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
   const ext = getFileExtension(fileUrl)
   const isPdf = ext === "pdf" || material.type?.toLowerCase() === "pdf"
   const isVideo = material.type?.toLowerCase() === "video"
-  const isSlideShare =
-    material.type?.toLowerCase() === "lecture_slide" &&
-    material.source_url?.includes("slideshare.net")
+
+  const slideDeckProvider = getSlideDeckProvider(material.source_url)
+  const isSlideDeck = Boolean(slideDeckProvider) || (material.type?.toLowerCase() === "lecture_slide" && Boolean(material.source_url))
 
   const youtubeId = isVideo ? getYouTubeId(material.source_url) : null
 
   // Thumbnail states
   const [pdfThumbnail, setPdfThumbnail] = useState<string | null>(null)
   const [isGeneratingPdfThumb, setIsGeneratingPdfThumb] = useState(false)
-  const [slideShareThumbnail, setSlideShareThumbnail] = useState<string | null>(null)
-  const [isSlideShareLoading, setIsSlideShareLoading] = useState(false)
+  const [slideDeckThumbnail, setSlideDeckThumbnail] = useState<string | null>(null)
+  const [isSlideDeckLoading, setIsSlideDeckLoading] = useState(false)
 
   // YouTube embedding permission state (defaults to true until check completes)
   const [isYoutubeEmbeddable, setIsYoutubeEmbeddable] = useState<boolean>(true)
@@ -164,47 +165,48 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
     }
   }, [material.id, material.type, isPdf])
 
-  // SlideShare thumbnail fetching
+  // Slide Deck thumbnail fetching
   useEffect(() => {
-    if (isSlideShare && material.source_url) {
+    if (isSlideDeck && material.source_url) {
       const cacheKey = material.source_url
-      if (failedSlideShareCache[cacheKey]) {
+      if (failedSlideDeckCache[cacheKey]) {
         return
       }
-      if (slideShareThumbnailCache[cacheKey]) {
-        setSlideShareThumbnail(slideShareThumbnailCache[cacheKey])
+      if (slideDeckThumbnailCache[cacheKey]) {
+        setSlideDeckThumbnail(slideDeckThumbnailCache[cacheKey])
         return
       }
 
       let active = true
-      const fetchSlideShareThumb = async () => {
-        setIsSlideShareLoading(true)
+      const fetchSlideDeckThumb = async () => {
+        setIsSlideDeckLoading(true)
         try {
-          const res = await fetch(`/api/slideshare-embed?url=${encodeURIComponent(material.source_url!)}`)
-          if (!res.ok) throw new Error("SlideShare fetch failed")
+          const provider = slideDeckProvider || "slideshare"
+          const res = await fetch(getSlideEmbedApiUrl(provider, material.source_url!))
+          if (!res.ok) throw new Error("Slide deck fetch failed")
           const data = await res.json()
 
           if (data.thumbnail_url && active) {
-            setSlideShareThumbnail(data.thumbnail_url)
-            slideShareThumbnailCache[cacheKey] = data.thumbnail_url
+            setSlideDeckThumbnail(data.thumbnail_url)
+            slideDeckThumbnailCache[cacheKey] = data.thumbnail_url
           }
         } catch (err) {
-          console.error("Failed to load SlideShare thumbnail", err)
+          console.error("Failed to load slide deck thumbnail", err)
           if (active) {
-            failedSlideShareCache[cacheKey] = true
+            failedSlideDeckCache[cacheKey] = true
           }
         } finally {
           if (active) {
-            setIsSlideShareLoading(false)
+            setIsSlideDeckLoading(false)
           }
         }
       }
-      void fetchSlideShareThumb()
+      void fetchSlideDeckThumb()
       return () => {
         active = false
       }
     }
-  }, [isSlideShare, material.source_url])
+  }, [isSlideDeck, slideDeckProvider, material.source_url])
 
   // YouTube embed restriction check
   useEffect(() => {
@@ -311,9 +313,9 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
   const isStudyTier = material.tier?.toLowerCase() === "study"
   const isExternalLinkOnly = !isSupabaseStorage
 
-  const hasEmbed = isVideo ? isYoutubeEmbeddable : isSlideShare
+  const hasEmbed = isVideo ? isYoutubeEmbeddable : isSlideDeck
 
-  const showViewButton = isPdf || isOffice || isImage || isVideo || isSlideShare
+  const showViewButton = isPdf || isOffice || isImage || isVideo || isSlideDeck
   const showDownloadButton = isSupabaseStorage
   const showOpenLinkButton =
     (!showViewButton && !hasEmbed) || (isStudyTier && isExternalLinkOnly && !hasEmbed)
@@ -325,7 +327,7 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
 
     if (isVideo) {
       onPreview(material, "video", isYoutubeEmbeddable)
-    } else if (isSlideShare) {
+    } else if (isSlideDeck) {
       onPreview(material, "slideshare", true)
     } else if (isImage) {
       onPreview(material, "image", true)
@@ -339,7 +341,7 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
   // Render correct icon depending on type
   const renderTypeIcon = () => {
     if (isVideo) return <Video className="size-6 text-red-500" />
-    if (isSlideShare) return <Presentation className="size-6 text-orange-500" />
+    if (isSlideDeck) return <Presentation className="size-6 text-orange-500" />
     if (isPdf) return <FileText className="size-6 text-emerald-500" />
     if (ext === "pptx" || ext === "ppt") return <Presentation className="size-6 text-orange-500" />
     if (ext === "xlsx" || ext === "xls") return <FileSpreadsheet className="size-6 text-green-600" />
@@ -371,14 +373,14 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
               </span>
             </div>
           </div>
-        ) : isSlideShare && slideShareThumbnail ? (
-          // SlideShare Thumbnail
+        ) : isSlideDeck && slideDeckThumbnail ? (
+          // Slide Deck Thumbnail
           <div
             className="absolute inset-0 w-full h-full cursor-pointer group/thumb"
             onClick={handlePreviewClick}
           >
             <img
-              src={slideShareThumbnail}
+              src={slideDeckThumbnail}
               alt={material.title}
               className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-300"
               loading="lazy"
@@ -410,7 +412,7 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
         ) : (
           // Fallback Generic Icon
           <div className="flex flex-col items-center gap-2 text-muted-foreground p-3">
-            {isGeneratingPdfThumb || isSlideShareLoading ? (
+            {isGeneratingPdfThumb || isSlideDeckLoading ? (
               <div className="size-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
             ) : (
               renderTypeIcon()
