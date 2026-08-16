@@ -334,6 +334,8 @@ function SmartLibraryPageContent() {
   const [userLevel, setUserLevel] = useState<string | null>(null)
   const [contentVisibility, setContentVisibility] = useState<string>("all")
   const [selectedCourseIds, setSelectedCourseIds] = useState<string[] | null>(null)
+  const [showAllCollections, setShowAllCollections] = useState(false)
+  const [sortBy, setSortBy] = useState<string>("name")
 
   // Preview Modal State
   const [previewModal, setPreviewModal] = useState<{
@@ -630,17 +632,30 @@ function SmartLibraryPageContent() {
   }, [materials, contentVisibility, userLevel])
 
   // Get dynamic collection statistics & display for all courses in student's level_group
-  const collectionData = levelFilteredCourses.map((course, index) => {
-    const courseMaterialsCount = levelFilteredMaterials.filter((m) => m.course_id === course.id).length
-    return {
-      id: course.id,
-      code: course.code || "",
-      name: course.title || course.code || "Curriculum",
-      count: courseMaterialsCount,
-      icon: index % 3 === 0 ? "BookOpen" : index % 3 === 1 ? "BookMarked" : "Library",
-      color: index % 3 === 0 ? "primary" : index % 3 === 1 ? "secondary" : "accent",
-    }
-  })
+  const collectionData = useMemo(() => {
+    const data = levelFilteredCourses.map((course, index) => {
+      const courseMaterialsCount = levelFilteredMaterials.filter((m) => m.course_id === course.id).length
+      return {
+        id: course.id,
+        code: course.code || "",
+        name: course.title || course.code || "Curriculum",
+        count: courseMaterialsCount,
+        icon: index % 3 === 0 ? "BookOpen" : index % 3 === 1 ? "BookMarked" : "Library",
+        color: index % 3 === 0 ? "primary" : index % 3 === 1 ? "secondary" : "accent",
+      }
+    })
+    // Sort courses by highest material count first, then by course code
+    return data.sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count
+      return a.code.localeCompare(b.code)
+    })
+  }, [levelFilteredCourses, levelFilteredMaterials])
+
+  // Limit preview collection grid to max 4 courses unless expanded
+  const displayedCollections = useMemo(() => {
+    if (showAllCollections) return collectionData
+    return collectionData.slice(0, 4)
+  }, [collectionData, showAllCollections])
 
   // Filtering Logic
   const filteredMaterials = levelFilteredMaterials.filter((material) => {
@@ -680,19 +695,48 @@ function SmartLibraryPageContent() {
     return true
   })
 
-  // Rank materials so student's own level appears first
+  // Sort and rank materials
   const rankedMaterials = useMemo(() => {
-    if (!userLevel) return filteredMaterials
-    return [...filteredMaterials].sort((a, b) => {
-      const aLevel = a.courses?.level ?? null
-      const bLevel = b.courses?.level ?? null
-      const aMatch = String(aLevel) === String(userLevel)
-      const bMatch = String(bLevel) === String(userLevel)
-      if (aMatch && !bMatch) return -1
-      if (!aMatch && bMatch) return 1
+    const sorted = [...filteredMaterials]
+
+    sorted.sort((a, b) => {
+      // 1. Primary sort based on user selection
+      if (sortBy === "name") {
+        const nameA = a.title || ""
+        const nameB = b.title || ""
+        const cmp = nameA.localeCompare(nameB)
+        if (cmp !== 0) return cmp
+      } else if (sortBy === "date") {
+        const dateA = new Date(a.created_at || 0).getTime()
+        const dateB = new Date(b.created_at || 0).getTime()
+        if (dateB !== dateA) return dateB - dateA
+      } else if (sortBy === "type") {
+        const typeA = formatTypeName(a.type)
+        const typeB = formatTypeName(b.type)
+        const cmp = typeA.localeCompare(typeB)
+        if (cmp !== 0) return cmp
+      } else if (sortBy === "course") {
+        const courseA = a.courses?.code || a.courses?.title || ""
+        const courseB = b.courses?.code || b.courses?.title || ""
+        const cmp = courseA.localeCompare(courseB)
+        if (cmp !== 0) return cmp
+      }
+
+      // 2. Student level preference ranking
+      if (userLevel) {
+        const aLevel = a.courses?.level ?? null
+        const bLevel = b.courses?.level ?? null
+        const aMatch = String(aLevel) === String(userLevel)
+        const bMatch = String(bLevel) === String(userLevel)
+        if (aMatch && !bMatch) return -1
+        if (!aMatch && bMatch) return 1
+      }
+
       return 0
     })
-  }, [filteredMaterials, userLevel])
+
+    return sorted
+  }, [filteredMaterials, userLevel, sortBy])
 
   // Grouping logic for materials per course
   const courseGroups = useMemo(() => {
@@ -762,6 +806,20 @@ function SmartLibraryPageContent() {
     <div className="flex flex-col gap-8">
       <PageHeader title="Smart Library" description="Search across thousands of textbooks, journals, and references curated for your curriculum.">
         <div className="flex flex-wrap items-center gap-2">
+          {/* Sort Control */}
+          <select
+            id="sort-filter"
+            aria-label="Sort materials"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="flex h-9 w-40 rounded-md border border-input bg-background px-3 py-1 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            <option value="name">Name (A-Z)</option>
+            <option value="date">Date Added (Newest)</option>
+            <option value="type">Type</option>
+            <option value="course">Course</option>
+          </select>
+
           {/* Tier Filter */}
           <select
             id="tier-filter"
@@ -793,7 +851,7 @@ function SmartLibraryPageContent() {
           </select>
 
           {/* Reset Filters */}
-          {(selectedTier !== "all" || selectedType !== "all" || selectedCourseId !== "all" || searchQuery !== "" || (selectedCourseIds && selectedCourseIds.length > 0)) && (
+          {(selectedTier !== "all" || selectedType !== "all" || selectedCourseId !== "all" || searchQuery !== "" || sortBy !== "name" || (selectedCourseIds && selectedCourseIds.length > 0)) && (
             <Button
               variant="outline"
               size="sm"
@@ -803,6 +861,7 @@ function SmartLibraryPageContent() {
                 setSelectedCourseIds(null)
                 setSelectedTier("all")
                 setSelectedType("all")
+                setSortBy("name")
               }}
             >
               <X className="size-3.5 mr-1" /> Reset
@@ -856,10 +915,25 @@ function SmartLibraryPageContent() {
         <>
           {/* Browse Collections Section */}
           <section>
-            <SectionHeading title="Browse collections" description="Explore materials by active curriculum courses." />
-            {collectionData.length > 0 ? (
-              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-                {collectionData.map((collection) => {
+            <SectionHeading
+              title="Browse collections"
+              description="Explore materials by active curriculum courses."
+              action={
+                collectionData.length > 4 ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowAllCollections(!showAllCollections)}
+                    className="text-xs"
+                  >
+                    {showAllCollections ? "Show Less" : "View All"}
+                  </Button>
+                ) : null
+              }
+            />
+            {displayedCollections.length > 0 ? (
+              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {displayedCollections.map((collection) => {
                   const Icon = collectionIcons[collection.icon as keyof typeof collectionIcons] || Library
                   const isSelected = selectedCourseId === collection.id
                   return (

@@ -325,6 +325,7 @@ export default function StudyMaterialsPage() {
   const debouncedSearchQuery = useDebounce(searchQuery, 300)
   const [selectedCourseId, setSelectedCourseId] = useState<string>("all")
   const [selectedType, setSelectedType] = useState<string>("all")
+  const [sortBy, setSortBy] = useState<string>("name")
 
   // Fetch logged in student level and content visibility preferences
   useEffect(() => {
@@ -562,19 +563,48 @@ export default function StudyMaterialsPage() {
     return true
   })
 
-  // Rank materials so student's own level appears first
+  // Sort and rank materials
   const rankedMaterials = useMemo(() => {
-    if (!userLevel) return filteredMaterials
-    return [...filteredMaterials].sort((a, b) => {
-      const aLevel = a.courses?.level ?? null
-      const bLevel = b.courses?.level ?? null
-      const aMatch = String(aLevel) === String(userLevel)
-      const bMatch = String(bLevel) === String(userLevel)
-      if (aMatch && !bMatch) return -1
-      if (!aMatch && bMatch) return 1
+    const sorted = [...filteredMaterials]
+
+    sorted.sort((a, b) => {
+      // 1. Primary sort based on user selection
+      if (sortBy === "name") {
+        const nameA = a.title || ""
+        const nameB = b.title || ""
+        const cmp = nameA.localeCompare(nameB)
+        if (cmp !== 0) return cmp
+      } else if (sortBy === "date") {
+        const dateA = new Date(a.created_at || 0).getTime()
+        const dateB = new Date(b.created_at || 0).getTime()
+        if (dateB !== dateA) return dateB - dateA
+      } else if (sortBy === "type") {
+        const typeA = formatTypeName(a.type)
+        const typeB = formatTypeName(b.type)
+        const cmp = typeA.localeCompare(typeB)
+        if (cmp !== 0) return cmp
+      } else if (sortBy === "course") {
+        const courseA = a.courses?.code || a.courses?.title || ""
+        const courseB = b.courses?.code || b.courses?.title || ""
+        const cmp = courseA.localeCompare(courseB)
+        if (cmp !== 0) return cmp
+      }
+
+      // 2. Student level preference ranking
+      if (userLevel) {
+        const aLevel = a.courses?.level ?? null
+        const bLevel = b.courses?.level ?? null
+        const aMatch = String(aLevel) === String(userLevel)
+        const bMatch = String(bLevel) === String(userLevel)
+        if (aMatch && !bMatch) return -1
+        if (!aMatch && bMatch) return 1
+      }
+
       return 0
     })
-  }, [filteredMaterials, userLevel])
+
+    return sorted
+  }, [filteredMaterials, userLevel, sortBy])
 
   // Grouping logic for materials per course
   const courseGroups = useMemo(() => {
@@ -639,6 +669,20 @@ export default function StudyMaterialsPage() {
     <div className="flex flex-col gap-8">
       <PageHeader title="Study Materials" description="Curated notes, handouts, and references shared by lecturers and peers.">
         <div className="flex flex-wrap items-center gap-2">
+          {/* Sort Control */}
+          <select
+            id="sort-filter"
+            aria-label="Sort materials"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="flex h-9 w-40 rounded-md border border-input bg-background px-3 py-1 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            <option value="name">Name (A-Z)</option>
+            <option value="date">Date Added (Newest)</option>
+            <option value="type">Type</option>
+            <option value="course">Course</option>
+          </select>
+
           {/* Type Filter */}
           <select
             id="type-filter"
@@ -657,7 +701,7 @@ export default function StudyMaterialsPage() {
           </select>
 
           {/* Reset Filters */}
-          {(selectedType !== "all" || selectedCourseId !== "all" || searchQuery !== "") && (
+          {(selectedType !== "all" || selectedCourseId !== "all" || searchQuery !== "" || sortBy !== "name") && (
             <Button
               variant="outline"
               size="sm"
@@ -665,6 +709,7 @@ export default function StudyMaterialsPage() {
                 setSearchQuery("")
                 setSelectedCourseId("all")
                 setSelectedType("all")
+                setSortBy("name")
               }}
             >
               <X className="size-3.5 mr-1" /> Reset
