@@ -28,6 +28,8 @@ import { StatCard } from "@/components/dashboard/stat-card"
 import { createClient } from "@/lib/supabase/client"
 import { MaterialCard } from "@/components/dashboard/material-card"
 import { logMaterialActivity } from "@/utils/activity"
+import { getCachedData, setCachedData } from "@/lib/cache"
+import { CollectionsSkeleton, MaterialGridSkeleton } from "@/components/feedback/loading-skeletons"
 
 interface Faculty {
   id: string
@@ -401,7 +403,14 @@ function SmartLibraryPageContent() {
 
     const fetchData = async () => {
       try {
-        setIsLoading(true)
+        const cached = getCachedData<{ courses: Course[]; materials: Material[] }>("library_data")
+        if (cached) {
+          setCourses(cached.courses)
+          setMaterials(cached.materials)
+          setIsLoading(false)
+        } else {
+          setIsLoading(true)
+        }
         setError(null)
 
         // 1. Fetch courses
@@ -458,7 +467,7 @@ function SmartLibraryPageContent() {
           }
 
           if (finalMaterials.length === 0) {
-            setMaterials([
+            const fallbackMats = [
               {
                 id: "mock-video-1",
                 course_id: "mock-course-1",
@@ -507,9 +516,12 @@ function SmartLibraryPageContent() {
                 created_at: "2025-01-01T00:00:00.000Z",
                 courses: { id: "mock-course-2", code: "BCH 201", title: "Medical Biochemistry", level: "200L" }
               }
-            ])
+            ]
+            setMaterials(fallbackMats)
+            setCachedData("library_data", { courses: finalCourses, materials: fallbackMats })
           } else {
             setMaterials(finalMaterials)
+            setCachedData("library_data", { courses: finalCourses, materials: finalMaterials })
           }
         }
       } catch (err) {
@@ -822,8 +834,15 @@ function SmartLibraryPageContent() {
       )}
 
       {isLoading ? (
-        <div className="flex min-h-[20vh] items-center justify-center">
-          <p className="text-sm text-muted-foreground">Loading study library...</p>
+        <div className="flex flex-col gap-8">
+          <section>
+            <SectionHeading title="Browse collections" description="Explore materials by active curriculum courses." />
+            <CollectionsSkeleton count={6} />
+          </section>
+          <section>
+            <SectionHeading title="All materials" description="Browse recommended textbooks, references, and slides." />
+            <MaterialGridSkeleton count={6} />
+          </section>
         </div>
       ) : (
         <>
@@ -839,7 +858,7 @@ function SmartLibraryPageContent() {
                     <button
                       key={collection.id}
                       onClick={() => setSelectedCourseId(isSelected ? "all" : collection.id)}
-                      className={`group flex flex-col items-start text-left gap-3 rounded-xl border p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md w-full ${
+                      className={`group flex flex-col items-start text-left gap-3 rounded-xl border p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] hover:shadow-md w-full cursor-pointer ${
                         isSelected
                           ? "border-primary bg-primary/5 ring-1 ring-primary"
                           : "border-border bg-card hover:border-primary/40"

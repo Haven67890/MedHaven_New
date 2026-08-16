@@ -30,7 +30,7 @@ export function StatCard({
   }
 
   return (
-    <Card className={cn("gap-3", className)}>
+    <Card className={cn("gap-3 transition-all duration-200 hover:border-primary/40 hover:shadow-sm", className)}>
       <CardContent className="flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <p className="text-sm text-muted-foreground">{label}</p>

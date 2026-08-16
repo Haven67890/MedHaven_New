@@ -11,6 +11,7 @@ import { PageHeader } from "@/components/dashboard/page-header"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { createClient } from "@/lib/supabase/client"
 import type { Course, Material } from "@/components/dashboard/material-card"
+import { AdminTableSkeleton } from "@/components/feedback/loading-skeletons"
 
 type Profile = {
   id: string
@@ -2238,9 +2239,8 @@ export default function AdminDashboard() {
                   <tbody className="divide-y divide-border text-sm">
                     {usersLoading ? (
                       <tr>
-                        <td colSpan={6} className="p-8 text-center text-muted-foreground">
-                          <RefreshCw className="mx-auto h-5 w-5 animate-spin text-primary" />
-                          <p className="mt-2">Fetching user directory...</p>
+                        <td colSpan={6} className="p-4">
+                          <AdminTableSkeleton columns={6} rows={5} />
                         </td>
                       </tr>
                     ) : usersError ? (
@@ -2464,9 +2464,8 @@ export default function AdminDashboard() {
                   <tbody className="divide-y divide-border text-sm">
                     {materialsLoading ? (
                       <tr>
-                        <td colSpan={6} className="p-8 text-center text-muted-foreground">
-                          <RefreshCw className="mx-auto h-5 w-5 animate-spin text-primary" />
-                          <p className="mt-2">Retrieving library index...</p>
+                        <td colSpan={6} className="p-4">
+                          <AdminTableSkeleton columns={6} rows={5} />
                         </td>
                       </tr>
                     ) : materialsError ? (
@@ -3140,9 +3139,8 @@ export default function AdminDashboard() {
                   <tbody className="divide-y divide-border text-sm">
                     {staffLoading ? (
                       <tr>
-                        <td colSpan={7} className="p-8 text-center text-muted-foreground">
-                          <RefreshCw className="mx-auto h-5 w-5 animate-spin text-primary" />
-                          <p className="mt-2">Retrieving staff index...</p>
+                        <td colSpan={7} className="p-4">
+                          <AdminTableSkeleton columns={7} rows={5} />
                         </td>
                       </tr>
                     ) : staffError ? (
@@ -3332,9 +3330,8 @@ export default function AdminDashboard() {
                   <tbody className="divide-y divide-border text-sm">
                     {guidesLoading ? (
                       <tr>
-                        <td colSpan={6} className="p-8 text-center text-muted-foreground">
-                          <RefreshCw className="mx-auto h-5 w-5 animate-spin text-primary" />
-                          <p className="mt-2">Retrieving guides index...</p>
+                        <td colSpan={6} className="p-4">
+                          <AdminTableSkeleton columns={6} rows={5} />
                         </td>
                       </tr>
                     ) : guidesError ? (
@@ -3537,9 +3534,8 @@ export default function AdminDashboard() {
                   <tbody className="divide-y divide-border text-sm">
                     {tutorialsLoading ? (
                       <tr>
-                        <td colSpan={6} className="p-8 text-center text-muted-foreground">
-                          <RefreshCw className="mx-auto h-5 w-5 animate-spin text-primary" />
-                          <p className="mt-2">Retrieving tutorials list...</p>
+                        <td colSpan={6} className="p-4">
+                          <AdminTableSkeleton columns={6} rows={5} />
                         </td>
                       </tr>
                     ) : tutorialsError ? (
@@ -4504,9 +4500,8 @@ export default function AdminDashboard() {
                       <tbody className="divide-y divide-border text-sm">
                         {unisLoading ? (
                           <tr>
-                            <td colSpan={3} className="p-8 text-center text-muted-foreground">
-                              <RefreshCw className="mx-auto h-5 w-5 animate-spin text-primary" />
-                              <p className="mt-2">Retrieving universities...</p>
+                            <td colSpan={3} className="p-4">
+                              <AdminTableSkeleton columns={3} rows={5} />
                             </td>
                           </tr>
                         ) : unisError ? (
@@ -4639,9 +4634,8 @@ export default function AdminDashboard() {
                       <tbody className="divide-y divide-border text-sm">
                         {facsLoading ? (
                           <tr>
-                            <td colSpan={3} className="p-8 text-center text-muted-foreground">
-                              <RefreshCw className="mx-auto h-5 w-5 animate-spin text-primary" />
-                              <p className="mt-2">Retrieving faculties...</p>
+                            <td colSpan={3} className="p-4">
+                              <AdminTableSkeleton columns={3} rows={5} />
                             </td>
                           </tr>
                         ) : facsError ? (
@@ -4798,9 +4792,8 @@ export default function AdminDashboard() {
                       <tbody className="divide-y divide-border text-sm">
                         {adminCoursesLoading ? (
                           <tr>
-                            <td colSpan={6} className="p-8 text-center text-muted-foreground">
-                              <RefreshCw className="mx-auto h-5 w-5 animate-spin text-primary" />
-                              <p className="mt-2">Retrieving courses list...</p>
+                            <td colSpan={6} className="p-4">
+                              <AdminTableSkeleton columns={6} rows={5} />
                             </td>
                           </tr>
                         ) : adminCoursesError ? (

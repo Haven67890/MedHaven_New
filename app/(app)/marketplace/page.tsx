@@ -39,6 +39,8 @@ import {
 
 import { createClient } from "@/lib/supabase/client"
 import type { MarketplaceListing } from "./types"
+import { getCachedData, setCachedData } from "@/lib/cache"
+import { MarketplaceGridSkeleton } from "@/components/feedback/loading-skeletons"
 
 const CATEGORIES = ["books", "electronics", "equipment", "clothing", "other"] as const
 type CategoryType = typeof CATEGORIES[number]
@@ -104,7 +106,14 @@ export default function MarketplacePage() {
 
   // Fetch listings from Supabase
   const fetchListings = async () => {
-    setLoading(true)
+    const cached = getCachedData<{ listings: MarketplaceListing[]; myListings: MarketplaceListing[] }>("marketplace_data")
+    if (cached) {
+      setListings(cached.listings)
+      setMyListings(cached.myListings)
+      setLoading(false)
+    } else {
+      setLoading(true)
+    }
     setError(null)
     try {
       // Fetch active listings for browse tab
@@ -597,10 +606,7 @@ export default function MarketplacePage() {
 
           {/* Main Listings Grid */}
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-3">
-              <Loader2 className="size-8 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">Fetching listings from MedHaven database...</p>
-            </div>
+            <MarketplaceGridSkeleton count={6} />
           ) : error ? (
             <div className="p-4 rounded-xl border border-destructive/20 bg-destructive/10 text-destructive flex items-center gap-3">
               <AlertCircle className="size-5 shrink-0" />
@@ -624,7 +630,7 @@ export default function MarketplacePage() {
               {filteredListings.map((listing) => (
                 <Card
                   key={listing.id}
-                  className="overflow-hidden flex flex-col h-full border hover:shadow-md transition-all duration-300 group cursor-pointer"
+                  className="overflow-hidden flex flex-col h-full border hover:shadow-md hover:-translate-y-0.5 active:scale-[0.99] transition-all duration-200 group cursor-pointer"
                   onClick={() => {
                     setSelectedListing(listing)
                     setIsDetailOpen(true)
@@ -686,10 +692,7 @@ export default function MarketplacePage() {
           />
 
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-3">
-              <Loader2 className="size-8 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">Loading your personalized catalog...</p>
-            </div>
+            <MarketplaceGridSkeleton count={3} />
           ) : myListings.length === 0 ? (
             <EmptyState
               icon={ShoppingBag}
