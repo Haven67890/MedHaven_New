@@ -169,10 +169,15 @@ function SlideShareEmbed({ url, title, onError }: SlideShareEmbedProps) {
         const parser = new DOMParser()
         const doc = parser.parseFromString(data.html, "text/html")
         const iframe = doc.querySelector("iframe")
-        const src = iframe ? iframe.getAttribute("src") : null
+        let src = iframe ? iframe.getAttribute("src") : null
+
+        if (!src && data.html && (data.html.startsWith("http") || data.html.startsWith("//"))) {
+          src = data.html
+        }
 
         if (src && active) {
-          setEmbedSrc(src)
+          const normalizedSrc = src.startsWith("//") ? `https:${src}` : src
+          setEmbedSrc(normalizedSrc)
         } else {
           throw new Error("Could not extract iframe src")
         }
