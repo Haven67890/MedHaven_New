@@ -1038,6 +1038,8 @@ export default function PastQuestionsPage() {
                   src={
                     previewModal.type === "office"
                       ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewModal.url)}`
+                      : previewModal.type === "pdf"
+                      ? previewModal.url
                       : `https://docs.google.com/viewer?url=${encodeURIComponent(previewModal.url)}&embedded=true`
                   }
                   className="absolute inset-0 w-full h-full border-0"
