@@ -49,7 +49,7 @@ export function getIframePreviewSrc(url: string, type?: string | null): string {
 
   // PDF files must ALWAYS use direct fileUrl for inline browser preview
   if (isPdfExt || type === "pdf") {
-    return url
+    return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`
   }
 
   // PowerPoint (.ppt/.pptx) and Word (.doc/.docx) files route through Office Online Viewer
