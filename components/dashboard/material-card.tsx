@@ -122,7 +122,7 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
   const isVideo = material.type?.toLowerCase() === "video"
 
   const slideDeckProvider = getSlideDeckProvider(material.source_url)
-  const isSlideDeck = Boolean(slideDeckProvider) || (material.type?.toLowerCase() === "lecture_slide" && Boolean(material.source_url))
+  const isSlideDeck = Boolean(slideDeckProvider)
 
   const youtubeId = isVideo ? getYouTubeId(material.source_url) : null
 
@@ -307,7 +307,9 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
   }
 
   // File action configurations
-  const isOffice = ["pptx", "ppt", "docx", "doc", "xlsx", "xls"].includes(ext)
+  const isWord = ["docx", "doc"].includes(ext) || (material.type?.toLowerCase() === "doc" && ext !== "pdf" && !["pptx", "ppt", "pps", "ppsx"].includes(ext))
+  const isPowerPoint = ["pptx", "ppt", "pps", "ppsx"].includes(ext) || (material.type?.toLowerCase() === "lecture_slide" && !isSlideDeck && ext !== "pdf" && !isWord)
+  const isOffice = isWord || isPowerPoint || ["xlsx", "xls"].includes(ext) || (material.type?.toLowerCase() === "office" && ext !== "pdf")
   const isImage = ["jpg", "jpeg", "png", "webp", "gif", "svg"].includes(ext)
   const isSupabaseStorage = fileUrl.includes("supabase.co/storage")
   const isStudyTier = material.tier?.toLowerCase() === "study"
