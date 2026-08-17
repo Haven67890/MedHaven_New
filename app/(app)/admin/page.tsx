@@ -1158,12 +1158,10 @@ export default function AdminDashboard() {
     setQuizBankFormSuccess("")
 
     try {
-      let finalStoragePath = editingQuizBank?.storage_path || null
       let finalImageUrl = editingQuizBank?.image_url || null
 
       if (formBankFile) {
         const uploaded = await uploadFileToQuizBankStorage(formBankFile)
-        finalStoragePath = uploaded.filePath
         finalImageUrl = uploaded.publicUrl
       }
 
@@ -1179,7 +1177,6 @@ export default function AdminDashboard() {
         differential_diagnosis: formBankDifferentialDiagnosis.trim() || null,
         source: formBankSource.trim() || "own_photo",
         status: formBankStatus,
-        storage_path: finalStoragePath,
         image_url: finalImageUrl,
       }
 
