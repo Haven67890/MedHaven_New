@@ -151,7 +151,7 @@ Remember, return strictly a JSON object with a "questions" array of exactly ${co
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "llama-3.1-8b-instant",
+        model: "openai/gpt-oss-20b",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
