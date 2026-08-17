@@ -1,6 +1,100 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 
+// Helper to sync published specimen images into flashcards & flashcard_decks
+async function syncSpecimenFlashcard(
+  serviceSupabase: any,
+  imageItem: {
+    id: string
+    course_id: string
+    question?: string | null
+    correct_findings?: string | null
+    differential_diagnosis?: string | null
+    status: string
+  },
+  userId: string
+) {
+  try {
+    if (imageItem.status !== "published") {
+      await serviceSupabase.from("flashcards").delete().eq("image_bank_id", imageItem.id)
+      return
+    }
+
+    const { data: courseData } = await serviceSupabase
+      .from("courses")
+      .select("code")
+      .eq("id", imageItem.course_id)
+      .maybeSingle()
+
+    const courseCode = courseData?.code || "Course"
+    const deckTopic = `${courseCode} Specimen Bank`
+
+    let { data: deck } = await serviceSupabase
+      .from("flashcard_decks")
+      .select("id")
+      .eq("course_id", imageItem.course_id)
+      .eq("source", "specimen_bank")
+      .maybeSingle()
+
+    if (!deck) {
+      const { data: newDeck, error: deckErr } = await serviceSupabase
+        .from("flashcard_decks")
+        .insert({
+          course_id: imageItem.course_id,
+          topic: deckTopic,
+          source: "specimen_bank",
+          created_by: userId,
+        })
+        .select("id")
+        .single()
+
+      if (deckErr) {
+        console.error("Failed to create specimen flashcard deck:", deckErr)
+        return
+      }
+      deck = newDeck
+    }
+
+    if (!deck) return
+
+    const questionText = imageItem.question?.trim() || "Identify the main structure or diagnostic feature highlighted in this specimen."
+    const correctFindings = imageItem.correct_findings?.trim() || ""
+    const ddx = imageItem.differential_diagnosis?.trim()
+
+    const backText = ddx
+      ? `${correctFindings}\n\nDifferential Diagnosis: ${ddx}`
+      : correctFindings
+
+    const { data: existingCard } = await serviceSupabase
+      .from("flashcards")
+      .select("id")
+      .eq("image_bank_id", imageItem.id)
+      .maybeSingle()
+
+    if (existingCard) {
+      await serviceSupabase
+        .from("flashcards")
+        .update({
+          deck_id: deck.id,
+          front: questionText,
+          back: backText,
+        })
+        .eq("id", existingCard.id)
+    } else {
+      await serviceSupabase
+        .from("flashcards")
+        .insert({
+          deck_id: deck.id,
+          image_bank_id: imageItem.id,
+          front: questionText,
+          back: backText,
+        })
+    }
+  } catch (err) {
+    console.error("Error syncing specimen flashcard:", err)
+  }
+}
+
 // Helper to audit actions
 async function createAuditLog(
   supabase: any,
@@ -85,10 +179,10 @@ export async function GET(request: NextRequest) {
         course_id,
         title,
         category,
+        question,
         correct_findings,
         differential_diagnosis,
         source,
-        storage_path,
         image_url,
         status,
         created_at,
@@ -153,10 +247,10 @@ export async function POST(request: NextRequest) {
       title,
       course_id,
       category,
+      question,
       correct_findings,
       differential_diagnosis,
       source,
-      storage_path,
       image_url,
       status,
     } = body
@@ -170,6 +264,9 @@ export async function POST(request: NextRequest) {
     if (!category?.trim()) {
       return NextResponse.json({ error: "Bad Request: Category is required" }, { status: 400 })
     }
+    if (!question?.trim()) {
+      return NextResponse.json({ error: "Bad Request: Question text is required" }, { status: 400 })
+    }
     if (!correct_findings?.trim()) {
       return NextResponse.json({ error: "Bad Request: Correct findings are required" }, { status: 400 })
     }
@@ -178,10 +275,10 @@ export async function POST(request: NextRequest) {
       title: title.trim(),
       course_id: course_id.trim(),
       category: category.trim(),
+      question: question.trim(),
       correct_findings: correct_findings.trim(),
       differential_diagnosis: differential_diagnosis?.trim() || null,
       source: source?.trim() || "own_photo",
-      storage_path: storage_path?.trim() || null,
       image_url: image_url?.trim() || null,
       status: status || "published",
     }
@@ -196,6 +293,8 @@ export async function POST(request: NextRequest) {
       console.error("[TEMP ERROR LOG - quiz-bank POST insert]:", insertError)
       return NextResponse.json({ error: "Failed to create image bank entry: " + insertError.message }, { status: 500 })
     }
+
+    await syncSpecimenFlashcard(serviceSupabase, imageItem, user.id)
 
     await createAuditLog(
       serviceSupabase,
@@ -229,10 +328,10 @@ export async function PATCH(request: NextRequest) {
       title,
       course_id,
       category,
+      question,
       correct_findings,
       differential_diagnosis,
       source,
-      storage_path,
       image_url,
       status,
     } = body
@@ -256,10 +355,10 @@ export async function PATCH(request: NextRequest) {
     if (title !== undefined) updates.title = title.trim()
     if (course_id !== undefined) updates.course_id = course_id.trim()
     if (category !== undefined) updates.category = category.trim()
+    if (question !== undefined) updates.question = question.trim()
     if (correct_findings !== undefined) updates.correct_findings = correct_findings.trim()
     if (differential_diagnosis !== undefined) updates.differential_diagnosis = differential_diagnosis?.trim() || null
     if (source !== undefined) updates.source = source?.trim() || "own_photo"
-    if (storage_path !== undefined) updates.storage_path = storage_path?.trim() || null
     if (image_url !== undefined) updates.image_url = image_url?.trim() || null
     if (status !== undefined) updates.status = status
 
@@ -275,6 +374,16 @@ export async function PATCH(request: NextRequest) {
     if (updateError) {
       console.error("[TEMP ERROR LOG - quiz-bank PATCH update]:", updateError)
       return NextResponse.json({ error: "Failed to update image bank item: " + updateError.message }, { status: 500 })
+    }
+
+    const { data: updatedItem } = await serviceSupabase
+      .from("quiz_image_bank")
+      .select("id, course_id, question, correct_findings, differential_diagnosis, status")
+      .eq("id", id)
+      .maybeSingle()
+
+    if (updatedItem) {
+      await syncSpecimenFlashcard(serviceSupabase, updatedItem, user.id)
     }
 
     for (const key of Object.keys(updates)) {
@@ -331,6 +440,9 @@ export async function DELETE(request: NextRequest) {
       .from("quiz_image_bank")
       .delete()
       .eq("id", id)
+
+    // Remove synced flashcard if present
+    await serviceSupabase.from("flashcards").delete().eq("image_bank_id", id)
 
     if (deleteError) {
       console.error("[TEMP ERROR LOG - quiz-bank DELETE operation]:", deleteError)

@@ -108,20 +108,12 @@ const formats = [
     bg: "bg-emerald-500/10"
   },
   {
-    id: "Steeplechase",
-    title: "Steeplechase (Sequential)",
-    desc: "A linked series of progressive questions that evolve with the patient's clinical state.",
+    id: "OSCE",
+    title: "OSCE Station",
+    desc: "Clinical scenario stations evaluating diagnostic approach, communication, and management.",
     icon: Activity,
     color: "text-purple-500",
     bg: "bg-purple-500/10"
-  },
-  {
-    id: "Picture Test",
-    title: "Picture Test (Visual)",
-    desc: "Vignettes explicitly referencing simulated diagnostic scans, X-rays, clinical photos, or histology slides.",
-    icon: ImageIcon,
-    color: "text-amber-500",
-    bg: "bg-amber-500/10"
   },
   {
     id: "Short Answer",
@@ -146,7 +138,7 @@ export default function AIQuizzesPage() {
   // Quiz creation states
   const [selectedCourseId, setSelectedCourseId] = useState("")
   const [customTopic, setCustomTopic] = useState("")
-  const [selectedFormat, setSelectedFormat] = useState<"MCQ" | "SBA" | "Steeplechase" | "Picture Test" | "Short Answer">("MCQ")
+  const [selectedFormat, setSelectedFormat] = useState<"MCQ" | "SBA" | "OSCE" | "Short Answer">("MCQ")
   const [questionCount, setQuestionCount] = useState<number>(10)
   const [generating, setGenerating] = useState(false)
   const [generationError, setGenerationError] = useState<string | null>(null)
@@ -456,7 +448,7 @@ export default function AIQuizzesPage() {
     let score = 0
     let totalQs = questions.length
 
-    if (selectedFormat === "Steeplechase") {
+    if ((selectedFormat as string) === "Steeplechase" || isSteeplechaseStation) {
       let correctSubCount = 0
       let totalSubCount = 0
       questions.forEach((st, stIdx) => {
@@ -971,7 +963,7 @@ export default function AIQuizzesPage() {
               </CardHeader>
 
               <CardContent className="pt-4 flex flex-col gap-6">
-                {selectedFormat === "Steeplechase" ? (
+                {(selectedFormat as string) === "Steeplechase" || isSteeplechaseStation ? (
                   (() => {
                     let totalSub = 0
                     let correctSub = 0
@@ -1266,7 +1258,7 @@ export default function AIQuizzesPage() {
                   1. <strong>Clinical Alignment</strong>: Quizzes are generated using llama-3.1-8b-instant models tuned specifically for national medical board structures.
                 </p>
                 <p>
-                  2. <strong>Adaptive Format Constraints</strong>: Selection dynamically reformulates the LLM's prompt parameters—Short Answer prompts bypass options completely while Steeplechase formats render specimen stations and grounded sub-questions.
+                  2. <strong>Adaptive Format Constraints</strong>: Selection dynamically reformulates the LLM's prompt parameters to construct clinical vignettes, OSCE stations, or short-answer rubrics.
                 </p>
                 <p>
                   3. <strong>Level-Aware Caching</strong>: Default course quizzes are cached and shared across everyone in your student level instantly to minimize API latency.
