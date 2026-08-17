@@ -260,6 +260,7 @@ export default function AdminDashboard() {
   const [formBankTitle, setFormBankTitle] = useState("")
   const [formBankCourseId, setFormBankCourseId] = useState("")
   const [formBankCategory, setFormBankCategory] = useState("gross_specimen")
+  const [formBankQuestion, setFormBankQuestion] = useState("")
   const [formBankCorrectFindings, setFormBankCorrectFindings] = useState("")
   const [formBankDifferentialDiagnosis, setFormBankDifferentialDiagnosis] = useState("")
   const [formBankSource, setFormBankSource] = useState("own_photo")
@@ -1083,6 +1084,7 @@ export default function AdminDashboard() {
     setFormBankTitle("")
     setFormBankCourseId(courses[0]?.id || "")
     setFormBankCategory("gross_specimen")
+    setFormBankQuestion("Identify the main structure or diagnostic feature highlighted in this specimen.")
     setFormBankCorrectFindings("")
     setFormBankDifferentialDiagnosis("")
     setFormBankSource("own_photo")
@@ -1100,6 +1102,7 @@ export default function AdminDashboard() {
     setFormBankTitle(item.title || "")
     setFormBankCourseId(item.course_id || "")
     setFormBankCategory(item.category || "gross_specimen")
+    setFormBankQuestion(item.question || "")
     setFormBankCorrectFindings(item.correct_findings || "")
     setFormBankDifferentialDiagnosis(item.differential_diagnosis || "")
     setFormBankSource(item.source || "own_photo")
@@ -1148,6 +1151,10 @@ export default function AdminDashboard() {
       setQuizBankFormError("A course mapping is required")
       return
     }
+    if (!formBankQuestion.trim()) {
+      setQuizBankFormError("Question text (flashcard front) is required")
+      return
+    }
     if (!formBankCorrectFindings.trim()) {
       setQuizBankFormError("Correct findings (answer key) are strictly required")
       return
@@ -1175,11 +1182,11 @@ export default function AdminDashboard() {
         title: formBankTitle.trim(),
         course_id: formBankCourseId,
         category: formBankCategory,
+        question: formBankQuestion.trim(),
         correct_findings: formBankCorrectFindings.trim(),
         differential_diagnosis: formBankDifferentialDiagnosis.trim() || null,
         source: formBankSource.trim() || "own_photo",
         status: formBankStatus,
-        storage_path: finalStoragePath,
         image_url: finalImageUrl,
       }
 
@@ -3513,6 +3520,21 @@ export default function AdminDashboard() {
                 <option value="radiology">Radiology Scan</option>
                 <option value="other">Other</option>
               </select>
+            </div>
+
+            {/* Required Question Text (Flashcard Front) */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="bank-question" className="text-xs font-medium text-foreground flex items-center justify-between">
+                <span>Question Text (Flashcard Front) <span className="text-destructive">*</span></span>
+                <span className="text-[10px] text-muted-foreground">Admin-entered</span>
+              </label>
+              <Input
+                id="bank-question"
+                placeholder="e.g., Identify this structure or What is the primary diagnosis?"
+                value={formBankQuestion}
+                onChange={(e) => setFormBankQuestion(e.target.value)}
+                required
+              />
             </div>
 
             {/* Required Correct Findings Textarea */}
