@@ -39,7 +39,17 @@ export async function POST(request: NextRequest) {
           question_text,
           options,
           correct_answer,
-          explanation
+          explanation,
+          image_bank_id,
+          sub_questions,
+          quiz_image_bank (
+            id,
+            title,
+            category,
+            image_url,
+            correct_findings,
+            differential_diagnosis
+          )
         )
       `)
       .eq("course_id", course_id)
@@ -60,6 +70,9 @@ export async function POST(request: NextRequest) {
         options: q.options || [],
         correct_answer: q.correct_answer,
         explanation: q.explanation,
+        image_bank_id: q.image_bank_id || null,
+        sub_questions: q.sub_questions || null,
+        quiz_image_bank: q.quiz_image_bank || null,
       })).slice(0, limitCount)
 
       return NextResponse.json({
@@ -69,7 +82,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // 4. Fetch Course details to provide better prompt context to Groq
+    // 4. Fetch Course details to provide better prompt context
     const { data: courseData } = await supabase
       .from("courses")
       .select("code, title")
@@ -80,15 +93,176 @@ export async function POST(request: NextRequest) {
       ? `${courseData.code || ""} ${courseData.title || ""}`.trim()
       : "Medical Course"
 
-    // 5. Call the Groq API
     const apiKey = process.env.GROQ_API_KEY
     if (!apiKey) {
       return NextResponse.json({ error: "Groq API configuration missing on the server" }, { status: 500 })
     }
 
-    // Determine how many questions we should ask Groq to generate.
-    // If it's a default quiz (e.g. "General Course Review"), generate 15 questions to build a robust cache.
-    // Otherwise, generate the requested count.
+    // -------------------------------------------------------------
+    // STEEPLECHASE QUIZ GENERATION FLOW
+    // -------------------------------------------------------------
+    if (chosenFormat === "Steeplechase") {
+      // Select real images from quiz_image_bank for this course
+      const { data: bankImages, error: bankFetchError } = await supabase
+        .from("quiz_image_bank")
+        .select("id, title, category, correct_findings, differential_diagnosis, image_url")
+        .eq("course_id", course_id)
+        .neq("status", "archived")
+
+      if (bankFetchError) {
+        console.error("Error querying quiz_image_bank:", bankFetchError)
+      }
+
+      if (!bankImages || bankImages.length === 0) {
+        return NextResponse.json({
+          error: "Insufficient image bank questions available for this course. Please select another course or ask an admin to add images."
+        }, { status: 400 })
+      }
+
+      // Shuffle images to provide a varied random selection across available categories
+      const shuffledImages = [...bankImages].sort(() => Math.random() - 0.5)
+      const selectedStations = shuffledImages.slice(0, Math.min(limitCount, Math.max(5, bankImages.length)))
+
+      const generatedStations: any[] = []
+
+      for (const imageItem of selectedStations) {
+        const systemPrompt = `You are an expert medical educator creating follow-up exam questions for a Steeplechase station specimen.
+You must return strictly valid JSON with a single key "sub_questions" containing an array of 2 to 4 question objects.
+Each question object MUST have exactly the following keys:
+- "id": string (e.g. "sq1", "sq2")
+- "question": string (the follow-up sub-question e.g. identifying a landmark structure, histopathological feature, associated condition, or clinical significance)
+- "expected_answer": string (the expected model answer derived strictly from the ground-truth findings)
+- "explanation": string (brief clinical rationale or grading rubric)
+
+CRITICAL INSTRUCTION: All sub-questions and expected answers MUST be STRICTLY grounded in the provided Correct Findings. You MUST NOT invent a different diagnosis or contradict the provided findings.`
+
+        const userPrompt = `Specimen Title: ${imageItem.title}
+Category: ${imageItem.category}
+Correct Findings (Ground Truth Answer Key): ${imageItem.correct_findings}
+Differential Diagnosis: ${imageItem.differential_diagnosis || "None"}
+
+Generate 2-4 follow-up sub-questions for this station strictly grounded in the provided findings.`
+
+        const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "llama-3.1-8b-instant",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            response_format: { type: "json_object" },
+            temperature: 0.5,
+          }),
+        })
+
+        if (!groqResponse.ok) {
+          console.error(`Failed to generate sub-questions for station ${imageItem.id}`)
+          continue
+        }
+
+        const groqData = await groqResponse.json()
+        const rawContent = groqData.choices?.[0]?.message?.content
+        if (!rawContent) continue
+
+        let parsedContent: any
+        try {
+          parsedContent = JSON.parse(rawContent)
+        } catch {
+          continue
+        }
+
+        let subQuestions = parsedContent?.sub_questions
+        if (!Array.isArray(subQuestions) && parsedContent && typeof parsedContent === "object") {
+          const firstKey = Object.keys(parsedContent).find(k => Array.isArray(parsedContent[k]))
+          if (firstKey) subQuestions = parsedContent[firstKey]
+        }
+
+        if (Array.isArray(subQuestions) && subQuestions.length > 0) {
+          const validatedSubQs = subQuestions.map((sq: any, idx: number) => ({
+            id: sq.id || `sq_${idx + 1}`,
+            question: String(sq.question || sq.question_text || "Identify key features on this specimen."),
+            expected_answer: String(sq.expected_answer || sq.correct_answer || imageItem.correct_findings),
+            explanation: String(sq.explanation || "Derived from official specimen findings."),
+          }))
+
+          generatedStations.push({
+            image_bank_id: imageItem.id,
+            question_text: imageItem.title,
+            correct_answer: imageItem.correct_findings,
+            explanation: imageItem.differential_diagnosis ? `Differential Diagnosis: ${imageItem.differential_diagnosis}` : "Steeplechase specimen station.",
+            sub_questions: validatedSubQs,
+            quiz_image_bank: imageItem,
+          })
+        }
+      }
+
+      if (generatedStations.length === 0) {
+        return NextResponse.json({ error: "AI failed to produce valid station questions from the image bank." }, { status: 502 })
+      }
+
+      // Save Steeplechase quiz
+      const { data: newQuiz, error: insertQuizError } = await supabase
+        .from("quizzes")
+        .insert({
+          course_id,
+          topic: trimmedTopic,
+          format: "Steeplechase",
+        })
+        .select("id")
+        .single()
+
+      if (insertQuizError || !newQuiz) {
+        console.error("Failed to insert Steeplechase quiz:", insertQuizError)
+        return NextResponse.json({ error: "Failed to save generated Steeplechase quiz record" }, { status: 500 })
+      }
+
+      const questionsToInsert = generatedStations.map((st) => ({
+        quiz_id: newQuiz.id,
+        question_text: st.question_text,
+        options: [],
+        correct_answer: st.correct_answer,
+        explanation: st.explanation,
+        image_bank_id: st.image_bank_id,
+        sub_questions: st.sub_questions,
+      }))
+
+      const { data: insertedQuestions, error: insertQuestionsError } = await supabase
+        .from("quiz_questions")
+        .insert(questionsToInsert)
+        .select("id, question_text, options, correct_answer, explanation, image_bank_id, sub_questions")
+
+      if (insertQuestionsError || !insertedQuestions || insertedQuestions.length === 0) {
+        console.error("Failed to insert Steeplechase questions:", insertQuestionsError)
+        await supabase.from("quizzes").delete().eq("id", newQuiz.id)
+        return NextResponse.json({ error: "Failed to save Steeplechase quiz questions" }, { status: 500 })
+      }
+
+      const formattedQuestions = insertedQuestions.map((q: any, idx: number) => ({
+        id: q.id,
+        question: q.question_text,
+        options: [],
+        correct_answer: q.correct_answer,
+        explanation: q.explanation,
+        image_bank_id: q.image_bank_id,
+        sub_questions: q.sub_questions,
+        quiz_image_bank: generatedStations[idx]?.quiz_image_bank || null,
+      }))
+
+      return NextResponse.json({
+        quiz_id: newQuiz.id,
+        questions: formattedQuestions,
+        cached: false,
+      })
+    }
+
+    // -------------------------------------------------------------
+    // STANDARD QUIZ GENERATION FLOW (MCQ, SBA, Picture Test, Short Answer)
+    // -------------------------------------------------------------
     const countToGenerate = trimmedTopic === "General Course Review" ? 15 : limitCount
 
     let systemPrompt = `You are an expert medical educator. Your task is to generate a quiz on the specified medical course and topic.
@@ -108,11 +282,6 @@ Each question object in the array must have exactly the following keys:
 - "options": array of exactly 4 strings (the choices)
 - "correct_answer": string (the correct answer, which MUST match one of the strings inside the "options" array exactly. Distractors should be highly plausible but clearly inferior to the single best answer)
 - "explanation": string (a brief explanation of why this is the single best answer and why other distractors are incorrect)`
-    } else if (chosenFormat === "Steeplechase") {
-      systemPrompt += `- "question": string (a question that is part of a sequential linked-stem case series. Consecutive questions should build on the clinical progress or scenario of the preceding question)
-- "options": array of exactly 4 strings (the choices)
-- "correct_answer": string (the correct answer, which MUST match one of the strings inside the "options" array exactly)
-- "explanation": string (a brief explanation of why the correct answer is right and why other options are incorrect, highlighting the progressive reasoning)`
     } else if (chosenFormat === "Picture Test") {
       systemPrompt += `- "question": string (the visual question. Since images are not directly rendered, you must explicitly reference a visual clinical image concept in the question, e.g. "On this chest X-ray...", "This histological slide shows...", "This clinical photo of...", etc.)
 - "options": array of exactly 4 strings (the choices)
@@ -171,13 +340,11 @@ Remember, return strictly a JSON object with a "questions" array of exactly ${co
       return NextResponse.json({ error: "AI generated an invalid JSON response structure" }, { status: 502 })
     }
 
-    // Support both directly returning an array or an object containing 'questions' array
     let questionsArray = parsed
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
       if (Array.isArray(parsed.questions)) {
         questionsArray = parsed.questions
       } else {
-        // Fallback: search for any array key
         const foundArrayKey = Object.keys(parsed).find(key => Array.isArray(parsed[key]))
         if (foundArrayKey) {
           questionsArray = parsed[foundArrayKey]
@@ -189,12 +356,11 @@ Remember, return strictly a JSON object with a "questions" array of exactly ${co
       return NextResponse.json({ error: "AI response did not contain a valid array of questions" }, { status: 502 })
     }
 
-    // Validate structure of questions
     const validatedQuestions: any[] = []
     for (const q of questionsArray) {
       if (chosenFormat === "Short Answer") {
         if (!q.question || !q.correct_answer) {
-          continue // skip malformed question
+          continue
         }
         validatedQuestions.push({
           question: String(q.question),
@@ -204,10 +370,9 @@ Remember, return strictly a JSON object with a "questions" array of exactly ${co
         })
       } else {
         if (!q.question || !Array.isArray(q.options) || q.options.length < 2 || !q.correct_answer) {
-          continue // skip malformed question
+          continue
         }
 
-        // Ensure options has exactly 4 items, padding if necessary
         let options = q.options.map((opt: any) => String(opt))
         if (options.length < 4) {
           while (options.length < 4) {
@@ -217,10 +382,8 @@ Remember, return strictly a JSON object with a "questions" array of exactly ${co
           options = options.slice(0, 4)
         }
 
-        // Ensure correct_answer is one of the options
         let correctAnswer = String(q.correct_answer)
         if (!options.includes(correctAnswer)) {
-          // fallback: set correct_answer to the first option
           correctAnswer = options[0]
         }
 
@@ -237,7 +400,6 @@ Remember, return strictly a JSON object with a "questions" array of exactly ${co
       return NextResponse.json({ error: "AI failed to produce any valid questions" }, { status: 502 })
     }
 
-    // 6. Insert new quiz into Supabase
     const { data: newQuiz, error: insertQuizError } = await supabase
       .from("quizzes")
       .insert({
@@ -253,7 +415,6 @@ Remember, return strictly a JSON object with a "questions" array of exactly ${co
       return NextResponse.json({ error: "Failed to save generated quiz record to the database" }, { status: 500 })
     }
 
-    // 7. Insert quiz questions linked via quiz_id
     const questionsToInsert = validatedQuestions.map((q) => ({
       quiz_id: newQuiz.id,
       question_text: q.question,
@@ -269,12 +430,10 @@ Remember, return strictly a JSON object with a "questions" array of exactly ${co
 
     if (insertQuestionsError || !insertedQuestions || insertedQuestions.length === 0) {
       console.error("Failed to insert quiz questions:", insertQuestionsError)
-      // Rollback quiz insertion if possible (by deleting it) to prevent orphan records
       await supabase.from("quizzes").delete().eq("id", newQuiz.id)
       return NextResponse.json({ error: "Failed to save generated quiz questions to the database" }, { status: 500 })
     }
 
-    // Map questions to standard response format, sliced to requested count
     const formattedQuestions = insertedQuestions.map((q: any) => ({
       id: q.id,
       question: q.question_text,

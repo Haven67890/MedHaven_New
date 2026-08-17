@@ -40,12 +40,29 @@ interface Course {
   level: string | number | null
 }
 
+interface SubQuestion {
+  id: string
+  question: string
+  expected_answer: string
+  explanation: string
+}
+
 interface QuizQuestion {
   id: string
   question: string
   options: string[]
   correct_answer: string
   explanation: string
+  image_bank_id?: string | null
+  sub_questions?: SubQuestion[] | null
+  quiz_image_bank?: {
+    id: string
+    title: string
+    category: string
+    image_url: string | null
+    correct_findings: string
+    differential_diagnosis?: string | null
+  } | null
 }
 
 interface AttemptWithDetails {
@@ -154,6 +171,11 @@ export default function AIQuizzesPage() {
   const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false)
   const [answersState, setAnswersState] = useState<Record<number, { selected: string; correct: boolean }>>({})
 
+  // Steeplechase sub-questions state: maps key `${stationIndex}_${subIndex}`
+  const [typedSubAnswers, setTypedSubAnswers] = useState<Record<string, string>>({})
+  const [submittedSubAnswers, setSubmittedSubAnswers] = useState<Record<string, boolean>>({})
+  const [gradedSubAnswers, setGradedSubAnswers] = useState<Record<string, boolean>>({})
+
   // Finish states
   const [isFinished, setIsFinished] = useState(false)
   const [savingAttempt, setSavingAttempt] = useState(false)
@@ -223,7 +245,17 @@ export default function AIQuizzesPage() {
                 question_text,
                 options,
                 correct_answer,
-                explanation
+                explanation,
+                image_bank_id,
+                sub_questions,
+                quiz_image_bank (
+                  id,
+                  title,
+                  category,
+                  image_url,
+                  correct_findings,
+                  differential_diagnosis
+                )
               )
             `)
             .eq("id", urlQuizId)
@@ -235,7 +267,10 @@ export default function AIQuizzesPage() {
               question: q.question_text,
               options: q.options || [],
               correct_answer: q.correct_answer,
-              explanation: q.explanation || "No explanation provided."
+              explanation: q.explanation || "No explanation provided.",
+              image_bank_id: q.image_bank_id || null,
+              sub_questions: q.sub_questions || null,
+              quiz_image_bank: q.quiz_image_bank || null,
             }))
 
             setQuestions(formattedQs)
@@ -247,6 +282,9 @@ export default function AIQuizzesPage() {
             setTypedShortAnswer("")
             setIsAnswerSubmitted(false)
             setAnswersState({})
+            setTypedSubAnswers({})
+            setSubmittedSubAnswers({})
+            setGradedSubAnswers({})
             setIsFinished(false)
           } else {
             console.error("Error fetching preloaded quiz:", quizError)
@@ -355,6 +393,9 @@ export default function AIQuizzesPage() {
       setTypedShortAnswer("")
       setIsAnswerSubmitted(false)
       setAnswersState({})
+      setTypedSubAnswers({})
+      setSubmittedSubAnswers({})
+      setGradedSubAnswers({})
       setIsFinished(false)
     } catch (err: any) {
       console.error("Quiz generation error:", err)
@@ -394,7 +435,7 @@ export default function AIQuizzesPage() {
     }
   }
 
-  // Next question logic
+  // Next question / station logic
   const handleNextQuestion = () => {
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex((prev) => prev + 1)
@@ -403,7 +444,6 @@ export default function AIQuizzesPage() {
       setTypedShortAnswer(selectedFormat === "Short Answer" ? (nextAnswer || "") : "")
       setIsAnswerSubmitted(nextAnswer !== null)
     } else {
-      // Calculate total score & complete quiz
       handleFinishQuiz()
     }
   }
@@ -413,7 +453,28 @@ export default function AIQuizzesPage() {
     setIsFinished(true)
     if (!activeQuizId || !userSession?.user?.id) return
 
-    const score = Object.values(answersState).filter((a) => a.correct).length
+    let score = 0
+    let totalQs = questions.length
+
+    if (selectedFormat === "Steeplechase") {
+      let correctSubCount = 0
+      let totalSubCount = 0
+      questions.forEach((st, stIdx) => {
+        if (Array.isArray(st.sub_questions)) {
+          st.sub_questions.forEach((_, subIdx) => {
+            totalSubCount++
+            const key = `${stIdx}_${subIdx}`
+            if (gradedSubAnswers[key] === true) {
+              correctSubCount++
+            }
+          })
+        }
+      })
+      score = correctSubCount
+      totalQs = totalSubCount > 0 ? totalSubCount : questions.length
+    } else {
+      score = Object.values(answersState).filter((a) => a.correct).length
+    }
 
     try {
       setSavingAttempt(true)
@@ -423,7 +484,7 @@ export default function AIQuizzesPage() {
           user_id: userSession.user.id,
           quiz_id: activeQuizId,
           score: score,
-          total_questions: questions.length
+          total_questions: totalQs
         })
         .select(`
           id,
@@ -463,6 +524,9 @@ export default function AIQuizzesPage() {
     setTypedShortAnswer("")
     setIsAnswerSubmitted(false)
     setAnswersState({})
+    setTypedSubAnswers({})
+    setSubmittedSubAnswers({})
+    setGradedSubAnswers({})
     setIsFinished(false)
     setGenerationError(null)
   }
@@ -487,6 +551,15 @@ export default function AIQuizzesPage() {
       </div>
     )
   }
+
+  const currentQ = questions[currentQuestionIndex]
+  const isSteeplechaseStation = Boolean(currentQ && Array.isArray(currentQ.sub_questions) && currentQ.sub_questions.length > 0)
+
+  // Check if all sub-questions for current Steeplechase station are graded
+  const currentStationSubQs = currentQ?.sub_questions || []
+  const allSubQsGradedForCurrentStation = isSteeplechaseStation
+    ? currentStationSubQs.every((_, subIdx) => gradedSubAnswers[`${currentQuestionIndex}_${subIdx}`] !== undefined)
+    : false
 
   return (
     <div className="flex flex-col gap-8">
@@ -519,9 +592,9 @@ export default function AIQuizzesPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className="bg-primary/5 text-primary text-xs font-bold px-2 py-0.5">
-                      Question {currentQuestionIndex + 1} of {questions.length}
+                      {isSteeplechaseStation ? `Station ${currentQuestionIndex + 1} of ${questions.length}` : `Question ${currentQuestionIndex + 1} of ${questions.length}`}
                     </Badge>
-                    <Badge variant="secondary" className="text-[10px] py-0 px-2 font-semibold">
+                    <Badge variant="secondary" className="text-[10px] py-0 px-2 font-semibold capitalize">
                       {selectedFormat}
                     </Badge>
                   </div>
@@ -530,12 +603,138 @@ export default function AIQuizzesPage() {
                   </span>
                 </div>
                 <h3 className="pt-4 font-semibold text-base sm:text-lg text-foreground leading-snug">
-                  {questions[currentQuestionIndex].question}
+                  {currentQ?.question}
                 </h3>
               </CardHeader>
 
               <CardContent className="pt-6 flex flex-col gap-4">
-                {selectedFormat === "Short Answer" ? (
+                {/* ----------------------------------------------------------------- */}
+                {/* STEEPLECHASE STATION WORKSPACE */}
+                {/* ----------------------------------------------------------------- */}
+                {isSteeplechaseStation ? (
+                  <div className="flex flex-col gap-6">
+                    {/* Station Specimen Image Card */}
+                    <div className="border rounded-xl p-4 bg-muted/20 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                          <ImageIcon className="size-4 text-primary" /> Station Specimen Landmark
+                        </span>
+                        {currentQ.quiz_image_bank?.category && (
+                          <Badge variant="outline" className="text-[11px] capitalize">
+                            {currentQ.quiz_image_bank.category.replace("_", " ")}
+                          </Badge>
+                        )}
+                      </div>
+
+                      {currentQ.quiz_image_bank?.image_url ? (
+                        <div className="relative aspect-video w-full rounded-lg overflow-hidden border bg-black/5 shadow-inner">
+                          <img
+                            src={currentQ.quiz_image_bank.image_url}
+                            alt={currentQ.question}
+                            className="object-contain w-full h-full"
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center p-8 rounded-lg bg-muted text-muted-foreground text-xs font-medium">
+                          <ImageIcon className="size-8 opacity-40 mr-2" /> Specimen Image
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Sub-Questions Self-Grading Workspace */}
+                    <div className="space-y-6">
+                      <p className="text-xs font-bold text-foreground uppercase tracking-wider border-b pb-1">
+                        Station Sub-Questions ({currentStationSubQs.length} items)
+                      </p>
+
+                      {currentStationSubQs.map((subQ, subIdx) => {
+                        const subKey = `${currentQuestionIndex}_${subIdx}`
+                        const userText = typedSubAnswers[subKey] || ""
+                        const isSubSubmitted = Boolean(submittedSubAnswers[subKey])
+                        const isSubGraded = gradedSubAnswers[subKey]
+
+                        return (
+                          <div key={subQ.id || subIdx} className="p-4 rounded-xl border bg-card space-y-4 shadow-xs">
+                            <p className="text-sm font-semibold text-foreground">
+                              {subIdx + 1}. {subQ.question}
+                            </p>
+
+                            {!isSubSubmitted ? (
+                              <div className="flex flex-col gap-2">
+                                <textarea
+                                  rows={2}
+                                  value={userText}
+                                  onChange={(e) => setTypedSubAnswers((prev) => ({ ...prev, [subKey]: e.target.value }))}
+                                  placeholder="Type your response for this sub-question..."
+                                  className="flex min-h-[70px] w-full rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                />
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  onClick={() => setSubmittedSubAnswers((prev) => ({ ...prev, [subKey]: true }))}
+                                  disabled={!userText.trim()}
+                                  className="self-end px-4 h-8 text-xs font-semibold"
+                                >
+                                  Submit Sub-Response
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="space-y-3 animate-in fade-in duration-200">
+                                {/* Student Response */}
+                                <div className="rounded-lg border bg-muted/30 p-3 text-xs">
+                                  <p className="font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Your Response:</p>
+                                  <p className="font-medium text-foreground italic">&quot;{userText || "[No response]"}&quot;</p>
+                                </div>
+
+                                {/* Ground-Truth Expected Answer */}
+                                <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs">
+                                  <p className="font-bold text-emerald-500 uppercase tracking-wider mb-0.5">Model Answer (Ground Truth)</p>
+                                  <p className="font-semibold text-foreground leading-relaxed">{subQ.expected_answer}</p>
+                                </div>
+
+                                {subQ.explanation && (
+                                  <div className="rounded-lg border border-primary/10 bg-primary/5 p-3 text-xs">
+                                    <p className="font-bold text-primary uppercase tracking-wider mb-0.5">Clinical Rationale</p>
+                                    <p className="text-foreground">{subQ.explanation}</p>
+                                  </div>
+                                )}
+
+                                {/* Self-Grading buttons */}
+                                <div className="flex items-center justify-between pt-1">
+                                  <span className="text-xs text-muted-foreground font-medium">Self-Grade this sub-question:</span>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => setGradedSubAnswers((prev) => ({ ...prev, [subKey]: false }))}
+                                      className={`h-7 px-3 text-xs font-bold border-destructive text-destructive hover:bg-destructive/10 ${
+                                        isSubGraded === false ? "bg-destructive/20 ring-1 ring-destructive" : ""
+                                      }`}
+                                    >
+                                      <X className="size-3 mr-1" /> Incorrect
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => setGradedSubAnswers((prev) => ({ ...prev, [subKey]: true }))}
+                                      className={`h-7 px-3 text-xs font-bold border-emerald-500 text-emerald-500 hover:bg-emerald-500/10 ${
+                                        isSubGraded === true ? "bg-emerald-500/20 ring-1 ring-emerald-500" : ""
+                                      }`}
+                                    >
+                                      <Check className="size-3 mr-1" /> Correct
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ) : selectedFormat === "Short Answer" ? (
                   // SHORT ANSWER MODE
                   <div className="flex flex-col gap-4">
                     {!isAnswerSubmitted ? (
@@ -558,7 +757,7 @@ export default function AIQuizzesPage() {
                         <div className="rounded-xl border bg-muted/30 p-4">
                           <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Your Diagnostic Response:</p>
                           <p className="text-sm font-medium text-foreground italic leading-relaxed">
-                            "{typedShortAnswer || "[No response submitted]"}"
+                            &quot;{typedShortAnswer || "[No response submitted]"}&quot;
                           </p>
                         </div>
 
@@ -566,7 +765,7 @@ export default function AIQuizzesPage() {
                         <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
                           <p className="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-1">Model Answer & Key Terms</p>
                           <p className="text-sm font-semibold text-foreground leading-relaxed">
-                            {questions[currentQuestionIndex].correct_answer}
+                            {currentQ.correct_answer}
                           </p>
                         </div>
 
@@ -574,7 +773,7 @@ export default function AIQuizzesPage() {
                         <div className="rounded-xl border border-primary/10 bg-primary/5 p-4">
                           <p className="text-xs font-bold text-primary uppercase tracking-wider mb-1">Clinical Evaluation Rubric</p>
                           <p className="text-sm text-foreground leading-relaxed">
-                            {questions[currentQuestionIndex].explanation}
+                            {currentQ.explanation}
                           </p>
                         </div>
 
@@ -627,12 +826,12 @@ export default function AIQuizzesPage() {
                     )}
                   </div>
                 ) : (
-                  // MULTIPLE CHOICE / SBA / PICTURE / STEEPLECHASE MODES
+                  // MULTIPLE CHOICE / SBA / PICTURE MODES
                   <div className="flex flex-col gap-4">
                     <div className="flex flex-col gap-3">
-                      {questions[currentQuestionIndex].options.map((option, idx) => {
+                      {currentQ.options.map((option, idx) => {
                         const isSelected = selectedAnswer === option
-                        const isCorrectChoice = option === questions[currentQuestionIndex].correct_answer
+                        const isCorrectChoice = option === currentQ.correct_answer
 
                         let buttonStyle = "border border-border bg-card text-foreground hover:border-primary/40 text-left transition-all justify-start py-4 px-4 h-auto block w-full whitespace-normal"
 
@@ -682,7 +881,7 @@ export default function AIQuizzesPage() {
                           <p className="font-semibold text-sm text-primary">Explanation & Rationales</p>
                         </div>
                         <p className="text-sm text-foreground leading-relaxed">
-                          {questions[currentQuestionIndex].explanation || "No explanation provided for this question."}
+                          {currentQ.explanation || "No explanation provided for this question."}
                         </p>
                       </div>
                     ) : null}
@@ -695,7 +894,19 @@ export default function AIQuizzesPage() {
                     Exit Quiz
                   </Button>
 
-                  {selectedFormat === "Short Answer" ? (
+                  {isSteeplechaseStation ? (
+                    <Button
+                      onClick={handleNextQuestion}
+                      disabled={!allSubQsGradedForCurrentStation}
+                      className="px-6 py-2 flex items-center gap-1.5"
+                    >
+                      {currentQuestionIndex < questions.length - 1 ? (
+                        <>Next Station <ChevronRight className="size-4" /></>
+                      ) : (
+                        <>Finish Exam & Save Results <Award className="size-4" /></>
+                      )}
+                    </Button>
+                  ) : selectedFormat === "Short Answer" ? (
                     !isAnswerSubmitted ? (
                       <Button
                         onClick={handleSubmitAnswer}
@@ -760,43 +971,104 @@ export default function AIQuizzesPage() {
               </CardHeader>
 
               <CardContent className="pt-4 flex flex-col gap-6">
-                <div className="grid gap-4 sm:grid-cols-2 text-center">
-                  <div className="rounded-xl border bg-muted/40 p-4">
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-1">Your Score</p>
-                    <p className="text-3xl font-extrabold text-foreground">
-                      {Object.values(answersState).filter((a) => a.correct).length} / {questions.length}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border bg-muted/40 p-4">
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-1">Accuracy</p>
-                    <p className="text-3xl font-extrabold text-foreground">
-                      {Math.round((Object.values(answersState).filter((a) => a.correct).length / questions.length) * 100)}%
-                    </p>
-                  </div>
-                </div>
+                {selectedFormat === "Steeplechase" ? (
+                  (() => {
+                    let totalSub = 0
+                    let correctSub = 0
+                    questions.forEach((st, stIdx) => {
+                      if (Array.isArray(st.sub_questions)) {
+                        st.sub_questions.forEach((_, subIdx) => {
+                          totalSub++
+                          if (gradedSubAnswers[`${stIdx}_${subIdx}`] === true) {
+                            correctSub++
+                          }
+                        })
+                      }
+                    })
+                    const pct = totalSub > 0 ? Math.round((correctSub / totalSub) * 100) : 0
 
-                <div className="flex flex-col gap-3">
-                  <p className="font-semibold text-sm text-foreground">Question-by-Question breakdown:</p>
-                  <div className="flex flex-col gap-2 max-h-60 overflow-y-auto pr-1">
-                    {questions.map((q, idx) => {
-                      const ans = answersState[idx]
-                      return (
-                        <div key={idx} className="flex items-center justify-between rounded-lg border p-3 text-sm">
-                          <span className="truncate pr-4 text-muted-foreground font-medium flex-1">
-                            {idx + 1}. {q.question}
-                          </span>
-                          <span className={`shrink-0 text-xs font-bold px-2 py-1 rounded-full ${
-                            ans?.correct
-                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                              : "bg-destructive/10 text-destructive"
-                          }`}>
-                            {ans?.correct ? "CORRECT" : "INCORRECT"}
-                          </span>
+                    return (
+                      <>
+                        <div className="grid gap-4 sm:grid-cols-2 text-center">
+                          <div className="rounded-xl border bg-muted/40 p-4">
+                            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-1">Sub-Questions Correct</p>
+                            <p className="text-3xl font-extrabold text-foreground">
+                              {correctSub} / {totalSub}
+                            </p>
+                          </div>
+                          <div className="rounded-xl border bg-muted/40 p-4">
+                            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-1">Accuracy</p>
+                            <p className="text-3xl font-extrabold text-foreground">
+                              {pct}%
+                            </p>
+                          </div>
                         </div>
-                      )
-                    })}
-                  </div>
-                </div>
+
+                        <div className="flex flex-col gap-3">
+                          <p className="font-semibold text-sm text-foreground">Station Breakdown:</p>
+                          <div className="flex flex-col gap-2 max-h-60 overflow-y-auto pr-1">
+                            {questions.map((q, stIdx) => (
+                              <div key={stIdx} className="rounded-lg border p-3 text-sm space-y-1">
+                                <div className="font-bold text-foreground">Station {stIdx + 1}: {q.question}</div>
+                                {Array.isArray(q.sub_questions) && q.sub_questions.map((sq, subIdx) => {
+                                  const isCorr = gradedSubAnswers[`${stIdx}_${subIdx}`] === true
+                                  return (
+                                    <div key={subIdx} className="flex items-center justify-between text-xs text-muted-foreground pl-2 border-l-2 border-primary/20">
+                                      <span className="truncate pr-2">{subIdx + 1}. {sq.question}</span>
+                                      <span className={`shrink-0 font-bold px-1.5 py-0.5 rounded ${isCorr ? "bg-emerald-500/10 text-emerald-600" : "bg-destructive/10 text-destructive"}`}>
+                                        {isCorr ? "CORRECT" : "INCORRECT"}
+                                      </span>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )
+                  })()
+                ) : (
+                  <>
+                    <div className="grid gap-4 sm:grid-cols-2 text-center">
+                      <div className="rounded-xl border bg-muted/40 p-4">
+                        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-1">Your Score</p>
+                        <p className="text-3xl font-extrabold text-foreground">
+                          {Object.values(answersState).filter((a) => a.correct).length} / {questions.length}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border bg-muted/40 p-4">
+                        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-1">Accuracy</p>
+                        <p className="text-3xl font-extrabold text-foreground">
+                          {Math.round((Object.values(answersState).filter((a) => a.correct).length / questions.length) * 100)}%
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-3">
+                      <p className="font-semibold text-sm text-foreground">Question-by-Question breakdown:</p>
+                      <div className="flex flex-col gap-2 max-h-60 overflow-y-auto pr-1">
+                        {questions.map((q, idx) => {
+                          const ans = answersState[idx]
+                          return (
+                            <div key={idx} className="flex items-center justify-between rounded-lg border p-3 text-sm">
+                              <span className="truncate pr-4 text-muted-foreground font-medium flex-1">
+                                {idx + 1}. {q.question}
+                              </span>
+                              <span className={`shrink-0 text-xs font-bold px-2 py-1 rounded-full ${
+                                ans?.correct
+                                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                  : "bg-destructive/10 text-destructive"
+                              }`}>
+                                {ans?.correct ? "CORRECT" : "INCORRECT"}
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 <div className="flex flex-col sm:flex-row items-center gap-3 border-t border-border pt-4 mt-2">
                   <Button variant="outline" onClick={handleBackToSetup} className="w-full sm:w-auto">
@@ -994,7 +1266,7 @@ export default function AIQuizzesPage() {
                   1. <strong>Clinical Alignment</strong>: Quizzes are generated using llama-3.1-8b-instant models tuned specifically for national medical board structures.
                 </p>
                 <p>
-                  2. <strong>Adaptive Format Constraints</strong>: Selection dynamically reformulates the LLM's prompt parameters—Short Answer prompts bypass options completely while Picture Tests contextualize diagnostic image reasoning.
+                  2. <strong>Adaptive Format Constraints</strong>: Selection dynamically reformulates the LLM's prompt parameters—Short Answer prompts bypass options completely while Steeplechase formats render specimen stations and grounded sub-questions.
                 </p>
                 <p>
                   3. <strong>Level-Aware Caching</strong>: Default course quizzes are cached and shared across everyone in your student level instantly to minimize API latency.

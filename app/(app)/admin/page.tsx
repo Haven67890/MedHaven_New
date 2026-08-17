@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useTransition } from "react"
-import { ShieldAlert, Users as UsersIcon, ShieldCheck, UserCheck, AlertTriangle, RefreshCw, Search, SlidersHorizontal, Edit2, Plus, Trash2, CheckCircle, Ban, Archive, ExternalLink, Sparkles, FileText, Upload, ChevronUp, ChevronDown, Stethoscope, BookOpen, GraduationCap, Building } from "lucide-react"
+import { ShieldAlert, Users as UsersIcon, ShieldCheck, UserCheck, AlertTriangle, RefreshCw, Search, SlidersHorizontal, Edit2, Plus, Trash2, CheckCircle, Ban, Archive, ExternalLink, Sparkles, FileText, Upload, ChevronUp, ChevronDown, Stethoscope, BookOpen, GraduationCap, Building, Image as ImageIcon } from "lucide-react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -48,8 +48,8 @@ function normalizeRole(value: unknown): string {
 export default function AdminDashboard() {
   const supabase = createClient()
 
-  // Tabs: 'overview' | 'users' | 'materials' | 'staff' | 'guides' | 'tutorials'
-  const [activeTab, setActiveTab] = useState<"overview" | "users" | "materials" | "staff" | "guides" | "tutorials" | "curriculum">("overview")
+  // Tabs: 'overview' | 'users' | 'materials' | 'quiz_bank' | 'staff' | 'guides' | 'tutorials' | 'curriculum'
+  const [activeTab, setActiveTab] = useState<"overview" | "users" | "materials" | "quiz_bank" | "staff" | "guides" | "tutorials" | "curriculum">("overview")
 
   // Caller authorization info
   const [caller, setCaller] = useState<{
@@ -235,6 +235,44 @@ export default function AdminDashboard() {
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteError, setDeleteError] = useState("")
 
+  // --- QUIZ IMAGE BANK STATE ---
+  const [quizBankList, setQuizBankList] = useState<any[]>([])
+  const [quizBankCount, setQuizBankCount] = useState(0)
+  const [quizBankLoading, setQuizBankLoading] = useState(false)
+  const [quizBankError, setQuizBankError] = useState("")
+
+  const [quizBankSearch, setQuizBankSearch] = useState("")
+  const [quizBankDebouncedSearch, setQuizBankDebouncedSearch] = useState("")
+  const [quizBankCourseFilter, setQuizBankCourseFilter] = useState("all")
+  const [quizBankCategoryFilter, setQuizBankCategoryFilter] = useState("all")
+  const [quizBankStatusFilter, setQuizBankStatusFilter] = useState("all")
+  const [quizBankPage, setQuizBankPage] = useState(1)
+
+  // Quiz Bank Form Sheet State
+  const [quizBankFormOpen, setQuizBankFormOpen] = useState(false)
+  const [quizBankFormMode, setQuizBankFormMode] = useState<"create" | "edit">("create")
+  const [editingQuizBank, setEditingQuizBank] = useState<any | null>(null)
+  const [quizBankFormLoading, setQuizBankFormLoading] = useState(false)
+  const [quizBankFormError, setQuizBankFormError] = useState("")
+  const [quizBankFormSuccess, setQuizBankFormSuccess] = useState("")
+
+  // Quiz Bank Editable Form Fields
+  const [formBankTitle, setFormBankTitle] = useState("")
+  const [formBankCourseId, setFormBankCourseId] = useState("")
+  const [formBankCategory, setFormBankCategory] = useState("gross_specimen")
+  const [formBankCorrectFindings, setFormBankCorrectFindings] = useState("")
+  const [formBankDifferentialDiagnosis, setFormBankDifferentialDiagnosis] = useState("")
+  const [formBankSource, setFormBankSource] = useState("own_photo")
+  const [formBankStatus, setFormBankStatus] = useState<"published" | "draft" | "archived">("published")
+  const [formBankFile, setFormBankFile] = useState<File | null>(null)
+  const [bankFileUploadProgress, setBankFileUploadProgress] = useState<string | null>(null)
+
+  // Quiz Bank Delete Confirmation State
+  const [quizBankDeleteConfirmOpen, setQuizBankDeleteConfirmOpen] = useState(false)
+  const [quizBankToDelete, setQuizBankToDelete] = useState<any | null>(null)
+  const [quizBankDeleteLoading, setQuizBankDeleteLoading] = useState(false)
+  const [quizBankDeleteError, setQuizBankDeleteError] = useState("")
+
   // --- STAFF STATE ---
   const [staffList, setStaffList] = useState<any[]>([])
   const [staffCount, setStaffCount] = useState(0)
@@ -358,6 +396,14 @@ export default function AdminDashboard() {
     }, 400)
     return () => clearTimeout(timer)
   }, [materialSearch])
+
+  // Debounce search query (Quiz Image Bank)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setQuizBankDebouncedSearch(quizBankSearch)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [quizBankSearch])
 
   // Debounce search query (Staff)
   useEffect(() => {
@@ -548,6 +594,34 @@ export default function AdminDashboard() {
     }
   }
 
+  // Fetch quiz image bank list
+  const fetchQuizBank = async () => {
+    setQuizBankLoading(true)
+    setQuizBankError("")
+    try {
+      const params = new URLSearchParams({
+        query: quizBankDebouncedSearch,
+        course_id: quizBankCourseFilter,
+        category: quizBankCategoryFilter,
+        status: quizBankStatusFilter,
+        page: String(quizBankPage),
+        limit: String(itemsPerPage),
+      })
+
+      const res = await fetch(`/api/admin/quiz-bank?${params.toString()}`)
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to load quiz image bank")
+      }
+      setQuizBankList(data.images || [])
+      setQuizBankCount(data.count || 0)
+    } catch (err: any) {
+      setQuizBankError(err.message || "An error occurred loading quiz image bank.")
+    } finally {
+      setQuizBankLoading(false)
+    }
+  }
+
   // Fetch staff list
   const fetchStaff = async () => {
     setStaffLoading(true)
@@ -659,6 +733,8 @@ export default function AdminDashboard() {
       void fetchUsers()
     } else if (activeTab === "materials") {
       void fetchMaterials()
+    } else if (activeTab === "quiz_bank") {
+      void fetchQuizBank()
     } else if (activeTab === "staff") {
       void fetchStaff()
     } else if (activeTab === "guides") {
@@ -681,6 +757,11 @@ export default function AdminDashboard() {
     materialTierFilter,
     materialStatusFilter,
     materialPage,
+    quizBankDebouncedSearch,
+    quizBankCourseFilter,
+    quizBankCategoryFilter,
+    quizBankStatusFilter,
+    quizBankPage,
     staffDebouncedSearch,
     staffDeptFilter,
     staffPage,
@@ -991,6 +1072,208 @@ export default function AdminDashboard() {
       setDeleteError(err.message || "An error occurred deleting material.")
     } finally {
       setDeleteLoading(false)
+    }
+  }
+
+  // --- QUIZ IMAGE BANK MANAGEMENT FUNCTIONS ---
+
+  const handleOpenQuizBankCreate = () => {
+    setQuizBankFormMode("create")
+    setEditingQuizBank(null)
+    setFormBankTitle("")
+    setFormBankCourseId(courses[0]?.id || "")
+    setFormBankCategory("gross_specimen")
+    setFormBankCorrectFindings("")
+    setFormBankDifferentialDiagnosis("")
+    setFormBankSource("own_photo")
+    setFormBankStatus("published")
+    setFormBankFile(null)
+    setQuizBankFormError("")
+    setQuizBankFormSuccess("")
+    setBankFileUploadProgress(null)
+    setQuizBankFormOpen(true)
+  }
+
+  const handleOpenQuizBankEdit = (item: any) => {
+    setQuizBankFormMode("edit")
+    setEditingQuizBank(item)
+    setFormBankTitle(item.title || "")
+    setFormBankCourseId(item.course_id || "")
+    setFormBankCategory(item.category || "gross_specimen")
+    setFormBankCorrectFindings(item.correct_findings || "")
+    setFormBankDifferentialDiagnosis(item.differential_diagnosis || "")
+    setFormBankSource(item.source || "own_photo")
+    setFormBankStatus(item.status || "published")
+    setFormBankFile(null)
+    setQuizBankFormError("")
+    setQuizBankFormSuccess("")
+    setBankFileUploadProgress(null)
+    setQuizBankFormOpen(true)
+  }
+
+  const uploadFileToQuizBankStorage = async (file: File): Promise<{ filePath: string; publicUrl: string }> => {
+    setBankFileUploadProgress("Uploading image specimen to quiz-bank bucket...")
+    const fileExt = file.name.split(".").pop()?.toLowerCase() || "jpg"
+    const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`
+    const filePath = fileName
+
+    let { error: uploadError } = await supabase.storage
+      .from("quiz-bank")
+      .upload(filePath, file, { cacheControl: "3600", upsert: true })
+
+    if (uploadError && (uploadError.message?.includes("not found") || (uploadError as any).statusCode === "404" || (uploadError as any).error === "Bucket not found")) {
+      const { error: createError } = await supabase.storage.createBucket("quiz-bank", { public: true })
+      if (!createError) {
+        const retry = await supabase.storage.from("quiz-bank").upload(filePath, file, { cacheControl: "3600", upsert: true })
+        uploadError = retry.error
+      }
+    }
+
+    if (uploadError) {
+      throw new Error("Supabase Storage Upload failed: " + uploadError.message)
+    }
+
+    const { data: { publicUrl } } = supabase.storage.from("quiz-bank").getPublicUrl(filePath)
+
+    return { filePath, publicUrl }
+  }
+
+  const handleQuizBankFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!formBankTitle.trim()) {
+      setQuizBankFormError("Title is required")
+      return
+    }
+    if (!formBankCourseId) {
+      setQuizBankFormError("A course mapping is required")
+      return
+    }
+    if (!formBankCorrectFindings.trim()) {
+      setQuizBankFormError("Correct findings (answer key) are strictly required")
+      return
+    }
+
+    setQuizBankFormLoading(true)
+    setQuizBankFormError("")
+    setQuizBankFormSuccess("")
+
+    try {
+      let finalStoragePath = editingQuizBank?.storage_path || null
+      let finalImageUrl = editingQuizBank?.image_url || null
+
+      if (formBankFile) {
+        const uploaded = await uploadFileToQuizBankStorage(formBankFile)
+        finalStoragePath = uploaded.filePath
+        finalImageUrl = uploaded.publicUrl
+      }
+
+      if (!finalImageUrl && quizBankFormMode === "create") {
+        throw new Error("An image specimen file is required for new image bank entries.")
+      }
+
+      const payload: Record<string, any> = {
+        title: formBankTitle.trim(),
+        course_id: formBankCourseId,
+        category: formBankCategory,
+        correct_findings: formBankCorrectFindings.trim(),
+        differential_diagnosis: formBankDifferentialDiagnosis.trim() || null,
+        source: formBankSource.trim() || "own_photo",
+        status: formBankStatus,
+        storage_path: finalStoragePath,
+        image_url: finalImageUrl,
+      }
+
+      let res
+      if (quizBankFormMode === "create") {
+        res = await fetch("/api/admin/quiz-bank", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        })
+      } else {
+        payload.id = editingQuizBank?.id
+        res = await fetch("/api/admin/quiz-bank", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        })
+      }
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to save image bank entry")
+      }
+
+      setQuizBankFormSuccess(
+        quizBankFormMode === "create"
+          ? "Specimen image added to bank and logged successfully!"
+          : "Specimen image updated and logged successfully!"
+      )
+
+      void fetchQuizBank()
+
+      setTimeout(() => {
+        setQuizBankFormOpen(false)
+        setEditingQuizBank(null)
+      }, 1000)
+    } catch (err: any) {
+      setQuizBankFormError(err.message || "An unexpected error occurred saving image bank item.")
+    } finally {
+      setQuizBankFormLoading(false)
+      setBankFileUploadProgress(null)
+    }
+  }
+
+  const handleQuizBankQuickStatusChange = async (item: any, newStatus: "published" | "draft" | "archived") => {
+    try {
+      const res = await fetch("/api/admin/quiz-bank", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: item.id,
+          status: newStatus
+        })
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update status")
+      }
+
+      void fetchQuizBank()
+    } catch (err: any) {
+      alert(err.message || "An error occurred updating the status.")
+    }
+  }
+
+  const handleOpenQuizBankDeleteConfirm = (item: any) => {
+    setQuizBankToDelete(item)
+    setQuizBankDeleteError("")
+    setQuizBankDeleteConfirmOpen(true)
+  }
+
+  const handleDeleteQuizBankItem = async () => {
+    if (!quizBankToDelete) return
+    setQuizBankDeleteLoading(true)
+    setQuizBankDeleteError("")
+
+    try {
+      const res = await fetch(`/api/admin/quiz-bank?id=${quizBankToDelete.id}`, {
+        method: "DELETE"
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to delete image bank item")
+      }
+
+      void fetchQuizBank()
+      setQuizBankDeleteConfirmOpen(false)
+      setQuizBankToDelete(null)
+    } catch (err: any) {
+      setQuizBankDeleteError(err.message || "An error occurred deleting image bank item.")
+    } finally {
+      setQuizBankDeleteLoading(false)
     }
   }
 
@@ -2057,6 +2340,15 @@ export default function AdminDashboard() {
               Materials
             </Button>
           )}
+          {caller.hasMaterialsPermission && (
+            <Button
+              variant={activeTab === "quiz_bank" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setActiveTab("quiz_bank")}
+            >
+              Image Bank
+            </Button>
+          )}
           <Button
             variant={activeTab === "staff" ? "default" : "ghost"}
             size="sm"
@@ -2632,6 +2924,263 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* --- QUIZ IMAGE BANK MANAGEMENT TAB --- */}
+      {activeTab === "quiz_bank" && caller.hasMaterialsPermission && (
+        <div className="flex flex-col gap-6 animate-in fade-in duration-300">
+          {/* SEARCH & FILTERS PANEL */}
+          <Card className="border-border">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <ImageIcon className="size-5 text-primary" /> Quiz Specimen Image Bank
+                </CardTitle>
+                <CardDescription>Upload specimen scans, clinical photos, or radiology images with ground-truth finding keys for Steeplechase exams.</CardDescription>
+              </div>
+              <Button onClick={handleOpenQuizBankCreate} size="sm" className="flex items-center gap-1">
+                <Plus className="size-4" /> Add Image Specimen
+              </Button>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Search by title or findings..."
+                  className="pl-9"
+                  value={quizBankSearch}
+                  onChange={(e) => setQuizBankSearch(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <select
+                  value={quizBankCourseFilter}
+                  onChange={(e) => setQuizBankCourseFilter(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="all">All Courses</option>
+                  {courses.map((course) => (
+                    <option key={course.id} value={course.id}>
+                      {course.code}: {course.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <select
+                  value={quizBankCategoryFilter}
+                  onChange={(e) => setQuizBankCategoryFilter(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="all">All Categories</option>
+                  <option value="gross_specimen">Gross Specimen</option>
+                  <option value="histology_slide">Histology Slide</option>
+                  <option value="blood_film">Blood Film</option>
+                  <option value="clinical_photo">Clinical Photo</option>
+                  <option value="equipment">Medical Equipment</option>
+                  <option value="radiology">Radiology Scan</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <select
+                  value={quizBankStatusFilter}
+                  onChange={(e) => setQuizBankStatusFilter(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="published">Published</option>
+                  <option value="draft">Draft</option>
+                  <option value="archived">Archived</option>
+                </select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* QUIZ BANK LIST TABLE */}
+          <Card className="border-border">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b bg-muted/50 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      <th className="p-4">Specimen Preview & Title</th>
+                      <th className="p-4">Course</th>
+                      <th className="p-4">Category</th>
+                      <th className="p-4">Ground-Truth Findings</th>
+                      <th className="p-4">Status</th>
+                      <th className="p-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border text-sm">
+                    {quizBankLoading ? (
+                      <tr>
+                        <td colSpan={6} className="p-4">
+                          <AdminTableSkeleton columns={6} rows={5} />
+                        </td>
+                      </tr>
+                    ) : quizBankError ? (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-destructive font-medium">
+                          {quizBankError}
+                        </td>
+                      </tr>
+                    ) : quizBankList.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                          No matching specimen images found in quiz bank.
+                        </td>
+                      </tr>
+                    ) : (
+                      quizBankList.map((item) => {
+                        return (
+                          <tr key={item.id} className="hover:bg-muted/30 transition-colors">
+                            <td className="p-4">
+                              <div className="flex items-center gap-3">
+                                {item.image_url ? (
+                                  <img
+                                    src={item.image_url}
+                                    alt={item.title}
+                                    className="size-12 rounded-lg object-cover shrink-0 border border-border/50 bg-muted"
+                                  />
+                                ) : (
+                                  <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                                    <ImageIcon className="size-6 opacity-40" />
+                                  </div>
+                                )}
+                                <div>
+                                  <div className="font-semibold text-foreground">{item.title}</div>
+                                  <div className="text-xs text-muted-foreground font-mono">Source: {item.source || "own_photo"}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <Badge variant="outline">
+                                {item.courses?.code || "GENERAL"}
+                              </Badge>
+                            </td>
+                            <td className="p-4 capitalize">
+                              <Badge variant="secondary" className="text-[11px]">
+                                {item.category ? item.category.replace("_", " ") : "specimen"}
+                              </Badge>
+                            </td>
+                            <td className="p-4">
+                              <div className="text-xs text-foreground font-medium max-w-xs truncate" title={item.correct_findings}>
+                                {item.correct_findings}
+                              </div>
+                              {item.differential_diagnosis && (
+                                <div className="text-[11px] text-muted-foreground max-w-xs truncate italic" title={item.differential_diagnosis}>
+                                  DDx: {item.differential_diagnosis}
+                                </div>
+                              )}
+                            </td>
+                            <td className="p-4 capitalize">
+                              <Badge
+                                variant={
+                                  item.status === "published"
+                                    ? "default"
+                                    : item.status === "archived"
+                                      ? "destructive"
+                                      : "outline"
+                                }
+                              >
+                                {item.status || "published"}
+                              </Badge>
+                            </td>
+                            <td className="p-4 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                {item.status !== "published" && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    title="Publish specimen"
+                                    onClick={() => handleQuizBankQuickStatusChange(item, "published")}
+                                    className="h-8 px-2 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-500/10"
+                                  >
+                                    <CheckCircle className="size-4" />
+                                  </Button>
+                                )}
+                                {item.status === "published" && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    title="Move to draft"
+                                    onClick={() => handleQuizBankQuickStatusChange(item, "draft")}
+                                    className="h-8 px-2 text-amber-500 hover:text-amber-600 hover:bg-amber-500/10"
+                                  >
+                                    <Ban className="size-4" />
+                                  </Button>
+                                )}
+                                {item.status !== "archived" && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    title="Archive specimen"
+                                    onClick={() => handleQuizBankQuickStatusChange(item, "archived")}
+                                    className="h-8 px-2 text-slate-500 hover:text-slate-600 hover:bg-slate-500/10"
+                                  >
+                                    <Archive className="size-4" />
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenQuizBankEdit(item)}
+                                  className="h-8 px-2 text-primary"
+                                >
+                                  <Edit2 className="size-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenQuizBankDeleteConfirm(item)}
+                                  className="h-8 px-2 text-destructive hover:bg-destructive/10"
+                                >
+                                  <Trash2 className="size-4" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* PAGINATION PANEL */}
+              {quizBankCount > itemsPerPage && (
+                <div className="flex items-center justify-between p-4 border-t border-border">
+                  <span className="text-xs text-muted-foreground">
+                    Showing {(quizBankPage - 1) * itemsPerPage + 1} - {Math.min(quizBankPage * itemsPerPage, quizBankCount)} of {quizBankCount} bank items
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={quizBankPage === 1 || quizBankLoading}
+                      onClick={() => setQuizBankPage((c) => c - 1)}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={quizBankPage * itemsPerPage >= quizBankCount || quizBankLoading}
+                      onClick={() => setQuizBankPage((c) => c + 1)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* SECURE USER EDIT DRAWER (SHEET) */}
       <Sheet open={editOpen} onOpenChange={setEditOpen}>
         <SheetContent side="right" className="sm:max-w-md overflow-y-auto w-full">
@@ -2890,6 +3439,238 @@ export default function AdminDashboard() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* --- QUIZ IMAGE BANK UPLOAD / EDIT DRAWER (SHEET) --- */}
+      <Sheet open={quizBankFormOpen} onOpenChange={setQuizBankFormOpen}>
+        <SheetContent side="right" className="sm:max-w-md overflow-y-auto w-full">
+          <SheetHeader>
+            <SheetTitle>
+              {quizBankFormMode === "create" ? "Add Specimen to Image Bank" : "Modify Image Specimen"}
+            </SheetTitle>
+            <SheetDescription>
+              Upload diagnostic images with official findings. These ground-truth findings serve as grounding context for Steeplechase exams.
+            </SheetDescription>
+          </SheetHeader>
+
+          <form onSubmit={handleQuizBankFormSubmit} className="space-y-5 p-4">
+            {quizBankFormError && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/15 p-3 text-sm text-destructive font-medium">
+                {quizBankFormError}
+              </div>
+            )}
+            {quizBankFormSuccess && (
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-500 font-medium">
+                {quizBankFormSuccess}
+              </div>
+            )}
+
+            {/* Specimen Title */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="bank-title" className="text-xs font-medium text-foreground">Specimen Title / Landmark</label>
+              <Input
+                id="bank-title"
+                placeholder="e.g., Renal Cell Carcinoma — Gross Pathology"
+                value={formBankTitle}
+                onChange={(e) => setFormBankTitle(e.target.value)}
+                required
+              />
+            </div>
+
+            {/* Course Mapping */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="bank-course" className="text-xs font-medium text-foreground">Academic Course Mapping</label>
+              <select
+                id="bank-course"
+                value={formBankCourseId}
+                onChange={(e) => setFormBankCourseId(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                required
+              >
+                <option value="">-- Choose Course --</option>
+                {courses.map((course) => (
+                  <option key={course.id} value={course.id}>
+                    {course.code}: {course.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Category Dropdown */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="bank-category" className="text-xs font-medium text-foreground">Specimen Category</label>
+              <select
+                id="bank-category"
+                value={formBankCategory}
+                onChange={(e) => setFormBankCategory(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                required
+              >
+                <option value="gross_specimen">Gross Specimen</option>
+                <option value="histology_slide">Histology Slide</option>
+                <option value="blood_film">Blood Film</option>
+                <option value="clinical_photo">Clinical Photo</option>
+                <option value="equipment">Medical Equipment</option>
+                <option value="radiology">Radiology Scan</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            {/* Required Correct Findings Textarea */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="bank-findings" className="text-xs font-medium text-foreground flex items-center justify-between">
+                <span>Correct Findings (Answer Key) <span className="text-destructive">*</span></span>
+                <span className="text-[10px] text-muted-foreground">Admin-entered</span>
+              </label>
+              <textarea
+                id="bank-findings"
+                placeholder="Required ground-truth findings, landmark structures, diagnostic features, or histological hallmarks..."
+                value={formBankCorrectFindings}
+                onChange={(e) => setFormBankCorrectFindings(e.target.value)}
+                rows={4}
+                className="flex min-h-[90px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                required
+              />
+            </div>
+
+            {/* Optional Differential Diagnosis Textarea */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="bank-ddx" className="text-xs font-medium text-foreground">Differential Diagnosis (Optional)</label>
+              <textarea
+                id="bank-ddx"
+                placeholder="Optional plausible differential diagnoses or closely related mimickers..."
+                value={formBankDifferentialDiagnosis}
+                onChange={(e) => setFormBankDifferentialDiagnosis(e.target.value)}
+                rows={2}
+                className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+            </div>
+
+            {/* Source */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="bank-source" className="text-xs font-medium text-foreground">Source / Origin</label>
+              <Input
+                id="bank-source"
+                placeholder="default 'own_photo'"
+                value={formBankSource}
+                onChange={(e) => setFormBankSource(e.target.value)}
+              />
+            </div>
+
+            {/* Upload Image to quiz-bank bucket */}
+            <div className="border border-dashed rounded-lg p-4 bg-muted/20 space-y-3">
+              <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <Upload className="size-4 text-primary" /> Image File (bucket: quiz-bank)
+              </span>
+
+              {editingQuizBank?.image_url && !formBankFile && (
+                <div className="flex items-center gap-3">
+                  <img src={editingQuizBank.image_url} alt="Current" className="size-16 rounded object-cover border" />
+                  <span className="text-xs text-muted-foreground">Current image uploaded</span>
+                </div>
+              )}
+
+              <input
+                id="bank-file"
+                type="file"
+                accept="image/png,image/jpeg,image/jpg,image/webp"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    setFormBankFile(e.target.files[0])
+                  }
+                }}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                required={quizBankFormMode === "create" && !editingQuizBank?.image_url}
+              />
+              {formBankFile && (
+                <p className="text-[11px] text-emerald-500 font-medium">Selected: {formBankFile.name}</p>
+              )}
+              {bankFileUploadProgress && (
+                <p className="text-[11px] text-primary animate-pulse">{bankFileUploadProgress}</p>
+              )}
+            </div>
+
+            {/* Status Select */}
+            <div className="flex flex-col gap-1.5 pt-2 border-t">
+              <label htmlFor="bank-status" className="text-xs font-medium text-foreground">Status</label>
+              <select
+                id="bank-status"
+                value={formBankStatus}
+                onChange={(e) => setFormBankStatus(e.target.value as "published" | "draft" | "archived")}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="published">Published (Available for Steeplechase Quizzes)</option>
+                <option value="draft">Draft (Under Review)</option>
+                <option value="archived">Archived (Hidden)</option>
+              </select>
+            </div>
+
+            {/* Save Buttons */}
+            <div className="flex gap-3 pt-4 border-t">
+              <Button type="submit" className="flex-1" disabled={quizBankFormLoading}>
+                {quizBankFormLoading ? "Saving entry..." : "Save Image Specimen"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setQuizBankFormOpen(false)
+                  setEditingQuizBank(null)
+                }}
+                disabled={quizBankFormLoading}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </SheetContent>
+      </Sheet>
+
+      {/* --- QUIZ IMAGE BANK DELETE CONFIRMATION DIALOG --- */}
+      {quizBankDeleteConfirmOpen && quizBankToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <Card className="w-full max-w-md border-destructive/30 shadow-2xl animate-in zoom-in-95 duration-200">
+            <CardHeader>
+              <CardTitle className="text-destructive flex items-center gap-1.5">
+                <AlertTriangle className="size-5" /> Confirm Specimen Image Deletion
+              </CardTitle>
+              <CardDescription>
+                Are you sure you want to delete specimen: <strong className="text-foreground">&quot;{quizBankToDelete.title}&quot;</strong>?
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-muted-foreground leading-normal">
+                This will remove the image from the quiz bank directory and delete its file from storage.
+              </p>
+
+              {quizBankDeleteError && (
+                <div className="rounded-lg border border-destructive/30 bg-destructive/15 p-3 text-sm text-destructive font-medium">
+                  {quizBankDeleteError}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 border-t pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setQuizBankDeleteConfirmOpen(false)
+                    setQuizBankToDelete(null)
+                  }}
+                  disabled={quizBankDeleteLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteQuizBankItem}
+                  disabled={quizBankDeleteLoading}
+                >
+                  {quizBankDeleteLoading ? "Deleting..." : "Confirm Deletion"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* --- MATERIAL UPLOAD / EDIT DRAWER (SHEET) --- */}
       <Sheet open={materialFormOpen} onOpenChange={setMaterialFormOpen}>
