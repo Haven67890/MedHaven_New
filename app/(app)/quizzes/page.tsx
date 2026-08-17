@@ -1500,7 +1500,7 @@ export default function AIQuizzesPage() {
                   Premium Medical Quiz Options:
                 </div>
                 <p>
-                  1. <strong>Clinical Alignment</strong>: Quizzes are generated using llama-3.1-8b-instant models tuned specifically for national medical board structures.
+                  1. <strong>Clinical Alignment</strong>: Quizzes are generated using openai/gpt-oss-20b models tuned specifically for national medical board structures.
                 </p>
                 <p>
                   2. <strong>Adaptive Format Constraints</strong>: Selection dynamically reformulates the LLM's prompt parameters to construct clinical vignettes, OSCE stations, or short-answer rubrics.
