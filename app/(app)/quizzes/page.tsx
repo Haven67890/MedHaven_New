@@ -47,12 +47,18 @@ interface SubQuestion {
   explanation: string
 }
 
+interface TFStatement {
+  statement: string
+  answer: boolean
+}
+
 interface QuizQuestion {
   id: string
   question: string
   options: string[]
   correct_answer: string
   explanation: string
+  tf_options?: TFStatement[] | null
   image_bank_id?: string | null
   sub_questions?: SubQuestion[] | null
   quiz_image_bank?: {
@@ -162,6 +168,9 @@ export default function AIQuizzesPage() {
   const [typedShortAnswer, setTypedShortAnswer] = useState("")
   const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false)
   const [answersState, setAnswersState] = useState<Record<number, { selected: string; correct: boolean }>>({})
+
+  // Real MCQ T/F answers state: maps key `${questionIndex}_${statementIndex}` -> boolean
+  const [tfAnswers, setTfAnswers] = useState<Record<string, boolean>>({})
 
   // Steeplechase sub-questions state: maps key `${stationIndex}_${subIndex}`
   const [typedSubAnswers, setTypedSubAnswers] = useState<Record<string, string>>({})
@@ -274,6 +283,7 @@ export default function AIQuizzesPage() {
             setTypedShortAnswer("")
             setIsAnswerSubmitted(false)
             setAnswersState({})
+            setTfAnswers({})
             setTypedSubAnswers({})
             setSubmittedSubAnswers({})
             setGradedSubAnswers({})
@@ -385,6 +395,7 @@ export default function AIQuizzesPage() {
       setTypedShortAnswer("")
       setIsAnswerSubmitted(false)
       setAnswersState({})
+      setTfAnswers({})
       setTypedSubAnswers({})
       setSubmittedSubAnswers({})
       setGradedSubAnswers({})
@@ -408,6 +419,9 @@ export default function AIQuizzesPage() {
     if (selectedFormat === "Short Answer") {
       if (!typedShortAnswer.trim() || isAnswerSubmitted) return
       setSelectedAnswer(typedShortAnswer)
+      setIsAnswerSubmitted(true)
+    } else if (selectedFormat === "MCQ" && currentQ?.tf_options) {
+      if (isAnswerSubmitted) return
       setIsAnswerSubmitted(true)
     } else {
       if (!selectedAnswer || isAnswerSubmitted) return
@@ -464,6 +478,26 @@ export default function AIQuizzesPage() {
       })
       score = correctSubCount
       totalQs = totalSubCount > 0 ? totalSubCount : questions.length
+    } else if (selectedFormat === "MCQ" && questions.some((q) => Boolean(q.tf_options))) {
+      let rawScore = 0
+      let totalStatements = 0
+      questions.forEach((q, qIdx) => {
+        if (Array.isArray(q.tf_options)) {
+          q.tf_options.forEach((tf, tfIdx) => {
+            totalStatements++
+            const userChoice = tfAnswers[`${qIdx}_${tfIdx}`]
+            if (userChoice !== undefined) {
+              if (userChoice === tf.answer) {
+                rawScore += 1
+              } else {
+                rawScore -= 1
+              }
+            }
+          })
+        }
+      })
+      score = rawScore
+      totalQs = totalStatements > 0 ? totalStatements : questions.length
     } else {
       score = Object.values(answersState).filter((a) => a.correct).length
     }
@@ -516,6 +550,7 @@ export default function AIQuizzesPage() {
     setTypedShortAnswer("")
     setIsAnswerSubmitted(false)
     setAnswersState({})
+    setTfAnswers({})
     setTypedSubAnswers({})
     setSubmittedSubAnswers({})
     setGradedSubAnswers({})
@@ -605,20 +640,20 @@ export default function AIQuizzesPage() {
                 {/* ----------------------------------------------------------------- */}
                 {isSteeplechaseStation ? (
                   <div className="flex flex-col gap-6">
-                    {/* Station Specimen Image Card */}
-                    <div className="border rounded-xl p-4 bg-muted/20 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                          <ImageIcon className="size-4 text-primary" /> Station Specimen Landmark
-                        </span>
-                        {currentQ.quiz_image_bank?.category && (
-                          <Badge variant="outline" className="text-[11px] capitalize">
-                            {currentQ.quiz_image_bank.category.replace("_", " ")}
-                          </Badge>
-                        )}
-                      </div>
+                    {/* Station Specimen Image Card (if image attached) */}
+                    {currentQ.quiz_image_bank?.image_url && (
+                      <div className="border rounded-xl p-4 bg-muted/20 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                            <ImageIcon className="size-4 text-primary" /> Station Specimen Landmark
+                          </span>
+                          {currentQ.quiz_image_bank?.category && (
+                            <Badge variant="outline" className="text-[11px] capitalize">
+                              {currentQ.quiz_image_bank.category.replace("_", " ")}
+                            </Badge>
+                          )}
+                        </div>
 
-                      {currentQ.quiz_image_bank?.image_url ? (
                         <div className="relative aspect-video w-full rounded-lg overflow-hidden border bg-black/5 shadow-inner">
                           <img
                             src={currentQ.quiz_image_bank.image_url}
@@ -626,12 +661,8 @@ export default function AIQuizzesPage() {
                             className="object-contain w-full h-full"
                           />
                         </div>
-                      ) : (
-                        <div className="flex items-center justify-center p-8 rounded-lg bg-muted text-muted-foreground text-xs font-medium">
-                          <ImageIcon className="size-8 opacity-40 mr-2" /> Specimen Image
-                        </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
 
                     {/* Sub-Questions Self-Grading Workspace */}
                     <div className="space-y-6">
@@ -725,6 +756,121 @@ export default function AIQuizzesPage() {
                         )
                       })}
                     </div>
+                  </div>
+                ) : selectedFormat === "MCQ" && currentQ?.tf_options ? (
+                  // REAL MCQ MODE (True/False per statement with negative marking)
+                  <div className="flex flex-col gap-5">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                      Mark EACH statement True or False (+1 correct, −1 incorrect, 0 unanswered):
+                    </p>
+
+                    <div className="flex flex-col gap-3">
+                      {currentQ.tf_options.map((tf, tfIdx) => {
+                        const statementKey = `${currentQuestionIndex}_${tfIdx}`
+                        const userChoice = tfAnswers[statementKey]
+                        const isCorrect = userChoice === tf.answer
+                        const isAnswered = userChoice !== undefined
+
+                        return (
+                          <div
+                            key={tfIdx}
+                            className={`p-4 rounded-xl border transition-all ${
+                              isAnswerSubmitted
+                                ? !isAnswered
+                                  ? "border-border bg-card/40 opacity-70"
+                                  : isCorrect
+                                    ? "border-emerald-500/50 bg-emerald-500/10"
+                                    : "border-destructive/50 bg-destructive/10"
+                                : userChoice !== undefined
+                                  ? "border-primary/40 bg-primary/5 shadow-xs"
+                                  : "border-border bg-card hover:border-primary/20"
+                            }`}
+                          >
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                              <div className="flex items-start gap-3 flex-1">
+                                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground mt-0.5">
+                                  {String.fromCharCode(65 + tfIdx)}
+                                </span>
+                                <span className="text-sm font-medium text-foreground leading-relaxed">
+                                  {tf.statement}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                                <button
+                                  type="button"
+                                  disabled={isAnswerSubmitted}
+                                  onClick={() =>
+                                    setTfAnswers((prev) => ({
+                                      ...prev,
+                                      [statementKey]: true,
+                                    }))
+                                  }
+                                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
+                                    userChoice === true
+                                      ? "bg-emerald-500 text-white border-emerald-500 shadow-xs"
+                                      : "bg-background text-muted-foreground border-input hover:border-emerald-500/50 hover:text-emerald-500"
+                                  }`}
+                                >
+                                  True
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isAnswerSubmitted}
+                                  onClick={() =>
+                                    setTfAnswers((prev) => ({
+                                      ...prev,
+                                      [statementKey]: false,
+                                    }))
+                                  }
+                                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
+                                    userChoice === false
+                                      ? "bg-rose-500 text-white border-rose-500 shadow-xs"
+                                      : "bg-background text-muted-foreground border-input hover:border-rose-500/50 hover:text-rose-500"
+                                  }`}
+                                >
+                                  False
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Post-submission statement feedback */}
+                            {isAnswerSubmitted && (
+                              <div className="mt-3 border-t border-border/50 pt-2.5 flex items-center justify-between text-xs">
+                                <span className="font-semibold text-muted-foreground">
+                                  Correct Answer:{" "}
+                                  <strong className={tf.answer ? "text-emerald-500" : "text-rose-500"}>
+                                    {tf.answer ? "True" : "False"}
+                                  </strong>
+                                </span>
+                                <span className="font-mono font-bold">
+                                  {!isAnswered ? (
+                                    <span className="text-muted-foreground">0 pts (Unanswered)</span>
+                                  ) : isCorrect ? (
+                                    <span className="text-emerald-500">+1 pt</span>
+                                  ) : (
+                                    <span className="text-destructive">−1 pt</span>
+                                  )}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {/* Explanations block */}
+                    {isAnswerSubmitted && (
+                      <div className="mt-2 rounded-xl border border-primary/10 bg-primary/5 p-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div className="flex items-center gap-2 mb-2">
+                          <HelpCircle className="size-5 text-primary shrink-0" />
+                          <p className="font-semibold text-sm text-primary">Explanation & Rationales</p>
+                        </div>
+                        <p className="text-sm text-foreground leading-relaxed">
+                          {currentQ.explanation || "No explanation provided for this question."}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ) : selectedFormat === "Short Answer" ? (
                   // SHORT ANSWER MODE
@@ -925,7 +1071,7 @@ export default function AIQuizzesPage() {
                     !isAnswerSubmitted ? (
                       <Button
                         onClick={handleSubmitAnswer}
-                        disabled={!selectedAnswer}
+                        disabled={selectedFormat !== "MCQ" && !selectedAnswer}
                         className="px-6 py-2"
                       >
                         Check Answer
@@ -963,7 +1109,106 @@ export default function AIQuizzesPage() {
               </CardHeader>
 
               <CardContent className="pt-4 flex flex-col gap-6">
-                {(selectedFormat as string) === "Steeplechase" || isSteeplechaseStation ? (
+                {selectedFormat === "MCQ" && questions.some((q) => Boolean(q.tf_options)) ? (
+                  (() => {
+                    let totalStatements = 0
+                    let totalScore = 0
+                    let correctCount = 0
+                    let incorrectCount = 0
+                    let unansweredCount = 0
+
+                    questions.forEach((q, qIdx) => {
+                      if (Array.isArray(q.tf_options)) {
+                        q.tf_options.forEach((tf, tfIdx) => {
+                          totalStatements++
+                          const userChoice = tfAnswers[`${qIdx}_${tfIdx}`]
+                          if (userChoice === undefined) {
+                            unansweredCount++
+                          } else if (userChoice === tf.answer) {
+                            correctCount++
+                            totalScore += 1
+                          } else {
+                            incorrectCount++
+                            totalScore -= 1
+                          }
+                        })
+                      }
+                    })
+
+                    return (
+                      <>
+                        <div className="grid gap-4 sm:grid-cols-3 text-center">
+                          <div className="rounded-xl border bg-muted/40 p-4">
+                            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-1">Total Net Score</p>
+                            <p className="text-3xl font-extrabold text-foreground">
+                              {totalScore} / {totalStatements}
+                            </p>
+                          </div>
+                          <div className="rounded-xl border bg-muted/40 p-4">
+                            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-1">Breakdown (+1 / −1 / 0)</p>
+                            <p className="text-sm font-bold text-foreground mt-2">
+                              <span className="text-emerald-500">+{correctCount} Correct</span> ·{" "}
+                              <span className="text-rose-500">−{incorrectCount} Wrong</span> ·{" "}
+                              <span className="text-muted-foreground">{unansweredCount} Left</span>
+                            </p>
+                          </div>
+                          <div className="rounded-xl border bg-muted/40 p-4">
+                            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-1">Statements Correct</p>
+                            <p className="text-3xl font-extrabold text-foreground">
+                              {totalStatements > 0 ? Math.round((correctCount / totalStatements) * 100) : 0}%
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col gap-3">
+                          <p className="font-semibold text-sm text-foreground">Question-by-Question breakdown:</p>
+                          <div className="flex flex-col gap-3 max-h-72 overflow-y-auto pr-1">
+                            {questions.map((q, qIdx) => {
+                              let qScore = 0
+                              return (
+                                <div key={qIdx} className="rounded-xl border p-4 bg-card space-y-2 text-sm">
+                                  <div className="font-bold text-foreground">{qIdx + 1}. {q.question}</div>
+                                  {Array.isArray(q.tf_options) && (
+                                    <div className="space-y-1.5 pl-2 border-l-2 border-primary/20 mt-2">
+                                      {q.tf_options.map((tf, tfIdx) => {
+                                        const choice = tfAnswers[`${qIdx}_${tfIdx}`]
+                                        const isCorr = choice === tf.answer
+                                        if (choice !== undefined) {
+                                          if (isCorr) qScore += 1
+                                          else qScore -= 1
+                                        }
+
+                                        return (
+                                          <div key={tfIdx} className="flex items-center justify-between text-xs">
+                                            <span className="text-muted-foreground truncate pr-2">
+                                              {String.fromCharCode(65 + tfIdx)}. {tf.statement}
+                                            </span>
+                                            <span className="shrink-0 font-mono font-bold">
+                                              {choice === undefined ? (
+                                                <span className="text-muted-foreground">Unanswered (0)</span>
+                                              ) : isCorr ? (
+                                                <span className="text-emerald-500">+{1} True Match</span>
+                                              ) : (
+                                                <span className="text-destructive">−1 Wrong ({choice ? "T" : "F"})</span>
+                                              )}
+                                            </span>
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  )}
+                                  <div className="text-right text-xs font-mono font-bold text-muted-foreground border-t pt-1.5">
+                                    Stem Score: {qScore} pts
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      </>
+                    )
+                  })()
+                ) : (selectedFormat as string) === "Steeplechase" || isSteeplechaseStation ? (
                   (() => {
                     let totalSub = 0
                     let correctSub = 0

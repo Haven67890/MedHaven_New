@@ -15,7 +15,7 @@ async function syncSpecimenFlashcard(
   userId: string
 ) {
   try {
-    if (imageItem.status !== "published") {
+    if (imageItem.status !== "active") {
       await serviceSupabase.from("flashcards").delete().eq("image_bank_id", imageItem.id)
       return
     }
@@ -280,7 +280,7 @@ export async function POST(request: NextRequest) {
       differential_diagnosis: differential_diagnosis?.trim() || null,
       source: source?.trim() || "own_photo",
       image_url: image_url?.trim() || null,
-      status: status || "published",
+      status: status || "active",
     }
 
     const { data: imageItem, error: insertError } = await serviceSupabase
