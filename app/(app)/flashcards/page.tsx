@@ -46,13 +46,21 @@ interface Flashcard {
   id: string
   front: string
   back: string
+  image_bank_id?: string | null
+  quiz_image_bank?: {
+    id: string
+    image_url: string | null
+    question: string | null
+    correct_findings: string
+    differential_diagnosis?: string | null
+  } | null
 }
 
 interface FlashcardDeck {
   id: string
   course_id: string | null
   topic: string
-  source: "ai_generated" | "user_created"
+  source: "ai_generated" | "user_created" | "specimen_bank"
   created_by: string | null
   created_at: string
   courses?: {
@@ -378,16 +386,101 @@ export default function FlashcardsPage() {
             flashcards (
               id,
               front,
-              back
+              back,
+              image_bank_id,
+              quiz_image_bank (
+                id,
+                image_url,
+                question,
+                correct_findings,
+                differential_diagnosis
+              )
             )
           `)
-          .or(`source.eq.ai_generated,created_by.eq.${session.user.id}`)
+          .or(`source.eq.ai_generated,source.eq.specimen_bank,created_by.eq.${session.user.id}`)
           .order("created_at", { ascending: false })
 
         if (decksError) throw decksError
 
-        if (active && decksData) {
-          const typedDecks = decksData as unknown as FlashcardDeck[]
+        if (active) {
+          let typedDecks = (decksData || []) as unknown as FlashcardDeck[]
+
+          // Query active specimen image bank items directly to ensure specimen bank content is available
+          const { data: activeSpecimens } = await supabase
+            .from("quiz_image_bank")
+            .select("id, course_id, question, correct_findings, differential_diagnosis, image_url, courses(id, code, title)")
+            .eq("status", "active")
+
+          if (activeSpecimens && activeSpecimens.length > 0) {
+            const courseSpecimensMap: Record<string, typeof activeSpecimens> = {}
+            activeSpecimens.forEach((sp: any) => {
+              if (!sp.course_id) return
+              if (!courseSpecimensMap[sp.course_id]) {
+                courseSpecimensMap[sp.course_id] = []
+              }
+              courseSpecimensMap[sp.course_id].push(sp)
+            })
+
+            for (const courseId of Object.keys(courseSpecimensMap)) {
+              const specimens = courseSpecimensMap[courseId]
+              const firstCourse = specimens[0]?.courses as any
+              const courseCode = firstCourse?.code || "Course"
+
+              let existingDeck = typedDecks.find((d) => d.course_id === courseId && d.source === "specimen_bank")
+
+              const specimenCards: Flashcard[] = specimens.map((sp: any) => {
+                const qText = sp.question?.trim() || "Identify the main structure or diagnostic feature highlighted in this specimen."
+                const ddx = sp.differential_diagnosis?.trim() ? `\n\nDifferential Diagnosis: ${sp.differential_diagnosis.trim()}` : ""
+                return {
+                  id: sp.id,
+                  front: qText,
+                  back: `${sp.correct_findings}${ddx}`,
+                  image_bank_id: sp.id,
+                  quiz_image_bank: {
+                    id: sp.id,
+                    image_url: sp.image_url,
+                    question: sp.question,
+                    correct_findings: sp.correct_findings,
+                    differential_diagnosis: sp.differential_diagnosis
+                  }
+                }
+              })
+
+              if (!existingDeck) {
+                const virtualDeck: FlashcardDeck = {
+                  id: `specimen-deck-${courseId}`,
+                  course_id: courseId,
+                  topic: `${courseCode} Specimen Bank`,
+                  source: "specimen_bank",
+                  created_by: null,
+                  created_at: new Date().toISOString(),
+                  courses: firstCourse ? { id: firstCourse.id, code: firstCourse.code, title: firstCourse.title } : null,
+                  flashcards: specimenCards
+                }
+                typedDecks = [virtualDeck, ...typedDecks]
+              } else if (!existingDeck.flashcards || existingDeck.flashcards.length === 0) {
+                existingDeck.flashcards = specimenCards
+              } else {
+                existingDeck.flashcards = existingDeck.flashcards.map((card) => {
+                  const matchingSp = specimens.find((sp: any) => sp.id === card.image_bank_id)
+                  if (matchingSp) {
+                    return {
+                      ...card,
+                      quiz_image_bank: {
+                        id: matchingSp.id,
+                        image_url: matchingSp.image_url,
+                        question: matchingSp.question,
+                        correct_findings: matchingSp.correct_findings,
+                        differential_diagnosis: matchingSp.differential_diagnosis
+                      }
+                    }
+                  }
+                  return card
+                })
+              }
+            }
+          }
+
           setDecks(typedDecks)
           if (typedDecks.length > 0) {
             setSelectedDeckId(typedDecks[0].id)
@@ -654,7 +747,7 @@ export default function FlashcardsPage() {
             {/* Central Card component */}
             <div
               onClick={() => !isCardFlipped && setIsCardFlipped(true)}
-              className={`min-h-[220px] flex flex-col items-center justify-center p-8 border rounded-2xl cursor-pointer text-center select-none transition-all shadow-sm ${
+              className={`min-h-[260px] flex flex-col items-center justify-center p-6 border rounded-2xl cursor-pointer text-center select-none transition-all shadow-sm ${
                 isCardFlipped
                   ? "border-emerald-500/20 bg-emerald-500/[0.01] hover:bg-emerald-500/[0.02]"
                   : "border-primary/20 hover:border-primary/40 bg-primary/[0.01] hover:bg-primary/[0.02]"
@@ -662,18 +755,29 @@ export default function FlashcardsPage() {
             >
               {isCardFlipped ? (
                 <div className="flex flex-col gap-4 w-full animate-in fade-in duration-300">
-                  <span className="text-xs font-bold text-primary uppercase tracking-wider">Explanation / Key Answer</span>
-                  <p className="text-sm sm:text-base md:text-lg text-foreground font-semibold leading-relaxed">
+                  <span className="text-xs font-bold text-primary uppercase tracking-wider">Answer Key & Findings</span>
+                  <p className="text-sm sm:text-base md:text-lg text-foreground font-semibold leading-relaxed whitespace-pre-wrap">
                     {currentCard.back}
                   </p>
                 </div>
               ) : (
-                <div className="flex flex-col gap-3 w-full">
+                <div className="flex flex-col gap-4 w-full items-center">
                   <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Question / Front</span>
+
+                  {(currentCard.quiz_image_bank?.image_url || (currentCard as any).image_url) && (
+                    <div className="relative aspect-video w-full max-h-64 sm:max-h-72 rounded-xl overflow-hidden border border-border/80 bg-black/40 shadow-inner flex items-center justify-center p-1">
+                      <img
+                        src={currentCard.quiz_image_bank?.image_url || (currentCard as any).image_url}
+                        alt="Specimen Landmark"
+                        className="object-contain w-full h-full max-h-full rounded-lg"
+                      />
+                    </div>
+                  )}
+
                   <p className="text-base sm:text-lg md:text-xl text-foreground font-bold leading-snug">
                     {currentCard.front}
                   </p>
-                  <p className="text-xs text-muted-foreground mt-6 animate-pulse">
+                  <p className="text-xs text-muted-foreground mt-4 animate-pulse">
                     Click anywhere to reveal the back
                   </p>
                 </div>
@@ -983,11 +1087,15 @@ export default function FlashcardsPage() {
                       {courseText} · {cardsCount} cards {deckDue > 0 ? `(${deckDue} due)` : ""}
                     </CardDescription>
                     <CardAction>
-                      {deck.source === "ai_generated" && (
+                      {deck.source === "ai_generated" ? (
                         <Badge variant="outline" className="text-[10px] py-0 px-2 font-mono bg-primary/5 text-primary">
                           AI
                         </Badge>
-                      )}
+                      ) : deck.source === "specimen_bank" ? (
+                        <Badge variant="outline" className="text-[10px] py-0 px-2 font-mono bg-purple-500/10 text-purple-400 border-purple-500/20">
+                          Specimen Bank
+                        </Badge>
+                      ) : null}
                     </CardAction>
                   </CardHeader>
                   <CardContent className="flex flex-col gap-2">
@@ -1033,18 +1141,30 @@ export default function FlashcardsPage() {
             </div>
           ) : (
             <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {displayCards.map((card, index) => (
-                <Card key={card.id || index} className="gap-2 border-border/60 hover:border-primary/25 transition-all">
-                  <CardHeader className="pb-2">
-                    <Badge variant="accent" className="w-fit text-[10px]">Card {index + 1} Front</Badge>
-                    <CardTitle className="pt-1.5 text-sm sm:text-base font-semibold leading-snug">{card.front}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="flex flex-col gap-2 pt-2 border-t border-border/40 bg-muted/20 rounded-b-xl">
-                    <Badge variant="muted" className="w-fit text-[10px]">Back Explanation</Badge>
-                    <p className="text-xs sm:text-sm leading-relaxed text-muted-foreground font-medium">{card.back}</p>
-                  </CardContent>
-                </Card>
-              ))}
+              {displayCards.map((card, index) => {
+                const imageUrl = card.quiz_image_bank?.image_url || (card as any).image_url
+                return (
+                  <Card key={card.id || index} className="gap-2 border-border/60 hover:border-primary/25 transition-all overflow-hidden">
+                    {imageUrl && (
+                      <div className="aspect-video w-full max-h-44 bg-black/40 border-b overflow-hidden flex items-center justify-center p-1">
+                        <img
+                          src={imageUrl}
+                          alt="Specimen preview"
+                          className="object-contain w-full h-full max-h-full rounded"
+                        />
+                      </div>
+                    )}
+                    <CardHeader className="pb-2">
+                      <Badge variant="accent" className="w-fit text-[10px]">Card {index + 1} Front</Badge>
+                      <CardTitle className="pt-1.5 text-sm sm:text-base font-semibold leading-snug">{card.front}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex flex-col gap-2 pt-2 border-t border-border/40 bg-muted/20 rounded-b-xl">
+                      <Badge variant="muted" className="w-fit text-[10px]">Back Explanation</Badge>
+                      <p className="text-xs sm:text-sm leading-relaxed text-muted-foreground font-medium whitespace-pre-wrap">{card.back}</p>
+                    </CardContent>
+                  </Card>
+                )
+              })}
             </div>
           )
         ) : (

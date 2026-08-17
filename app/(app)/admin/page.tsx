@@ -260,10 +260,11 @@ export default function AdminDashboard() {
   const [formBankTitle, setFormBankTitle] = useState("")
   const [formBankCourseId, setFormBankCourseId] = useState("")
   const [formBankCategory, setFormBankCategory] = useState("gross_specimen")
+  const [formBankQuestion, setFormBankQuestion] = useState("")
   const [formBankCorrectFindings, setFormBankCorrectFindings] = useState("")
   const [formBankDifferentialDiagnosis, setFormBankDifferentialDiagnosis] = useState("")
   const [formBankSource, setFormBankSource] = useState("own_photo")
-  const [formBankStatus, setFormBankStatus] = useState<"published" | "draft" | "archived">("published")
+  const [formBankStatus, setFormBankStatus] = useState<"active" | "archived">("active")
   const [formBankFile, setFormBankFile] = useState<File | null>(null)
   const [bankFileUploadProgress, setBankFileUploadProgress] = useState<string | null>(null)
 
@@ -1083,10 +1084,11 @@ export default function AdminDashboard() {
     setFormBankTitle("")
     setFormBankCourseId(courses[0]?.id || "")
     setFormBankCategory("gross_specimen")
+    setFormBankQuestion("Identify the main structure or diagnostic feature highlighted in this specimen.")
     setFormBankCorrectFindings("")
     setFormBankDifferentialDiagnosis("")
     setFormBankSource("own_photo")
-    setFormBankStatus("published")
+    setFormBankStatus("active")
     setFormBankFile(null)
     setQuizBankFormError("")
     setQuizBankFormSuccess("")
@@ -1100,10 +1102,11 @@ export default function AdminDashboard() {
     setFormBankTitle(item.title || "")
     setFormBankCourseId(item.course_id || "")
     setFormBankCategory(item.category || "gross_specimen")
+    setFormBankQuestion(item.question || "")
     setFormBankCorrectFindings(item.correct_findings || "")
     setFormBankDifferentialDiagnosis(item.differential_diagnosis || "")
     setFormBankSource(item.source || "own_photo")
-    setFormBankStatus(item.status || "published")
+    setFormBankStatus(item.status === "archived" ? "archived" : "active")
     setFormBankFile(null)
     setQuizBankFormError("")
     setQuizBankFormSuccess("")
@@ -1148,6 +1151,10 @@ export default function AdminDashboard() {
       setQuizBankFormError("A course mapping is required")
       return
     }
+    if (!formBankQuestion.trim()) {
+      setQuizBankFormError("Question text (flashcard front) is required")
+      return
+    }
     if (!formBankCorrectFindings.trim()) {
       setQuizBankFormError("Correct findings (answer key) are strictly required")
       return
@@ -1175,11 +1182,11 @@ export default function AdminDashboard() {
         title: formBankTitle.trim(),
         course_id: formBankCourseId,
         category: formBankCategory,
+        question: formBankQuestion.trim(),
         correct_findings: formBankCorrectFindings.trim(),
         differential_diagnosis: formBankDifferentialDiagnosis.trim() || null,
         source: formBankSource.trim() || "own_photo",
         status: formBankStatus,
-        storage_path: finalStoragePath,
         image_url: finalImageUrl,
       }
 
@@ -1224,7 +1231,7 @@ export default function AdminDashboard() {
     }
   }
 
-  const handleQuizBankQuickStatusChange = async (item: any, newStatus: "published" | "draft" | "archived") => {
+  const handleQuizBankQuickStatusChange = async (item: any, newStatus: "active" | "archived") => {
     try {
       const res = await fetch("/api/admin/quiz-bank", {
         method: "PATCH",
@@ -2991,8 +2998,7 @@ export default function AdminDashboard() {
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <option value="all">All Statuses</option>
-                  <option value="published">Published</option>
-                  <option value="draft">Draft</option>
+                  <option value="active">Active</option>
                   <option value="archived">Archived</option>
                 </select>
               </div>
@@ -3079,49 +3085,36 @@ export default function AdminDashboard() {
                             <td className="p-4 capitalize">
                               <Badge
                                 variant={
-                                  item.status === "published"
+                                  item.status === "active"
                                     ? "default"
-                                    : item.status === "archived"
-                                      ? "destructive"
-                                      : "outline"
+                                    : "destructive"
                                 }
                               >
-                                {item.status || "published"}
+                                {item.status || "active"}
                               </Badge>
                             </td>
                             <td className="p-4 text-right">
                               <div className="flex items-center justify-end gap-1">
-                                {item.status !== "published" && (
+                                {item.status !== "active" && (
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    title="Publish specimen"
-                                    onClick={() => handleQuizBankQuickStatusChange(item, "published")}
+                                    title="Mark active"
+                                    onClick={() => handleQuizBankQuickStatusChange(item, "active")}
                                     className="h-8 px-2 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-500/10"
                                   >
                                     <CheckCircle className="size-4" />
                                   </Button>
                                 )}
-                                {item.status === "published" && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    title="Move to draft"
-                                    onClick={() => handleQuizBankQuickStatusChange(item, "draft")}
-                                    className="h-8 px-2 text-amber-500 hover:text-amber-600 hover:bg-amber-500/10"
-                                  >
-                                    <Ban className="size-4" />
-                                  </Button>
-                                )}
-                                {item.status !== "archived" && (
+                                {item.status === "active" && (
                                   <Button
                                     variant="ghost"
                                     size="sm"
                                     title="Archive specimen"
                                     onClick={() => handleQuizBankQuickStatusChange(item, "archived")}
-                                    className="h-8 px-2 text-slate-500 hover:text-slate-600 hover:bg-slate-500/10"
+                                    className="h-8 px-2 text-amber-500 hover:text-amber-600 hover:bg-amber-500/10"
                                   >
-                                    <Archive className="size-4" />
+                                    <Ban className="size-4" />
                                   </Button>
                                 )}
                                 <Button
@@ -3515,6 +3508,21 @@ export default function AdminDashboard() {
               </select>
             </div>
 
+            {/* Required Question Text (Flashcard Front) */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="bank-question" className="text-xs font-medium text-foreground flex items-center justify-between">
+                <span>Question Text (Flashcard Front) <span className="text-destructive">*</span></span>
+                <span className="text-[10px] text-muted-foreground">Admin-entered</span>
+              </label>
+              <Input
+                id="bank-question"
+                placeholder="e.g., Identify this structure or What is the primary diagnosis?"
+                value={formBankQuestion}
+                onChange={(e) => setFormBankQuestion(e.target.value)}
+                required
+              />
+            </div>
+
             {/* Required Correct Findings Textarea */}
             <div className="flex flex-col gap-1.5">
               <label htmlFor="bank-findings" className="text-xs font-medium text-foreground flex items-center justify-between">
@@ -3595,11 +3603,10 @@ export default function AdminDashboard() {
               <select
                 id="bank-status"
                 value={formBankStatus}
-                onChange={(e) => setFormBankStatus(e.target.value as "published" | "draft" | "archived")}
+                onChange={(e) => setFormBankStatus(e.target.value as "active" | "archived")}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <option value="published">Published (Available for Steeplechase Quizzes)</option>
-                <option value="draft">Draft (Under Review)</option>
+                <option value="active">Active (Visible in Flashcards)</option>
                 <option value="archived">Archived (Hidden)</option>
               </select>
             </div>
