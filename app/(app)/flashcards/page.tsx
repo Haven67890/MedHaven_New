@@ -409,7 +409,7 @@ export default function FlashcardsPage() {
           const { data: activeSpecimens } = await supabase
             .from("quiz_image_bank")
             .select("id, course_id, question, correct_findings, differential_diagnosis, image_url, courses(id, code, title)")
-            .eq("status", "published")
+            .eq("status", "active")
 
           if (activeSpecimens && activeSpecimens.length > 0) {
             const courseSpecimensMap: Record<string, typeof activeSpecimens> = {}

@@ -264,7 +264,7 @@ export default function AdminDashboard() {
   const [formBankCorrectFindings, setFormBankCorrectFindings] = useState("")
   const [formBankDifferentialDiagnosis, setFormBankDifferentialDiagnosis] = useState("")
   const [formBankSource, setFormBankSource] = useState("own_photo")
-  const [formBankStatus, setFormBankStatus] = useState<"published" | "draft" | "archived">("published")
+  const [formBankStatus, setFormBankStatus] = useState<"active" | "archived">("active")
   const [formBankFile, setFormBankFile] = useState<File | null>(null)
   const [bankFileUploadProgress, setBankFileUploadProgress] = useState<string | null>(null)
 
@@ -1088,7 +1088,7 @@ export default function AdminDashboard() {
     setFormBankCorrectFindings("")
     setFormBankDifferentialDiagnosis("")
     setFormBankSource("own_photo")
-    setFormBankStatus("published")
+    setFormBankStatus("active")
     setFormBankFile(null)
     setQuizBankFormError("")
     setQuizBankFormSuccess("")
@@ -1106,7 +1106,7 @@ export default function AdminDashboard() {
     setFormBankCorrectFindings(item.correct_findings || "")
     setFormBankDifferentialDiagnosis(item.differential_diagnosis || "")
     setFormBankSource(item.source || "own_photo")
-    setFormBankStatus(item.status || "published")
+    setFormBankStatus(item.status === "archived" ? "archived" : "active")
     setFormBankFile(null)
     setQuizBankFormError("")
     setQuizBankFormSuccess("")
@@ -1231,7 +1231,7 @@ export default function AdminDashboard() {
     }
   }
 
-  const handleQuizBankQuickStatusChange = async (item: any, newStatus: "published" | "draft" | "archived") => {
+  const handleQuizBankQuickStatusChange = async (item: any, newStatus: "active" | "archived") => {
     try {
       const res = await fetch("/api/admin/quiz-bank", {
         method: "PATCH",
@@ -2998,8 +2998,7 @@ export default function AdminDashboard() {
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <option value="all">All Statuses</option>
-                  <option value="published">Published</option>
-                  <option value="draft">Draft</option>
+                  <option value="active">Active</option>
                   <option value="archived">Archived</option>
                 </select>
               </div>
@@ -3086,41 +3085,28 @@ export default function AdminDashboard() {
                             <td className="p-4 capitalize">
                               <Badge
                                 variant={
-                                  item.status === "published"
+                                  item.status === "active"
                                     ? "default"
-                                    : item.status === "archived"
-                                      ? "destructive"
-                                      : "outline"
+                                    : "destructive"
                                 }
                               >
-                                {item.status || "published"}
+                                {item.status || "active"}
                               </Badge>
                             </td>
                             <td className="p-4 text-right">
                               <div className="flex items-center justify-end gap-1">
-                                {item.status !== "published" && (
+                                {item.status !== "active" && (
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    title="Publish specimen"
-                                    onClick={() => handleQuizBankQuickStatusChange(item, "published")}
+                                    title="Make active"
+                                    onClick={() => handleQuizBankQuickStatusChange(item, "active")}
                                     className="h-8 px-2 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-500/10"
                                   >
                                     <CheckCircle className="size-4" />
                                   </Button>
                                 )}
-                                {item.status === "published" && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    title="Move to draft"
-                                    onClick={() => handleQuizBankQuickStatusChange(item, "draft")}
-                                    className="h-8 px-2 text-amber-500 hover:text-amber-600 hover:bg-amber-500/10"
-                                  >
-                                    <Ban className="size-4" />
-                                  </Button>
-                                )}
-                                {item.status !== "archived" && (
+                                {item.status === "active" && (
                                   <Button
                                     variant="ghost"
                                     size="sm"
@@ -3617,11 +3603,10 @@ export default function AdminDashboard() {
               <select
                 id="bank-status"
                 value={formBankStatus}
-                onChange={(e) => setFormBankStatus(e.target.value as "published" | "draft" | "archived")}
+                onChange={(e) => setFormBankStatus(e.target.value as "active" | "archived")}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <option value="published">Published (Available for Steeplechase Quizzes)</option>
-                <option value="draft">Draft (Under Review)</option>
+                <option value="active">Active (Visible in Flashcards)</option>
                 <option value="archived">Archived (Hidden)</option>
               </select>
             </div>

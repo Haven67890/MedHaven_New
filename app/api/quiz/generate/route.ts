@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
           options,
           correct_answer,
           explanation,
+          tf_options,
           image_bank_id,
           sub_questions,
           quiz_image_bank (
@@ -70,6 +71,7 @@ export async function POST(request: NextRequest) {
         options: q.options || [],
         correct_answer: q.correct_answer,
         explanation: q.explanation,
+        tf_options: q.tf_options || null,
         image_bank_id: q.image_bank_id || null,
         sub_questions: q.sub_questions || null,
         quiz_image_bank: q.quiz_image_bank || null,
@@ -116,20 +118,22 @@ Each question object in the array must have exactly the following keys:
 - "correct_answer": string (the correct short answer or key terms/phrases)
 - "explanation": string (a brief explanation of why this answer is correct, key terms to include, and a clinical grading rubric)`
     } else if (chosenFormat === "OSCE") {
-      systemPrompt += `- "question": string (the OSCE clinical station scenario, task, or station prompt)
-- "options": array of exactly 4 strings (the choices representing potential diagnostic actions, findings, or management steps)
-- "correct_answer": string (the correct action or finding, which MUST match one of the strings inside the "options" array exactly)
-- "explanation": string (detailed clinical rationale and station performance rubric)`
+      systemPrompt += `- "question": string (the OSCE clinical station vignette/scenario, e.g. "A 45-year-old male presents with severe chest pain...")
+- "sub_questions": array of 2 to 4 objects, each with {"question": string (a structured follow-up question, e.g. "What is the most likely diagnosis?"), "expected_answer": string (the expected clinical model answer), "explanation": string (brief clinical rationale for this sub-question)}
+- "options": array of strings (MUST be empty: [])
+- "correct_answer": string (summary answer, e.g. "OSCE Station Evaluation Key")
+- "explanation": string (overall station clinical performance rubric)`
     } else if (chosenFormat === "SBA") {
       systemPrompt += `- "question": string (the single best answer clinical vignette question)
 - "options": array of exactly 4 strings (the choices)
 - "correct_answer": string (the correct answer, which MUST match one of the strings inside the "options" array exactly. Distractors should be highly plausible but clearly inferior to the single best answer)
 - "explanation": string (a brief explanation of why this is the single best answer and why other distractors are incorrect)`
     } else { // MCQ
-      systemPrompt += `- "question": string (the multiple choice question text)
-- "options": array of exactly 4 strings (the choices)
-- "correct_answer": string (the correct answer, which MUST match one of the strings inside the "options" array exactly)
-- "explanation": string (a brief explanation of why the correct answer is right and why other options are incorrect)`
+      systemPrompt += `- "question": string (the question stem for the multiple True/False question, e.g. "Regarding acute appendicitis:")
+- "tf_options": array of 4 to 5 objects, each with {"statement": string (a medical statement about the question stem), "answer": boolean (true if statement is correct/True, false if statement is incorrect/False)}
+- "options": array of strings (MUST be empty: [])
+- "correct_answer": string (summary answer, e.g. "A-True, B-False, C-True, D-True")
+- "explanation": string (brief explanation for each statement's True/False classification)`
     }
 
     const userPrompt = `Generate a high-yield medical quiz for:
@@ -206,12 +210,66 @@ Remember, return strictly a JSON object with a "questions" array of exactly ${co
           correct_answer: String(q.correct_answer),
           explanation: q.explanation ? String(q.explanation) : "No explanation provided.",
         })
-      } else {
-        if (!q.question || !Array.isArray(q.options) || q.options.length < 2 || !q.correct_answer) {
+      } else if (chosenFormat === "MCQ") {
+        if (!q.question || !Array.isArray(q.tf_options) || q.tf_options.length === 0) {
           continue
         }
 
-        let options = q.options.map((opt: any) => String(opt))
+        const validTfOptions = q.tf_options
+          .filter((opt: any) => opt && opt.statement)
+          .map((opt: any) => ({
+            statement: String(opt.statement).trim(),
+            answer: Boolean(opt.answer),
+          }))
+
+        if (validTfOptions.length === 0) continue
+
+        const summaryAnswer = validTfOptions
+          .map((opt: any, idx: number) => `${String.fromCharCode(65 + idx)}: ${opt.answer ? "True" : "False"}`)
+          .join(", ")
+
+        validatedQuestions.push({
+          question: String(q.question),
+          options: [],
+          correct_answer: q.correct_answer ? String(q.correct_answer) : summaryAnswer,
+          explanation: q.explanation ? String(q.explanation) : "No explanation provided.",
+          tf_options: validTfOptions,
+        })
+      } else if (chosenFormat === "OSCE") {
+        if (!q.question || !Array.isArray(q.sub_questions) || q.sub_questions.length === 0) {
+          continue
+        }
+
+        const validSubQs = q.sub_questions
+          .filter((sq: any) => sq && sq.question && (sq.expected_answer || sq.answer))
+          .map((sq: any) => ({
+            question: String(sq.question).trim(),
+            expected_answer: String(sq.expected_answer || sq.answer).trim(),
+            explanation: sq.explanation ? String(sq.explanation).trim() : "No explanation provided.",
+          }))
+
+        if (validSubQs.length === 0) continue
+
+        validatedQuestions.push({
+          question: String(q.question),
+          options: [],
+          correct_answer: q.correct_answer ? String(q.correct_answer) : "OSCE Station Evaluation Key",
+          explanation: q.explanation ? String(q.explanation) : "No overall rubric provided.",
+          sub_questions: validSubQs,
+        })
+      } else {
+        let rawOptions: string[] = []
+        if (Array.isArray(q.options)) {
+          rawOptions = q.options.map((opt: any) => String(opt).trim())
+        } else if (q.options && typeof q.options === "object") {
+          rawOptions = Object.values(q.options).map((opt: any) => String(opt).trim())
+        }
+
+        if (!q.question || rawOptions.length < 2 || q.correct_answer === undefined || q.correct_answer === null) {
+          continue
+        }
+
+        let options = [...rawOptions]
         if (options.length < 4) {
           while (options.length < 4) {
             options.push("None of the above")
@@ -220,9 +278,25 @@ Remember, return strictly a JSON object with a "questions" array of exactly ${co
           options = options.slice(0, 4)
         }
 
-        let correctAnswer = String(q.correct_answer)
+        let rawCorrect = String(q.correct_answer).trim()
+        let correctAnswer = rawCorrect
+
+        const cleanKey = rawCorrect.replace(/^(option|choice)\s*/i, "").replace(/[\):.]/g, "").trim().toUpperCase()
+        if (["A", "B", "C", "D", "E"].includes(cleanKey)) {
+          const idx = cleanKey.charCodeAt(0) - 65
+          if (rawOptions[idx]) {
+            correctAnswer = rawOptions[idx]
+          }
+        } else if (/^[0-4]$/.test(cleanKey)) {
+          const idx = parseInt(cleanKey, 10)
+          if (rawOptions[idx]) {
+            correctAnswer = rawOptions[idx]
+          }
+        }
+
         if (!options.includes(correctAnswer)) {
-          correctAnswer = options[0]
+          const matchedOpt = options.find((opt) => opt.toLowerCase() === rawCorrect.toLowerCase() || opt.toLowerCase().includes(rawCorrect.toLowerCase()))
+          correctAnswer = matchedOpt || options[0]
         }
 
         validatedQuestions.push({
@@ -259,12 +333,14 @@ Remember, return strictly a JSON object with a "questions" array of exactly ${co
       options: q.options,
       correct_answer: q.correct_answer,
       explanation: q.explanation,
+      tf_options: q.tf_options || null,
+      sub_questions: q.sub_questions || null,
     }))
 
     const { data: insertedQuestions, error: insertQuestionsError } = await supabase
       .from("quiz_questions")
       .insert(questionsToInsert)
-      .select("id, question_text, options, correct_answer, explanation")
+      .select("id, question_text, options, correct_answer, explanation, tf_options, sub_questions")
 
     if (insertQuestionsError || !insertedQuestions || insertedQuestions.length === 0) {
       console.error("Failed to insert quiz questions:", insertQuestionsError)
@@ -278,6 +354,8 @@ Remember, return strictly a JSON object with a "questions" array of exactly ${co
       options: q.options || [],
       correct_answer: q.correct_answer,
       explanation: q.explanation,
+      tf_options: q.tf_options || null,
+      sub_questions: q.sub_questions || null,
     })).slice(0, limitCount)
 
     return NextResponse.json({
