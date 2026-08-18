@@ -4,12 +4,10 @@ import { getSlideDeckProvider, getSlideEmbedApiUrl, getSlideDeckProviderName, ge
 
 import { useState, useEffect, useRef, useMemo } from "react"
 import useAuth from "@/hooks/useAuth"
-import { useDebounce } from "@/hooks/useDebounce"
 import {
   BookMarked,
   BookOpen,
   Library,
-  Search,
   Video,
   ExternalLink,
   FileText,
@@ -24,7 +22,6 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { PageHeader } from "@/components/dashboard/page-header"
 import { SectionHeading } from "@/components/dashboard/section-heading"
 import { StatCard } from "@/components/dashboard/stat-card"
@@ -33,6 +30,7 @@ import { MaterialCard } from "@/components/dashboard/material-card"
 import { logMaterialActivity } from "@/utils/activity"
 import { getCachedData, setCachedData } from "@/lib/cache"
 import { CollectionsSkeleton, MaterialGridSkeleton } from "@/components/feedback/loading-skeletons"
+import { SearchInput } from "@/components/ui/search-input"
 
 interface Faculty {
   id: string
@@ -322,7 +320,8 @@ export default function PastQuestionsPage() {
 
   // Filters State
   const [searchQuery, setSearchQuery] = useState("")
-  const debouncedSearchQuery = useDebounce(searchQuery, 300)
+  const [appliedSearchQuery, setAppliedSearchQuery] = useState("")
+  const [isSearchingResults, setIsSearchingResults] = useState(false)
   const [selectedCourseId, setSelectedCourseId] = useState<string>("all")
   const [selectedTier, setSelectedTier] = useState<string>("all")
   const [sortBy, setSortBy] = useState<string>("name")
@@ -496,9 +495,9 @@ export default function PastQuestionsPage() {
 
   // Filtering Logic
   const filteredMaterials = levelFilteredMaterials.filter((material) => {
-    // 1. Search Query Filter
-    if (debouncedSearchQuery.trim() !== "") {
-      const q = debouncedSearchQuery.toLowerCase()
+    // 1. Search Query Filter (using submitted query)
+    if (appliedSearchQuery.trim() !== "") {
+      const q = appliedSearchQuery.toLowerCase()
       const titleMatch = material.title?.toLowerCase().includes(q)
       const descMatch = material.description?.toLowerCase().includes(q)
       const courseCodeMatch = material.courses?.code?.toLowerCase().includes(q)
@@ -660,12 +659,13 @@ export default function PastQuestionsPage() {
           </select>
 
           {/* Reset Filters */}
-          {(selectedTier !== "all" || selectedCourseId !== "all" || searchQuery !== "" || sortBy !== "name") && (
+          {(selectedTier !== "all" || selectedCourseId !== "all" || searchQuery !== "" || appliedSearchQuery !== "" || sortBy !== "name") && (
             <Button
               variant="outline"
               size="sm"
               onClick={() => {
                 setSearchQuery("")
+                setAppliedSearchQuery("")
                 setSelectedCourseId("all")
                 setSelectedTier("all")
                 setSortBy("name")
@@ -684,19 +684,23 @@ export default function PastQuestionsPage() {
         <StatCard label="Your attempts" value="32" icon={Star} accent="accent" />
       </section>
 
-      {/* Search Bar */}
+      {/* Modern Submit-on-Action Search Bar */}
       <section>
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-          <Input
-            type="search"
-            placeholder="Search past questions by title, description, or subject…"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-            aria-label="Search past questions"
-          />
-        </div>
+        <SearchInput
+          value={searchQuery}
+          onChange={(val) => setSearchQuery(val)}
+          onSearch={(query) => {
+            setIsSearchingResults(true)
+            setAppliedSearchQuery(query)
+            setTimeout(() => setIsSearchingResults(false), 300)
+          }}
+          onClear={() => {
+            setSearchQuery("")
+            setAppliedSearchQuery("")
+          }}
+          placeholder="Search past questions by title, description, or subject…"
+          ariaLabel="Search past questions"
+        />
       </section>
 
       {/* Browse by subject section */}
@@ -771,14 +775,18 @@ export default function PastQuestionsPage() {
                 variant="ghost"
                 size="sm"
                 onClick={() => setSelectedCourseId("all")}
-                className="text-xs"
+                className="text-xs text-muted-foreground hover:text-foreground"
               >
                 Clear Course Filter
               </Button>
             )}
           </div>
 
-          {filteredMaterials.length > 0 ? (
+          {isSearchingResults ? (
+            <div className="mt-4">
+              <MaterialGridSkeleton count={3} />
+            </div>
+          ) : filteredMaterials.length > 0 ? (
             <div className="flex flex-col gap-8 mt-4">
               {courseGroups.map((group) => {
                 const imageMats = group.materials.filter(isImageMaterial)
@@ -842,13 +850,14 @@ export default function PastQuestionsPage() {
               <p className="text-xs text-muted-foreground max-w-sm mx-auto">
                 No past questions found matching this search or tier selection. Select another option or clear filters.
               </p>
-              {(selectedTier !== "all" || selectedCourseId !== "all" || searchQuery !== "") && (
+              {(selectedTier !== "all" || selectedCourseId !== "all" || searchQuery !== "" || appliedSearchQuery !== "") && (
                 <Button
                   variant="link"
                   size="sm"
                   className="mt-3 text-primary"
                   onClick={() => {
                     setSearchQuery("")
+                    setAppliedSearchQuery("")
                     setSelectedCourseId("all")
                     setSelectedTier("all")
                   }}
