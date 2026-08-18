@@ -5,15 +5,12 @@ import { getSlideDeckProvider, getSlideEmbedApiUrl, getSlideDeckProviderName, ge
 import { useState, useEffect, useRef, useMemo, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import useAuth from "@/hooks/useAuth"
-import { useDebounce } from "@/hooks/useDebounce"
 import {
   BookMarked,
   BookOpen,
   Library,
-  Search,
   Video,
   ExternalLink,
-  FileText,
   X,
   ChevronDown,
   ChevronUp,
@@ -23,7 +20,6 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { PageHeader } from "@/components/dashboard/page-header"
 import { SectionHeading } from "@/components/dashboard/section-heading"
 import { StatCard } from "@/components/dashboard/stat-card"
@@ -32,6 +28,7 @@ import { MaterialCard } from "@/components/dashboard/material-card"
 import { logMaterialActivity } from "@/utils/activity"
 import { getCachedData, setCachedData } from "@/lib/cache"
 import { CollectionsSkeleton, MaterialGridSkeleton } from "@/components/feedback/loading-skeletons"
+import { SearchInput } from "@/components/ui/search-input"
 
 interface Faculty {
   id: string
@@ -348,7 +345,8 @@ function SmartLibraryPageContent() {
 
   // Filters State
   const [searchQuery, setSearchQuery] = useState("")
-  const debouncedSearchQuery = useDebounce(searchQuery, 300)
+  const [appliedSearchQuery, setAppliedSearchQuery] = useState("")
+  const [isSearchingResults, setIsSearchingResults] = useState(false)
   const [selectedCourseId, setSelectedCourseId] = useState<string>("all")
   const [selectedTier, setSelectedTier] = useState<string>("all")
   const [selectedType, setSelectedType] = useState<string>("all")
@@ -517,7 +515,9 @@ function SmartLibraryPageContent() {
   // Get dynamic collection statistics & display for all courses in student's level_group
   const collectionData = useMemo(() => {
     const data = levelFilteredCourses.map((course, index) => {
-      const courseMaterialsCount = levelFilteredMaterials.filter((m) => m.course_id === course.id).length
+      const courseMaterialsCount = levelFilteredMaterials.filter(
+        (m) => m.course_id === course.id || m.courses?.parent_id === course.id
+      ).length
       return {
         id: course.id,
         code: course.code || "",
@@ -542,9 +542,9 @@ function SmartLibraryPageContent() {
 
   // Filtering Logic
   const filteredMaterials = levelFilteredMaterials.filter((material) => {
-    // 1. Search Query Filter
-    if (debouncedSearchQuery.trim() !== "") {
-      const q = debouncedSearchQuery.toLowerCase()
+    // 1. Search Query Filter (using submitted query)
+    if (appliedSearchQuery.trim() !== "") {
+      const q = appliedSearchQuery.toLowerCase()
       const titleMatch = material.title?.toLowerCase().includes(q)
       const descMatch = material.description?.toLowerCase().includes(q)
       const courseCodeMatch = material.courses?.code?.toLowerCase().includes(q)
@@ -561,8 +561,12 @@ function SmartLibraryPageContent() {
       if (!material.course_id || !selectedCourseIds.includes(material.course_id)) {
         return false
       }
-    } else if (selectedCourseId !== "all" && material.course_id !== selectedCourseId) {
-      return false
+    } else if (selectedCourseId !== "all") {
+      const isDirectMatch = material.course_id === selectedCourseId
+      const isParentMatch = material.courses?.parent_id === selectedCourseId
+      if (!isDirectMatch && !isParentMatch) {
+        return false
+      }
     }
 
     // 3. Tier Filter
@@ -685,6 +689,11 @@ function SmartLibraryPageContent() {
   const recommendedCount = levelFilteredMaterials.filter((m) => m.tier?.toLowerCase() === "recommended").length
   const studyCount = levelFilteredMaterials.filter((m) => m.tier?.toLowerCase() === "study").length
 
+  const selectedCourseObj = useMemo(() => {
+    if (selectedCourseId === "all") return null
+    return courses.find((c) => c.id === selectedCourseId) || null
+  }, [courses, selectedCourseId])
+
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title="Smart Library" description="Search across thousands of textbooks, journals, and references curated for your curriculum.">
@@ -734,12 +743,13 @@ function SmartLibraryPageContent() {
           </select>
 
           {/* Reset Filters */}
-          {(selectedTier !== "all" || selectedType !== "all" || selectedCourseId !== "all" || searchQuery !== "" || sortBy !== "name" || (selectedCourseIds && selectedCourseIds.length > 0)) && (
+          {(selectedTier !== "all" || selectedType !== "all" || selectedCourseId !== "all" || searchQuery !== "" || appliedSearchQuery !== "" || sortBy !== "name" || (selectedCourseIds && selectedCourseIds.length > 0)) && (
             <Button
               variant="outline"
               size="sm"
               onClick={() => {
                 setSearchQuery("")
+                setAppliedSearchQuery("")
                 setSelectedCourseId("all")
                 setSelectedCourseIds(null)
                 setSelectedTier("all")
@@ -760,19 +770,23 @@ function SmartLibraryPageContent() {
         <StatCard label="Study Guides" value={String(studyCount)} icon={BookMarked} accent="accent" />
       </section>
 
-      {/* Search Bar */}
+      {/* Modern Submit-on-Action Search Bar */}
       <section>
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-          <Input
-            type="search"
-            placeholder="Search by title, description, course, or faculty…"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-            aria-label="Search the library"
-          />
-        </div>
+        <SearchInput
+          value={searchQuery}
+          onChange={(val) => setSearchQuery(val)}
+          onSearch={(query) => {
+            setIsSearchingResults(true)
+            setAppliedSearchQuery(query)
+            setTimeout(() => setIsSearchingResults(false), 300)
+          }}
+          onClear={() => {
+            setSearchQuery("")
+            setAppliedSearchQuery("")
+          }}
+          placeholder="Search by title, description, course, or faculty…"
+          ariaLabel="Search the library"
+        />
       </section>
 
       {/* Error and Loading States */}
@@ -827,7 +841,10 @@ function SmartLibraryPageContent() {
                   return (
                     <button
                       key={collection.id}
-                      onClick={() => setSelectedCourseId(isSelected ? "all" : collection.id)}
+                      onClick={() => {
+                        setSelectedCourseIds(null)
+                        setSelectedCourseId(isSelected ? "all" : collection.id)
+                      }}
                       className={`group flex flex-col items-start text-left gap-3 rounded-xl border p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] hover:shadow-md w-full cursor-pointer ${
                         isSelected
                           ? "border-primary bg-primary/5 ring-1 ring-primary"
@@ -858,23 +875,36 @@ function SmartLibraryPageContent() {
           <section>
             <div className="flex items-center justify-between">
               <SectionHeading
-                title={selectedCourseId !== "all" ? "Filtered materials" : "All materials"}
+                title={
+                  selectedCourseObj
+                    ? `Materials for ${selectedCourseObj.code ? selectedCourseObj.code + ": " : ""}${selectedCourseObj.title || ""}`
+                    : selectedCourseId !== "all"
+                    ? "Filtered materials"
+                    : "All materials"
+                }
                 description="Browse recommended textbooks, references, and slides."
               />
-              {selectedCourseId !== "all" && (
+              {(selectedCourseId !== "all" || (selectedCourseIds && selectedCourseIds.length > 0)) && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setSelectedCourseId("all")}
-                  className="text-xs"
+                  onClick={() => {
+                    setSelectedCourseId("all")
+                    setSelectedCourseIds(null)
+                  }}
+                  className="text-xs text-muted-foreground hover:text-foreground"
                 >
                   Clear Course Filter
                 </Button>
               )}
             </div>
 
-            {filteredMaterials.length > 0 ? (
-              <div className="flex flex-col gap-8">
+            {isSearchingResults ? (
+              <div className="mt-4">
+                <MaterialGridSkeleton count={3} />
+              </div>
+            ) : filteredMaterials.length > 0 ? (
+              <div className="flex flex-col gap-8 mt-4">
                 {courseGroups.map((group) => {
                   const imageMats = group.materials.filter(isImageMaterial)
                   const nonImageMats = group.materials.filter((m) => !isImageMaterial(m))
@@ -933,18 +963,26 @@ function SmartLibraryPageContent() {
             ) : (
               <div className="mt-4 rounded-xl border border-dashed border-border bg-card p-12 text-center text-sm text-muted-foreground">
                 <Library className="size-8 mx-auto mb-3 text-muted-foreground/60" />
-                <p className="font-semibold text-foreground text-base mb-1">No materials yet</p>
-                <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                  No reference books, tutorial notes, or video materials found. Upload resource materials to populate this library curriculum section.
+                <p className="font-semibold text-foreground text-base mb-1">
+                  {selectedCourseObj
+                    ? `No materials yet for ${selectedCourseObj.code || selectedCourseObj.title}`
+                    : "No materials yet"}
                 </p>
-                {(selectedTier !== "all" || selectedType !== "all" || selectedCourseId !== "all" || searchQuery !== "") && (
+                <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                  {selectedCourseObj
+                    ? "There are currently no uploaded materials for this course in the library."
+                    : "No reference books, tutorial notes, or video materials found. Upload resource materials to populate this library curriculum section."}
+                </p>
+                {(selectedTier !== "all" || selectedType !== "all" || selectedCourseId !== "all" || searchQuery !== "" || appliedSearchQuery !== "" || (selectedCourseIds && selectedCourseIds.length > 0)) && (
                   <Button
                     variant="link"
                     size="sm"
                     className="mt-3 text-primary"
                     onClick={() => {
                       setSearchQuery("")
+                      setAppliedSearchQuery("")
                       setSelectedCourseId("all")
+                      setSelectedCourseIds(null)
                       setSelectedTier("all")
                       setSelectedType("all")
                     }}
