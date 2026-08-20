@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Menu as MenuIcon } from "lucide-react"
 
 import { accountNav, adminNav, communityNav, primaryNav, type NavItem } from "@/lib/navigation"
@@ -11,6 +11,7 @@ import { ThemeToggle } from "@/components/layout/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { Avatar } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import useAuth from "@/hooks/useAuth"
 import { createClient } from "@/lib/supabase/client"
@@ -88,6 +89,29 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [isAdmin, setIsAdmin] = useState(false)
   const [open, setOpen] = useState(false)
+  const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null)
+  const [userFullName, setUserFullName] = useState<string | null>(null)
+
+  const fetchHeaderProfile = useCallback(async () => {
+    if (!user?.id) return
+
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("avatar_url, full_name, first_name, last_name, role")
+      .eq("id", user.id)
+      .maybeSingle()
+
+    if (profileData) {
+      setUserAvatarUrl(profileData.avatar_url || null)
+      const name = profileData.full_name ||
+        (profileData.first_name && profileData.last_name ? `${profileData.first_name} ${profileData.last_name}` : null)
+      setUserFullName(name || user.email || null)
+
+      const role = normalizeRole(profileData.role ?? "")
+      const admin = role === "admin" || role === "super_admin" || role === "moderator"
+      setIsAdmin(admin)
+    }
+  }, [user?.id, user?.email, supabase])
 
   useEffect(() => {
     if (!user?.id) return
@@ -99,24 +123,29 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
       setIsAdmin(cachedIsAdmin)
     }
 
-    const checkAdmin = async () => {
-      if (cachedIsAdmin !== null) return
+    void fetchHeaderProfile()
 
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .maybeSingle()
-
-      const profile = profileData as Record<string, unknown> | null
-      const role = normalizeRole(profile?.role ?? "")
-      const admin = role === "admin" || role === "super_admin" || role === "moderator"
-      setIsAdmin(admin)
-      setCachedData(cacheKey, admin, 30 * 1000) // 30 second TTL
+    const handleProfileUpdate = () => {
+      void fetchHeaderProfile()
     }
 
-    void checkAdmin()
-  }, [user?.id, pathname])
+    if (typeof window !== "undefined") {
+      window.addEventListener("profile-updated", handleProfileUpdate)
+    }
+
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("profile-updated", handleProfileUpdate)
+      }
+    }
+  }, [user?.id, pathname, fetchHeaderProfile])
+
+  const userInitials = (userFullName || user?.email || "U")
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2) || "U"
 
   return (
     <div className="flex min-h-svh bg-muted/40">
@@ -143,8 +172,15 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
             <MedHavenLogo compact />
           </div>
           <p className="hidden text-sm font-medium lg:block">MedHaven workspace</p>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <ThemeToggle />
+            <Link href="/profile" className="rounded-full ring-offset-background hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2" title="Go to Profile">
+              <Avatar
+                initials={userInitials}
+                src={userAvatarUrl}
+                className="size-8 text-xs font-semibold border border-border"
+              />
+            </Link>
             <Button
               variant="outline"
               size="sm"
