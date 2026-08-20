@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Allow: /features
+Allow: /courses
+Allow: /about
+Disallow: /dashboard
+Disallow: /quizzes
+Disallow: /flashcards
+Disallow: /admin
+Disallow: /api/
+Sitemap: https://medhaven.onrender.com/sitemap.xml

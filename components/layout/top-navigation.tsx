@@ -17,6 +17,15 @@ export function TopNavigation() {
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <MedHavenLogo />
         <nav className="hidden items-center gap-1 md:flex" aria-label="Primary navigation">
+          <Button variant="ghost" asChild>
+            <Link href="/features">Features</Link>
+          </Button>
+          <Button variant="ghost" asChild>
+            <Link href="/courses">Courses</Link>
+          </Button>
+          <Button variant="ghost" asChild>
+            <Link href="/about">About</Link>
+          </Button>
           {!loading && !user ? (
             <>
               <Button variant="ghost" asChild>
@@ -64,6 +73,21 @@ export function TopNavigation() {
                 <SheetDescription>Move around the MedHaven foundation.</SheetDescription>
               </SheetHeader>
               <nav className="flex flex-col gap-2 px-4" aria-label="Mobile navigation">
+                <SheetClose asChild>
+                  <Button variant="ghost" className="justify-start" asChild>
+                    <Link href="/features">Features</Link>
+                  </Button>
+                </SheetClose>
+                <SheetClose asChild>
+                  <Button variant="ghost" className="justify-start" asChild>
+                    <Link href="/courses">Courses</Link>
+                  </Button>
+                </SheetClose>
+                <SheetClose asChild>
+                  <Button variant="ghost" className="justify-start" asChild>
+                    <Link href="/about">About</Link>
+                  </Button>
+                </SheetClose>
                 {!loading && !user ? (
                   <>
                     <SheetClose asChild>
@@ -87,7 +111,7 @@ export function TopNavigation() {
                     <SheetClose asChild>
                       <Button
                         variant="outline"
-                        className="mt-2"
+                        className="mt-2 justify-start"
                         onClick={async () => {
                           await logout()
                           window.location.href = "/login"
