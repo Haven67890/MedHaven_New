@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 import { getSupabaseConfig } from "@/lib/supabase/config"
 
-const PUBLIC_ROUTES = ["/", "/login", "/register"]
+const PUBLIC_ROUTES = ["/", "/login", "/register", "/features", "/courses", "/about"]
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -106,7 +106,6 @@ export async function middleware(request: NextRequest) {
       pathname.startsWith("/library") ||
       pathname.startsWith("/materials") ||
       pathname.startsWith("/profile") ||
-      pathname.startsWith("/courses") ||
       pathname.startsWith("/admin") ||
       pathname.startsWith("/notifications") ||
       pathname.startsWith("/settings") ||

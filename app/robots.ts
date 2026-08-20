@@ -7,13 +7,12 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: '*',
-        allow: ['/', '/login', '/register'],
+        allow: ['/', '/features', '/courses', '/about', '/login', '/register'],
         disallow: [
           '/dashboard',
           '/library',
           '/materials',
           '/profile',
-          '/courses',
           '/admin',
           '/notifications',
           '/settings',
@@ -27,7 +26,6 @@ export default function robots(): MetadataRoute.Robots {
           '/clinical-guides',
           '/tutorials',
           '/directory',
-          '/donate',
           '/api/',
         ],
       },
