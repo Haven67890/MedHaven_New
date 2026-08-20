@@ -5,10 +5,11 @@ import { BookOpen, GraduationCap, ArrowRight, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { createClient } from "@supabase/supabase-js"
+import { getSupabaseConfig } from "@/lib/supabase/config"
 import { SiteShell } from "@/components/layout/site-shell"
-import { createClient } from "@/lib/supabase/server"
 
-export const dynamic = "force-dynamic"
+export const revalidate = 3600
 
 export const metadata: Metadata = {
   title: "Courses — MBBS Curriculum at MedHaven",
@@ -54,7 +55,9 @@ const LEVEL_ORDER = ["100L", "200L", "300L", "400L", "500L", "600L"]
 
 async function getPublicCourses(): Promise<Course[]> {
   try {
-    const supabase = await createClient()
+    const { supabaseUrl, supabaseAnonKey } = getSupabaseConfig()
+    const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
     const { data, error } = await supabase
       .from("courses")
       .select("id, code, name, title, level, description")
@@ -65,7 +68,9 @@ async function getPublicCourses(): Promise<Course[]> {
       return []
     }
 
-    return (data as Course[]) || []
+    const courses = (data as Course[]) || []
+    console.log(`[Public Courses Page] Successfully fetched ${courses.length} courses from Supabase.`)
+    return courses
   } catch (err) {
     console.error("Unexpected error fetching public courses:", err)
     return []
