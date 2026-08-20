@@ -9,7 +9,7 @@ import { createClient } from "@supabase/supabase-js"
 import { getSupabaseConfig } from "@/lib/supabase/config"
 import { SiteShell } from "@/components/layout/site-shell"
 
-export const revalidate = 3600
+export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: "Courses — MBBS Curriculum at MedHaven",
