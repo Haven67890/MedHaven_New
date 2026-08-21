@@ -4,14 +4,17 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { FormEvent, useState, Suspense } from "react"
 
-import { createClient } from "@/lib/supabase/client"
+import { createBrowserClient } from "@supabase/ssr"
+import { getSupabaseConfig } from "@/lib/supabase/config"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 
+const { supabaseUrl, supabaseAnonKey } = getSupabaseConfig()
+const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey)
+
 function ForgotPasswordContent() {
-  const supabase = createClient()
   const router = useRouter()
   const searchParams = useSearchParams()
   const errorQuery = searchParams ? searchParams.get("error") : null
