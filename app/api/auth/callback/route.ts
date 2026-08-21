@@ -50,7 +50,7 @@ export async function GET(request: Request) {
           const isGoogleUser = user.app_metadata?.provider === "google" ||
                                user.app_metadata?.providers?.includes("google")
 
-          if (isGoogleUser) {
+          if (isGoogleUser && !next.startsWith('/reset-password')) {
             const { data: profile } = await supabase
               .from('profiles')
               .select('department, current_level')
@@ -77,10 +77,11 @@ export async function GET(request: Request) {
     }
 
     console.error("Supabase exchangeCodeForSession failed:", error.message || error)
-    return NextResponse.redirect(`${finalOrigin}/login?error=${encodeURIComponent(error.message)}`)
+    const errorTarget = next.startsWith('/reset-password') ? '/reset-password' : '/login'
+    return NextResponse.redirect(`${finalOrigin}${errorTarget}?error=${encodeURIComponent(error.message)}`)
   }
 
-  // 2. Handle Email Verification (Token Hash)
+  // 2. Handle Email Verification / Password Recovery (Token Hash)
   if (token_hash && type) {
     const { error } = await supabase.auth.verifyOtp({
       type: type as EmailOtpType,
@@ -91,9 +92,11 @@ export async function GET(request: Request) {
     }
 
     console.error("Supabase verifyOtp failed:", error.message || error)
-    return NextResponse.redirect(`${finalOrigin}/login?error=${encodeURIComponent(error.message)}`)
+    const errorTarget = next.startsWith('/reset-password') ? '/reset-password' : '/login'
+    return NextResponse.redirect(`${finalOrigin}${errorTarget}?error=${encodeURIComponent(error.message)}`)
   }
 
   // 3. Fallback Error (Neither code nor token_hash found)
-  return NextResponse.redirect(`${finalOrigin}/login?error=Invalid+or+expired+authentication+link`)
+  const fallbackTarget = next.startsWith('/reset-password') ? '/reset-password' : '/login'
+  return NextResponse.redirect(`${finalOrigin}${fallbackTarget}?error=Invalid+or+expired+authentication+link`)
 }
