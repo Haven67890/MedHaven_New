@@ -2,12 +2,12 @@
 
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { FormEvent, useState, Suspense } from "react"
+import { FormEvent, useState, useEffect, Suspense } from "react"
 
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 
 function ResetPasswordContent() {
@@ -16,11 +16,47 @@ function ResetPasswordContent() {
   const searchParams = useSearchParams()
   const errorQuery = searchParams ? searchParams.get("error") : null
 
+  const [hasSession, setHasSession] = useState<boolean | null>(null)
+  const [isCheckingSession, setIsCheckingSession] = useState(true)
+
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function checkSession() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (isMounted) {
+          setHasSession(!!session)
+          setIsCheckingSession(false)
+        }
+      } catch (err) {
+        if (isMounted) {
+          setHasSession(false)
+          setIsCheckingSession(false)
+        }
+      }
+    }
+
+    checkSession()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: string, session: unknown) => {
+      if (isMounted) {
+        setHasSession(!!session)
+        setIsCheckingSession(false)
+      }
+    })
+
+    return () => {
+      isMounted = false
+      subscription.unsubscribe()
+    }
+  }, [supabase])
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -56,6 +92,17 @@ function ResetPasswordContent() {
     }
   }
 
+  if (isCheckingSession) {
+    return (
+      <Card className="border-border shadow-xl shadow-primary/5">
+        <CardHeader>
+          <CardTitle className="text-2xl">Verifying Link...</CardTitle>
+          <CardDescription>Please wait while we verify your password recovery session.</CardDescription>
+        </CardHeader>
+      </Card>
+    )
+  }
+
   if (success) {
     return (
       <Card className="border-border shadow-xl shadow-primary/5">
@@ -71,6 +118,37 @@ function ResetPasswordContent() {
             <Link href="/login">Go back to Sign In</Link>
           </Button>
         </CardContent>
+      </Card>
+    )
+  }
+
+  if (!hasSession) {
+    return (
+      <Card className="border-border shadow-xl shadow-primary/5">
+        <CardHeader>
+          <CardTitle className="text-2xl text-destructive font-bold">Invalid or Expired Link</CardTitle>
+          <CardDescription>
+            This password reset link is invalid, expired, or has already been used.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {errorQuery ? (
+            <div className="bg-destructive/15 border border-destructive/30 text-destructive text-sm rounded-lg p-4 flex flex-col gap-1 shadow-sm font-medium">
+              <span className="font-extrabold uppercase text-xs tracking-wider">Error Details:</span>
+              <p>{errorQuery}</p>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              For security reasons, password reset links expire quickly and can only be used once. Please request a new link to reset your password.
+            </p>
+          )}
+          <Button asChild className="w-full">
+            <Link href="/forgot-password">Request New Reset Link</Link>
+          </Button>
+        </CardContent>
+        <CardFooter className="justify-center border-t border-border pt-6 text-sm text-muted-foreground">
+          Remember your password?&nbsp;<Link href="/login" className="font-medium text-primary underline-offset-4 hover:underline">Sign in</Link>
+        </CardFooter>
       </Card>
     )
   }
