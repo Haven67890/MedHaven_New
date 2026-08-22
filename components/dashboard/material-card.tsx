@@ -88,7 +88,7 @@ function getMaterialUrl(material: Material): string {
     if (material.storage_path.startsWith("http://") || material.storage_path.startsWith("https://")) {
       return material.storage_path
     }
-    return `https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/${material.storage_path}`
+    return `/api/materials/signed-url?path=${encodeURIComponent(material.storage_path)}`
   }
   return "#"
 }

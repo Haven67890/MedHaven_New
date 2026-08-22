@@ -912,36 +912,22 @@ export default function AdminDashboard() {
   }
 
   const uploadFileToStorage = async (file: File): Promise<string> => {
-    setFileUploadProgress("Uploading document to materials bucket...")
-    const fileExt = file.name.split(".").pop()?.toLowerCase() || "pdf"
-    const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`
-    const filePath = fileName
+    setFileUploadProgress("Uploading document file to B2 storage...")
+    const formData = new FormData()
+    formData.append("file", file)
+    formData.append("bucket", "materials")
 
-    const mimeTypes: Record<string, string> = {
-      pdf: "application/pdf",
-      png: "image/png",
-      jpg: "image/jpeg",
-      jpeg: "image/jpeg",
-      webp: "image/webp",
-      gif: "image/gif",
-      doc: "application/msword",
-      docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      ppt: "application/vnd.ms-powerpoint",
-      pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-      xls: "application/vnd.ms-excel",
-      xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    }
-    const contentType = file.type || mimeTypes[fileExt] || "application/pdf"
+    const res = await fetch("/api/admin/upload", {
+      method: "POST",
+      body: formData,
+    })
 
-    const { error: uploadError } = await supabase.storage
-      .from("materials")
-      .upload(filePath, file, { cacheControl: "3600", upsert: true, contentType })
-
-    if (uploadError) {
-      throw new Error("Supabase Storage Upload failed: " + uploadError.message)
+    const data = await res.json()
+    if (!res.ok || !data.success) {
+      throw new Error("B2 Storage Upload failed: " + (data.error || "Unknown error"))
     }
 
-    return filePath
+    return data.filePath
   }
 
   const handleMaterialFormSubmit = async (e: React.FormEvent) => {
@@ -1115,30 +1101,23 @@ export default function AdminDashboard() {
   }
 
   const uploadFileToQuizBankStorage = async (file: File): Promise<{ filePath: string; publicUrl: string }> => {
-    setBankFileUploadProgress("Uploading image specimen to quiz-bank bucket...")
-    const fileExt = file.name.split(".").pop()?.toLowerCase() || "jpg"
-    const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`
-    const filePath = fileName
+    setBankFileUploadProgress("Uploading image specimen to B2 storage...")
+    const formData = new FormData()
+    formData.append("file", file)
+    formData.append("bucket", "quiz-bank")
 
-    let { error: uploadError } = await supabase.storage
-      .from("quiz-bank")
-      .upload(filePath, file, { cacheControl: "3600", upsert: true })
+    const res = await fetch("/api/admin/upload", {
+      method: "POST",
+      body: formData,
+    })
 
-    if (uploadError && (uploadError.message?.includes("not found") || (uploadError as any).statusCode === "404" || (uploadError as any).error === "Bucket not found")) {
-      const { error: createError } = await supabase.storage.createBucket("quiz-bank", { public: true })
-      if (!createError) {
-        const retry = await supabase.storage.from("quiz-bank").upload(filePath, file, { cacheControl: "3600", upsert: true })
-        uploadError = retry.error
-      }
+    const data = await res.json()
+    if (!res.ok || !data.success) {
+      throw new Error("B2 Storage Upload failed: " + (data.error || "Unknown error"))
     }
 
-    if (uploadError) {
-      throw new Error("Supabase Storage Upload failed: " + uploadError.message)
-    }
-
-    const { data: { publicUrl } } = supabase.storage.from("quiz-bank").getPublicUrl(filePath)
-
-    return { filePath, publicUrl }
+    const publicUrl = `/api/materials/signed-url?path=${encodeURIComponent(data.filePath)}&bucket=quiz-bank`
+    return { filePath: data.filePath, publicUrl }
   }
 
   const handleQuizBankFormSubmit = async (e: React.FormEvent) => {
