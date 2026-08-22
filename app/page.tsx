@@ -1,6 +1,5 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import Image from "next/image"
 import {
   FileText,
   BookOpen,
@@ -116,38 +115,78 @@ const howItWorks = [
 export default function HomePage() {
   return (
     <SiteShell>
-      {/* Hero Section */}
-      <section className="mx-auto flex w-full max-w-6xl flex-col items-center px-4 pt-12 pb-16 text-center sm:px-6 lg:pt-20 lg:pb-24">
-        <div className="mb-6 flex flex-col items-center">
-          <MedHavenLogo
-            className="h-auto w-auto"
-            imgClassName="h-20 sm:h-28 md:h-32 w-auto max-w-full drop-shadow-lg"
+      {/* Full-Bleed Hero Section with Video Background */}
+      <section className="relative w-full overflow-hidden min-h-[80vh] flex items-center justify-center py-16 lg:py-24 border-b border-border">
+        {/* Background Video Container */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            poster="https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/Untitled%20design.png"
+            className="absolute top-0 left-0 w-full object-cover object-top pointer-events-none"
+            style={{
+              /*
+               * Single, adjustable CSS variable for crop offset (8-12% recommended).
+               * Pushes the bottom portion of the video frame below the overflow-hidden wrapper
+               * to hide TikTok corner watermarks without visually distorting the footage.
+               */
+              "--hero-video-crop-offset": "10%",
+              height: "calc(100% + var(--hero-video-crop-offset))",
+              /*
+               * Render-time color grading:
+               * Boosts brightness and saturation slightly for a vibrant, high-end feel,
+               * with balanced contrast over the dark gradient background.
+               */
+              filter: "brightness(1.12) saturate(1.15) contrast(1.05)",
+            } as React.CSSProperties}
+          >
+            <source
+              src="https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/401246b2e1a9c1dfe1d54b6e05cabbfa.mp4"
+              type="video/mp4"
+            />
+          </video>
+          {/* Semi-transparent dark gradient overlay ensuring crisp text readability */}
+          <div
+            className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/60 to-background/95 pointer-events-none"
+            aria-hidden="true"
           />
         </div>
-        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-1.5 text-xs font-semibold tracking-wide text-primary uppercase">
-          <Sparkles className="h-3.5 w-3.5" />
-          <span>Built by Medical Students, for Medical Students</span>
-        </div>
-        <h1 className="max-w-4xl text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl md:text-6xl">
-          The complete digital workspace for Nigerian medical scholars.
-        </h1>
-        <p className="mt-6 max-w-2xl text-lg text-muted-foreground sm:text-xl">
-          MedHaven provides free access to course-specific past questions, AI quizzes, flashcards, and verified lecturer slides tailored for MBBS excellence.
-        </p>
-        <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">
-          <Button asChild size="lg" className="gap-2 text-base font-semibold px-8 h-12 shadow-md">
-            <Link href="/register">
-              Get Started Free <ArrowRight className="h-4 w-4" />
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="lg" className="text-base font-medium px-8 h-12">
-            <Link href="/login">Sign In</Link>
-          </Button>
+
+        {/* Hero Content */}
+        <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center px-4 text-center sm:px-6">
+          <div className="mb-6 flex flex-col items-center">
+            <MedHavenLogo
+              className="h-auto w-auto"
+              imgClassName="h-20 sm:h-28 md:h-32 w-auto max-w-full drop-shadow-2xl"
+            />
+          </div>
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/20 px-4 py-1.5 text-xs font-semibold tracking-wide text-primary-foreground sm:text-primary uppercase shadow-sm backdrop-blur-sm">
+            <Sparkles className="h-3.5 w-3.5" />
+            <span>Built by Medical Students, for Medical Students</span>
+          </div>
+          <h1 className="max-w-4xl text-4xl font-extrabold tracking-tight text-white sm:text-5xl md:text-6xl drop-shadow-md">
+            The complete digital workspace for Nigerian medical scholars.
+          </h1>
+          <p className="mt-6 max-w-2xl text-lg text-slate-200 sm:text-xl drop-shadow-sm">
+            MedHaven provides free access to course-specific past questions, AI quizzes, flashcards, and verified lecturer slides tailored for MBBS excellence.
+          </p>
+          <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">
+            <Button asChild size="lg" className="gap-2 text-base font-semibold px-8 h-12 shadow-lg">
+              <Link href="/register">
+                Get Started Free <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="lg" className="text-base font-medium px-8 h-12 border-slate-600 bg-black/40 text-white hover:bg-black/60 hover:text-white backdrop-blur-sm">
+              <Link href="/login">Sign In</Link>
+            </Button>
+          </div>
         </div>
       </section>
 
       {/* Social Proof Bar */}
-      <section className="border-y border-border bg-card/40 py-10">
+      <section className="border-b border-border bg-card/40 py-10">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="grid grid-cols-1 gap-8 sm:grid-cols-3 text-center">
             <div className="flex flex-col items-center justify-center p-4">
