@@ -1,18 +1,25 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import {
-  FileText,
+  ArrowRight,
   BookOpen,
+  Brain,
+  CheckCircle2,
+  FileText,
+  FolderCheck,
   HelpCircle,
   ImageIcon,
-  FolderCheck,
-  Brain,
-  ArrowRight,
-  CheckCircle2,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { SiteShell } from "@/components/layout/site-shell"
+import {
+  MotionReveal,
+  MotionStaggerGroup,
+  MotionStaggerItem,
+  MotionCard3DTilt,
+  MotionButton,
+} from "@/components/ui/motion"
 
 export const metadata: Metadata = {
   title: "Features — MedHaven Medical Study Platform",
@@ -138,7 +145,7 @@ export default function FeaturesPage() {
     <SiteShell>
       {/* Header Banner */}
       <section className="mx-auto max-w-6xl px-4 pt-12 pb-8 sm:px-6 lg:pt-16">
-        <div className="text-center max-w-3xl mx-auto">
+        <MotionReveal direction="up" distance={20} className="text-center max-w-3xl mx-auto">
           <span className="rounded-full border border-primary/20 bg-primary/10 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
             Platform Capabilities
           </span>
@@ -148,71 +155,80 @@ export default function FeaturesPage() {
           <p className="mt-4 text-lg text-muted-foreground">
             Every feature on MedHaven was designed from the ground up by medical students to tackle the real challenges of MBBS studies.
           </p>
-        </div>
+        </MotionReveal>
       </section>
 
       {/* Feature Sections */}
-      <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-12 space-y-16">
-        {detailedFeatures.map((feature, idx) => {
-          const Icon = feature.icon
-          const isEven = idx % 2 === 0
-          return (
-            <div
-              key={feature.id}
-              id={feature.id}
-              className={`rounded-2xl border border-border bg-card/60 p-6 sm:p-10 shadow-sm transition-all hover:border-primary/30 ${
-                isEven ? "lg:flex-row" : "lg:flex-row-reverse"
-              } flex flex-col gap-8 items-start`}
-            >
-              <div className="flex-1 space-y-4">
-                <div className="inline-flex items-center gap-2.5 text-primary font-semibold text-lg">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-primary/20 bg-primary/10">
-                    <Icon className="h-5 w-5" />
+      <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-12">
+        <MotionStaggerGroup staggerChildren={0.12} amount={0.1} className="space-y-16">
+          {detailedFeatures.map((feature, idx) => {
+            const Icon = feature.icon
+            const isEven = idx % 2 === 0
+            return (
+              <MotionStaggerItem key={feature.id}>
+                <MotionCard3DTilt enable3DTilt={false} scaleOnHover={1.01}>
+                  <div
+                    id={feature.id}
+                    className={`rounded-2xl border border-border bg-card/60 p-6 sm:p-10 shadow-sm transition-all hover:border-primary/30 ${
+                      isEven ? "lg:flex-row" : "lg:flex-row-reverse"
+                    } flex flex-col gap-8 items-start`}
+                  >
+                    <div className="flex-1 space-y-4">
+                      <div className="inline-flex items-center gap-2.5 text-primary font-semibold text-lg">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-primary/20 bg-primary/10">
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <span>{feature.title}</span>
+                      </div>
+                      <p className="text-foreground font-medium text-base leading-relaxed">
+                        {feature.description}
+                      </p>
+                      <div className="rounded-xl border border-primary/15 bg-primary/5 p-4 space-y-2">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-primary">
+                          Why this helps MBBS students
+                        </h4>
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                          {feature.whyItHelps}
+                        </p>
+                      </div>
+                      <ul className="space-y-2 pt-2">
+                        {feature.bullets.map((bullet, bIdx) => (
+                          <li key={bIdx} className="flex items-start gap-2 text-sm text-muted-foreground">
+                            <CheckCircle2 className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                            <span>{bullet}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
-                  <span>{feature.title}</span>
-                </div>
-                <p className="text-foreground font-medium text-base leading-relaxed">
-                  {feature.description}
-                </p>
-                <div className="rounded-xl border border-primary/15 bg-primary/5 p-4 space-y-2">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-primary">
-                    Why this helps MBBS students
-                  </h4>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {feature.whyItHelps}
-                  </p>
-                </div>
-                <ul className="space-y-2 pt-2">
-                  {feature.bullets.map((bullet, bIdx) => (
-                    <li key={bIdx} className="flex items-start gap-2 text-sm text-muted-foreground">
-                      <CheckCircle2 className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                      <span>{bullet}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          )
-        })}
+                </MotionCard3DTilt>
+              </MotionStaggerItem>
+            )
+          })}
+        </MotionStaggerGroup>
       </section>
 
       {/* Bottom CTA */}
       <section className="mx-auto max-w-6xl px-4 pb-16 pt-8 sm:px-6">
-        <div className="rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/10 via-card to-primary/10 p-8 sm:p-12 text-center shadow-lg">
-          <h2 className="text-2xl font-bold text-foreground sm:text-3xl max-w-xl mx-auto">
-            Ready to upgrade your medical study routine?
-          </h2>
-          <p className="mt-3 text-muted-foreground max-w-lg mx-auto text-sm sm:text-base">
-            Join 300+ medical students already using MedHaven to study smarter and pass exams.
-          </p>
-          <div className="mt-6 flex justify-center">
-            <Button asChild size="lg" className="gap-2 text-base font-semibold px-8 h-12 shadow-md">
-              <Link href="/register">
-                Get Started Free <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
+        <MotionReveal direction="up" distance={20}>
+          <div className="rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/10 via-card to-primary/10 p-8 sm:p-12 text-center shadow-lg">
+            <h2 className="text-2xl font-bold text-foreground sm:text-3xl max-w-xl mx-auto">
+              Ready to upgrade your medical study routine?
+            </h2>
+            <p className="mt-3 text-muted-foreground max-w-lg mx-auto text-sm sm:text-base">
+              Join 300+ medical students already using MedHaven to study smarter and pass exams.
+            </p>
+            <div className="mt-6 flex justify-center">
+              <MotionButton scaleHover={1.04} scaleDown={0.96}>
+                <Button asChild size="lg" className="gap-2 text-base font-semibold px-8 h-12 shadow-md">
+                  <Link href="/register">
+                    Get Started Free <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </MotionButton>
+            </div>
           </div>
-        </div>
+        </MotionReveal>
       </section>
     </SiteShell>
   )
