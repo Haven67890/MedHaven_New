@@ -113,7 +113,7 @@ function getMaterialUrl(material: Material): string {
       return material.storage_path
     }
     // Safe fallback construction
-    return `https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/${material.storage_path}`
+    return `/api/materials/signed-url?path=${encodeURIComponent(material.storage_path)}`
   }
   return "#"
 }
