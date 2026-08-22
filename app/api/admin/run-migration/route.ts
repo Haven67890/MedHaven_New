@@ -177,7 +177,8 @@ export async function POST(request: NextRequest) {
       .eq("id", user.id)
       .maybeSingle()
 
-    if (!profile || profile.role !== "admin") {
+    const allowedRoles = ["admin", "super_admin", "SUPER_ADMIN"]
+    if (!profile || !allowedRoles.includes(profile.role)) {
       return NextResponse.json({ error: "Forbidden: Admin privileges required" }, { status: 403 })
     }
 
