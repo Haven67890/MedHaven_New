@@ -67,6 +67,15 @@ export default function AdminDashboard() {
   const [statsLoading, setStatsLoading] = useState(false)
   const [statsError, setStatsError] = useState("")
 
+  // B2 Migration state
+  const [migrationLoading, setMigrationLoading] = useState(false)
+  const [migrationResult, setMigrationResult] = useState<{
+    migrated: number
+    failed: number
+    failures: Array<{ bucket?: string; path?: string; error?: string } | string>
+  } | null>(null)
+  const [migrationError, setMigrationError] = useState<string | null>(null)
+
   // Users list, search, pagination, and filters
   const [users, setUsers] = useState<Profile[]>([])
   const [totalCount, setTotalCount] = useState(0)
@@ -518,6 +527,36 @@ export default function AdminDashboard() {
   useEffect(() => {
     void loadMetadata()
   }, [])
+
+  // Run B2 Migration
+  const handleRunMigration = async () => {
+    setMigrationLoading(true)
+    setMigrationResult(null)
+    setMigrationError(null)
+
+    try {
+      const res = await fetch("/api/admin/run-migration", {
+        method: "POST",
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || "Migration failed")
+      }
+
+      setMigrationResult({
+        migrated: data.migrated ?? 0,
+        failed: data.failed ?? 0,
+        failures: data.failures || [],
+      })
+    } catch (err: any) {
+      console.error("Migration error:", err)
+      setMigrationError("Migration failed - check console for details")
+    } finally {
+      setMigrationLoading(false)
+    }
+  }
 
   // Fetch overview counts
   const fetchOverviewStats = async () => {
@@ -2403,6 +2442,63 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
           </div>
+
+          {(caller.role === "admin" || caller.role === "super_admin") && (
+            <Card className="border-border">
+              <CardHeader>
+                <CardTitle className="text-lg">Storage Migration</CardTitle>
+                <CardDescription>Migrate legacy storage files from Supabase Storage to Backblaze B2.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Button
+                    onClick={handleRunMigration}
+                    disabled={migrationLoading}
+                  >
+                    {migrationLoading ? (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                        Migration in progress... this may take 15-30 minutes
+                      </>
+                    ) : (
+                      "Migrate Files to B2"
+                    )}
+                  </Button>
+                </div>
+
+                {migrationLoading && (
+                  <p className="text-sm text-muted-foreground animate-pulse">
+                    Migration in progress... this may take 15-30 minutes
+                  </p>
+                )}
+
+                {migrationError && (
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/15 p-3 text-sm text-destructive font-medium">
+                    {migrationError}
+                  </div>
+                )}
+
+                {migrationResult && (
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium text-foreground">
+                      Migration complete: {migrationResult.migrated} files migrated, {migrationResult.failed} failed
+                    </p>
+                    {migrationResult.failures && migrationResult.failures.length > 0 && (
+                      <div className="rounded-lg border bg-muted p-3 text-xs space-y-1 max-h-48 overflow-y-auto">
+                        <p className="font-semibold text-destructive mb-1">Failed files:</p>
+                        <ul className="list-disc list-inside space-y-0.5 text-muted-foreground font-mono">
+                          {migrationResult.failures.map((f, idx) => {
+                            const pathStr = typeof f === "string" ? f : (f.path || JSON.stringify(f))
+                            return <li key={idx}>{pathStr}</li>
+                          })}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           <Card className="border-border">
             <CardHeader>
