@@ -83,14 +83,13 @@ function getYouTubeId(url: string | null | undefined): string | null {
 
 // Helper to resolve material URL
 function getMaterialUrl(material: Material): string {
-  if (material.storage_path) {
-    if (material.storage_path.startsWith("http://") || material.storage_path.startsWith("https://")) {
-      return material.storage_path
-    }
-    return `/api/materials/signed-url?path=${encodeURIComponent(material.storage_path)}`
+  if (!material.storage_path) {
+    return material.source_url || "#"
   }
-  if (material.source_url) return material.source_url
-  return "#"
+  if (material.storage_path.startsWith("http://") || material.storage_path.startsWith("https://")) {
+    return material.storage_path
+  }
+  return `/api/materials/signed-url?path=${encodeURIComponent(material.storage_path)}`
 }
 
 // Helper to get file extension from URL
@@ -327,6 +326,13 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
   const handlePreviewClick = () => {
     if (user?.id) {
       logMaterialActivity(user.id, material.id, "view")
+    }
+
+    if (!material.storage_path) {
+      if (material.source_url) {
+        window.open(material.source_url, "_blank")
+      }
+      return
     }
 
     if (isVideo) {
