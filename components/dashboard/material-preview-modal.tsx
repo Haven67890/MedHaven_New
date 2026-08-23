@@ -1,8 +1,19 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { X, Download, ExternalLink, Video } from "lucide-react"
+import {
+  X,
+  Download,
+  ExternalLink,
+  Video,
+  Presentation,
+  FilePenLine,
+  FileSpreadsheet,
+  FileText
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { PDFViewer } from "@/components/viewers/PDFViewer"
+import { DocxViewer } from "@/components/viewers/DocxViewer"
 
 export interface PreviewModalData {
   isOpen: boolean
@@ -11,6 +22,7 @@ export interface PreviewModalData {
   type: "pdf" | "office" | "image" | "video" | "slideshare" | null
   isEmbeddable?: boolean
   materialId?: string
+  storagePath?: string
 }
 
 interface MaterialPreviewModalProps {
@@ -30,18 +42,21 @@ function getYouTubeEmbedUrl(url: string | null | undefined): string | null {
   return id ? `https://www.youtube.com/embed/${id}` : null
 }
 
+function getFileExtension(pathOrUrl: string): string {
+  if (!pathOrUrl) return ""
+  try {
+    const cleanPath = pathOrUrl.split("?")[0]
+    const parts = cleanPath.split(".")
+    return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : ""
+  } catch (e) {
+    return ""
+  }
+}
+
 export function MaterialPreviewModal({ modal, onClose }: MaterialPreviewModalProps) {
-  const [origin, setOrigin] = useState("")
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setOrigin(window.location.origin)
-    }
-  }, [])
-
   if (!modal || !modal.isOpen) return null
 
-  const { title, url, type, isEmbeddable, materialId } = modal
+  const { title, url, type, isEmbeddable, materialId, storagePath } = modal
 
   // Record reading progress in localStorage for PDFs when opened in modal
   if (materialId && type === "pdf" && typeof window !== "undefined") {
@@ -53,21 +68,48 @@ export function MaterialPreviewModal({ modal, onClose }: MaterialPreviewModalPro
     }
   }
 
-  const absoluteUrl =
-    url.startsWith("http://") || url.startsWith("https://")
-      ? url
-      : `${origin}${url.startsWith("/") ? "" : "/"}${url}`
+  const effectivePath = storagePath || url
+  const ext = getFileExtension(effectivePath)
 
-  const lowerUrl = url.toLowerCase()
-  const isOfficeFile =
-    type === "office" ||
-    ["pptx", "ppt", "docx", "doc", "xlsx", "xls"].some(
-      (ext) => lowerUrl.includes(`.${ext}`) || lowerUrl.includes(`%2e${ext}`)
+  // Determine renderer type based on extension / modal type
+  const isPdf = ext === "pdf" || type === "pdf"
+  const isDocx = ext === "docx"
+  const isImage = type === "image" || ["jpg", "jpeg", "png", "webp", "gif", "svg"].includes(ext)
+  const isVideo = type === "video"
+
+  const renderDownloadCard = () => {
+    let icon = <FileText className="size-10 text-primary" />
+    let appText = "PowerPoint / Word"
+
+    if (["pptx", "ppt", "pps", "ppsx"].includes(ext)) {
+      icon = <Presentation className="size-10 text-orange-500" />
+      appText = "Microsoft PowerPoint"
+    } else if (["doc", "docx"].includes(ext)) {
+      icon = <FilePenLine className="size-10 text-blue-500" />
+      appText = "Microsoft Word"
+    } else if (["xls", "xlsx"].includes(ext)) {
+      icon = <FileSpreadsheet className="size-10 text-emerald-500" />
+      appText = "Microsoft Excel"
+    }
+
+    return (
+      <div className="flex flex-col items-center justify-center text-center p-6 sm:p-10 max-w-lg bg-card rounded-2xl border border-border shadow-2xl mx-4 my-auto">
+        <div className="flex size-20 items-center justify-center rounded-2xl bg-muted/80 mb-5 border border-border/60 shadow-inner">
+          {icon}
+        </div>
+        <h4 className="font-bold text-foreground text-lg sm:text-xl mb-2 line-clamp-2" title={title}>
+          {title}
+        </h4>
+        <p className="text-xs sm:text-sm text-muted-foreground mb-6 leading-relaxed max-w-md">
+          This file type cannot be previewed in the browser. Click below to download and open in {appText}.
+        </p>
+        <Button asChild variant="default" size="lg" className="w-full sm:w-auto px-8 font-semibold shadow-md gap-2">
+          <a href={url} download target="_blank" rel="noopener noreferrer">
+            <Download className="size-4" /> Download File
+          </a>
+        </Button>
+      </div>
     )
-
-  let iframeSrc = url
-  if (isOfficeFile) {
-    iframeSrc = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absoluteUrl)}`
   }
 
   return (
@@ -112,11 +154,15 @@ export function MaterialPreviewModal({ modal, onClose }: MaterialPreviewModalPro
 
         {/* Modal Content */}
         <div className="flex-1 bg-black/90 relative flex items-center justify-center overflow-hidden">
-          {type === "image" ? (
+          {isPdf && storagePath ? (
+            <PDFViewer storagePath={storagePath} />
+          ) : isDocx && storagePath ? (
+            <DocxViewer storagePath={storagePath} />
+          ) : isImage ? (
             <div className="w-full h-full p-4 flex items-center justify-center">
               <img src={url} alt={title} className="max-w-full max-h-full object-contain rounded-md" />
             </div>
-          ) : type === "video" ? (
+          ) : isVideo ? (
             (() => {
               const ytId = getYouTubeId(url)
               const ytEmbedUrl = getYouTubeEmbedUrl(url)
@@ -179,12 +225,7 @@ export function MaterialPreviewModal({ modal, onClose }: MaterialPreviewModalPro
               )
             })()
           ) : (
-            // PDF & Office documents render in <iframe> inside the app modal
-            <iframe
-              src={iframeSrc}
-              className="absolute inset-0 w-full h-full border-0 bg-white dark:bg-zinc-950"
-              title={title}
-            />
+            renderDownloadCard()
           )}
         </div>
       </div>
