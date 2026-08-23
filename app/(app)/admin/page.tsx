@@ -1148,7 +1148,7 @@ export default function AdminDashboard() {
         const filePath = await uploadFileToStorage(formMaterialFile)
         finalStoragePath = filePath
         // Calculate raw storage public URL to store in source_url as fallback
-        finalSourceUrl = `https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/${filePath}`
+        finalSourceUrl = `/api/materials/signed-url?path=${encodeURIComponent(filePath)}`
       }
 
       const payload: Record<string, any> = {

@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   applicationName: 'MedHaven',
   manifest: '/manifest.json',
   icons: {
-    icon: 'https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/Untitled%20design.png',
+    icon: '/logo.png',
   },
   appleWebApp: {
     capable: true,

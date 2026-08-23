@@ -61,7 +61,7 @@ export default function DonatePage() {
     customizations: {
       title: "Support MedHaven",
       description: "Donation to support open medical learning tools",
-      logo: "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/Untitled%20design.png",
+      logo: "/logo.png",
     },
   }
 

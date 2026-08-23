@@ -12,11 +12,11 @@ import AIChatDrawer from '@/components/dashboard/ai-chat-drawer';
 
 // Reliable placeholder imagery for the hospital dashboard without broken asset references.
 const JUTH_IMAGES = {
-  mainGate: "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/Snapchat-1489759066.jpg",
-  ambulanceDriveway: "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/20260622_130116.jpg",
-  ward11Entrance: "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/e36b68e4f40e44f88f4cfdd0a8ae6fbb.jpg",
-  courtyardTree: "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/IMG-20250627-WA0038.jpg",
-  emergencyTicker: "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/20260622_130116.jpg"
+  mainGate: "/logo.png",
+  ambulanceDriveway: "/logo.png",
+  ward11Entrance: "/logo.png",
+  courtyardTree: "/logo.png",
+  emergencyTicker: "/logo.png"
 };
 
 const LEVELS = ['100L', '200L', '300L', '400L', '500L', '600L', 'Final Year'];

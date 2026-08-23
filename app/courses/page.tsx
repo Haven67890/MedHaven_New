@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     siteName: "MedHaven",
     images: [
       {
-        url: "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/Untitled%20design.png",
+        url: "/logo.png",
         width: 1200,
         height: 630,
         alt: "MedHaven Logo",
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     description:
       "Browse all MBBS courses available on MedHaven, from 100L to 600L. Built for University of Jos, expanding to all Nigerian medical schools.",
     images: [
-      "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/Untitled%20design.png",
+      "/logo.png",
     ],
   },
 }

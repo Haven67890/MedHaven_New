@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     siteName: "MedHaven",
     images: [
       {
-        url: "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/Untitled%20design.png",
+        url: "/logo.png",
         width: 1200,
         height: 630,
         alt: "MedHaven Logo",
@@ -47,7 +47,7 @@ export const metadata: Metadata = {
     description:
       "Explore MedHaven's full suite of study features built specifically for MBBS students: past questions, smart library, MCQ/SBA quizzes, picture tests & steeplechase, lecturer materials, and AI flashcards.",
     images: [
-      "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/Untitled%20design.png",
+      "/logo.png",
     ],
   },
 }

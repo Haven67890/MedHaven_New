@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     siteName: "MedHaven",
     images: [
       {
-        url: "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/Untitled%20design.png",
+        url: "/logo.png",
         width: 1200,
         height: 630,
         alt: "MedHaven Logo",
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     description:
       "Learn about MedHaven: a platform built by medical students for medical students. Discover our mission, vision, and how we empower medical scholars across Nigeria.",
     images: [
-      "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/Untitled%20design.png",
+      "/logo.png",
     ],
   },
 }
