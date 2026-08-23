@@ -25,7 +25,7 @@ export const announcements = [
   {
     id: "a3",
     title: "Library maintenance window",
-    body: "The Smart Library will be briefly unavailable Saturday 2:00–2:30 AM for scheduled maintenance.",
+    body: "The Study Library will be briefly unavailable Saturday 2:00–2:30 AM for scheduled maintenance.",
     time: "1d ago",
     tag: "System",
   },
@@ -42,7 +42,7 @@ export const todayTimetable = [
 export const continueReading = [
   { id: "r1", title: "Principles of Pharmacokinetics", type: "Material", progress: 72, href: "/materials" },
   { id: "r2", title: "Cardiac Cycle — Lecture 04", type: "Video", progress: 45, href: "/lectures" },
-  { id: "r3", title: "Inflammation & Repair — Deck", type: "Flashcards", progress: 88, href: "/flashcards" },
+  { id: "r3", title: "Inflammation & Repair — Deck", type: "Smart Recall", progress: 88, href: "/flashcards" },
 ] as const
 
 export const recentMaterials = [

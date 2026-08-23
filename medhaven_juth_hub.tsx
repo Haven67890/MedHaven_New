@@ -6,9 +6,11 @@ import { createClient } from './lib/supabase/client';
 import { 
   BookOpen, Search, Calendar, Folder,
   ChevronRight, Sparkles, MapPin, CheckCircle,
-  HeartPulse, AlertCircle, X, ShoppingBag, Heart
+  HeartPulse, AlertCircle, X, ShoppingBag, Heart,
+  Clock, FileText, Video, Presentation, FilePenLine, Image as ImageIcon
 } from 'lucide-react';
 import AIChatDrawer from '@/components/dashboard/ai-chat-drawer';
+import { MaterialPreviewModal, PreviewModalData } from '@/components/dashboard/material-preview-modal';
 
 // Reliable placeholder imagery for the hospital dashboard without broken asset references.
 const JUTH_IMAGES = {
@@ -212,6 +214,28 @@ export default function App() {
 
   // AI Assistant Chat Open State
   const [isAIChatOpen, setIsAIChatOpen] = useState(false);
+  const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
+  const [recentModal, setRecentModal] = useState<PreviewModalData | null>(null);
+
+  useEffect(() => {
+    const loadRecentlyViewed = () => {
+      try {
+        const stored = localStorage.getItem("medhaven_recently_viewed");
+        if (stored) {
+          setRecentlyViewed(JSON.parse(stored));
+        }
+      } catch (e) {
+        // Ignore
+      }
+    };
+
+    loadRecentlyViewed();
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("recently-viewed-updated", loadRecentlyViewed);
+      return () => window.removeEventListener("recently-viewed-updated", loadRecentlyViewed);
+    }
+  }, []);
 
   // Toast feedback state
   const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' | 'info' }>({
@@ -631,6 +655,70 @@ export default function App() {
               </div>
             </div>
 
+            {/* Recently Viewed Materials Section */}
+            {recentlyViewed.length > 0 && (
+              <div className="bg-card border border-border p-6 rounded-2xl space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-primary" />
+                    <h3 className="font-extrabold text-base text-foreground">Recently Viewed Materials</h3>
+                  </div>
+                  <span className="text-xs text-muted-foreground">{recentlyViewed.length} recent</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {recentlyViewed.map((item) => {
+                    const url = item.storage_path
+                      ? item.storage_path.startsWith("http")
+                        ? item.storage_path
+                        : `/api/materials/signed-url?path=${encodeURIComponent(item.storage_path)}`
+                      : item.source_url || "#";
+
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => {
+                          if (url !== "#") {
+                            const isPdf = item.type?.toLowerCase() === "pdf" || url.endsWith(".pdf");
+                            const isVideo = item.type?.toLowerCase() === "video";
+                            const isOffice = ["pptx", "ppt", "docx", "doc", "xlsx", "xls"].some((ext) => url.toLowerCase().includes("." + ext));
+                            const typeVal = isVideo ? "video" : isPdf ? "pdf" : isOffice ? "office" : "pdf";
+                            setRecentModal({
+                              isOpen: true,
+                              title: item.title,
+                              url: url,
+                              type: typeVal,
+                              materialId: item.id,
+                            });
+                          }
+                        }}
+                        className="p-3.5 rounded-xl bg-muted/40 border border-border/70 hover:border-primary/40 hover:bg-muted/70 transition-all cursor-pointer flex items-center justify-between gap-3 group"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="size-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                            {item.type?.toLowerCase() === "video" ? (
+                              <Video className="size-4 text-red-500" />
+                            ) : item.type?.toLowerCase() === "lecture_slide" ? (
+                              <Presentation className="size-4 text-orange-500" />
+                            ) : (
+                              <FileText className="size-4 text-primary" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h4 className="font-semibold text-xs text-foreground truncate group-hover:text-primary transition-colors" title={item.title}>
+                              {item.title}
+                            </h4>
+                            <p className="text-[11px] text-muted-foreground truncate">{item.course || "General"}</p>
+                          </div>
+                        </div>
+                        <ChevronRight className="size-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Subject curriculum index cards based on level */}
             <div className="bg-card border border-border p-6 rounded-2xl space-y-4">
               <div className="flex items-center gap-2">
@@ -791,19 +879,24 @@ export default function App() {
         {/* AI Assistant Chat Drawer */}
         <AIChatDrawer isOpen={isAIChatOpen} onClose={() => setIsAIChatOpen(false)} />
 
+        {/* Preview Modal for Recently Viewed Materials */}
+        <MaterialPreviewModal modal={recentModal} onClose={() => setRecentModal(null)} />
+
         {/* ================= FOOTER ================= */}
         <footer className="bg-card border-t border-border px-6 py-6 mt-12">
-          <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-muted-foreground font-bold">
-            <div className="flex items-center gap-2">
+          <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2 font-bold">
               <HeartPulse className="w-4 h-4 text-primary" />
               <span>MedHaven JUTH Hub • Jos University Teaching Hospital</span>
             </div>
-            <div className="flex gap-4 uppercase tracking-wider">
-              <a href="#privacy" onClick={(e) => { e.preventDefault(); showToast("Privacy regulations active (NDPR).", "info"); }} className="hover:text-foreground transition">NDPR Compliance</a>
-              <a href="#support" onClick={(e) => { e.preventDefault(); showToast("Representative directory loaded.", "info"); }} className="hover:text-foreground transition">Helpdesk</a>
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+              <span className="font-semibold text-foreground">Contact & Support:</span>
+              <a href="mailto:medhaven57@gmail.com" className="hover:text-foreground transition font-medium">medhaven57@gmail.com</a>
+              <span className="hidden sm:inline">•</span>
+              <a href="https://wa.me/2347072299463" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition font-medium text-emerald-500">WhatsApp: 07072299463</a>
             </div>
-            <div>
-              <span>© 2026 JUMSA. All Rights Reserved.</span>
+            <div className="font-bold">
+              <span>© 2026 MedHaven. All Rights Reserved.</span>
             </div>
           </div>
         </footer>

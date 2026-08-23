@@ -70,12 +70,12 @@ const featureList = [
   },
   {
     icon: BookOpen,
-    title: "Smart Library",
+    title: "Study Library",
     description: "Digital medical textbooks and clinical guides accessible anytime on phone or desktop.",
   },
   {
     icon: HelpCircle,
-    title: "MCQ & SBA Quizzes",
+    title: "Question Bank",
     description: "Interactive practice tests with instant rationale, explanations, and time tracking.",
   },
   {
@@ -90,7 +90,7 @@ const featureList = [
   },
   {
     icon: Brain,
-    title: "AI Flashcards",
+    title: "Smart Recall",
     description: "Spaced repetition flashcard generator built to help you retain heavy medical concepts.",
   },
 ]

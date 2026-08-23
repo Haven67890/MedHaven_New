@@ -71,9 +71,9 @@ const detailedFeatures = [
   {
     id: "smart-library",
     icon: BookOpen,
-    title: "Smart Library",
+    title: "Study Library",
     description:
-      "The MedHaven Smart Library centralizes recommended medical textbooks, clinical handbooks, and study guides into a fast, searchable interface. Rather than carrying heavy hardcopies or searching endlessly through fragmented folder drives, students can instantly locate relevant chapters and sections from any device.",
+      "The MedHaven Study Library centralizes recommended medical textbooks, clinical handbooks, and study guides into a fast, searchable interface. Rather than carrying heavy hardcopies or searching endlessly through fragmented folder drives, students can instantly locate relevant chapters and sections from any device.",
     whyItHelps:
       "Medical curricula demand cross-referencing multiple authoritative sources—from standard textbooks like Bailey & Love or Guyton & Hall to local departmental manuals. Having these resources structured and accessible digitally saves precious study time during intensive clinical rotations.",
     bullets: [
@@ -127,7 +127,7 @@ const detailedFeatures = [
   {
     id: "ai-flashcards",
     icon: Brain,
-    title: "AI-Generated Flashcards",
+    title: "Smart Recall (Flashcards)",
     description:
       "MedHaven's AI flashcard system uses spaced repetition algorithms to convert complex medical lecture notes and past questions into bite-sized, active-recall study cards. Customize your card decks or let AI generate flashcards directly from your syllabus topics.",
     whyItHelps:

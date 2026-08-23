@@ -590,7 +590,7 @@ export default function AIQuizzesPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title="AI Quizzes" description="Redesigned interactive revision system with multiple high-yield clinical formats, powered by Groq.">
+      <PageHeader title="Question Bank" description="Redesigned interactive revision system with multiple high-yield clinical formats, powered by Groq.">
         {activeQuizId && (
           <Button variant="outline" size="sm" onClick={handleBackToSetup} className="flex items-center gap-1.5 transition-all">
             <ArrowLeft className="size-4" /> Exit Portal
@@ -1345,8 +1345,12 @@ export default function AIQuizzesPage() {
                 <form onSubmit={handleGenerateQuiz} className="flex flex-col gap-6">
 
                   {/* SELECT FORMAT CARDS */}
-                  <div className="flex flex-col gap-3">
-                    <span className="text-xs font-semibold text-muted-foreground">Select Format</span>
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-muted-foreground">Select Format</span>
+                      <span className="text-xs font-semibold text-primary">MCQ · SBA · OSCE · Short Answer</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">Multiple high-yield formats available for practice: MCQ · SBA · OSCE · Short Answer</p>
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {formats.map((fmt) => {
                         const Icon = fmt.icon

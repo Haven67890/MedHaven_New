@@ -11,12 +11,12 @@ export type NavItem = {
 
 export const primaryNav: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, description: "Your study overview" },
-  { label: "Smart Library", href: "/library", icon: Library, description: "Browse the digital library" },
+  { label: "Study Library", href: "/library", icon: Library, description: "Browse the digital library" },
   { label: "Past Questions", href: "/past-questions", icon: FileQuestion, description: "Practice with past papers" },
   { label: "Study Materials", href: "/materials", icon: FileText, description: "Notes and handouts" },
   { label: "Lecture Videos", href: "/lectures", icon: Clapperboard, description: "Recorded lectures" },
-  { label: "Flashcards", href: "/flashcards", icon: BrainCircuit, description: "Active recall decks" },
-  { label: "AI Quizzes", href: "/quizzes", icon: ListChecks, description: "Adaptive practice" },
+  { label: "Smart Recall", href: "/flashcards", icon: BrainCircuit, description: "Active recall decks" },
+  { label: "Question Bank", href: "/quizzes", icon: ListChecks, description: "Adaptive practice" },
   { label: "Timetable", href: "/timetable", icon: CalendarDays, description: "Your weekly schedule" },
   { label: "Progress Tracker", href: "/progress", icon: TrendingUp, description: "Track your goals" },
 ]
