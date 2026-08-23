@@ -845,7 +845,7 @@ export default function FlashcardsPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title="Flashcards" description="Active recall flashcard decks powered by premium Groq AI.">
+      <PageHeader title="Smart Recall" description="Active recall flashcard decks powered by premium Groq AI.">
         <Button
           variant={showGenerator ? "outline" : "default"}
           onClick={() => setShowGenerator(!showGenerator)}

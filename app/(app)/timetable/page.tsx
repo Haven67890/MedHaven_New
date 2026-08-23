@@ -793,7 +793,7 @@ export default function TimetablePage() {
                       className="text-xs bg-card hover:bg-muted dark:bg-slate-900 border-border dark:border-slate-800 text-rose-650 dark:text-rose-400 hover:text-rose-550 dark:hover:text-rose-300 flex items-center gap-1.5 py-4 h-9 font-semibold rounded-xl"
                     >
                       <Link href={`/quizzes?course_id=${selectedEntry.course_id}`} onClick={() => setSelectedEntry(null)}>
-                        <Users className="size-3.5 shrink-0" /> AI Quizzes
+                        <Users className="size-3.5 shrink-0" /> Question Bank
                       </Link>
                     </Button>
                   </div>

@@ -27,6 +27,7 @@ import { SectionHeading } from "@/components/dashboard/section-heading"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { createClient } from "@/lib/supabase/client"
 import { MaterialCard } from "@/components/dashboard/material-card"
+import { MaterialPreviewModal, PreviewModalData } from "@/components/dashboard/material-preview-modal"
 import { logMaterialActivity } from "@/utils/activity"
 import { getCachedData, setCachedData } from "@/lib/cache"
 import { CollectionsSkeleton, MaterialGridSkeleton } from "@/components/feedback/loading-skeletons"
@@ -335,13 +336,7 @@ function SmartLibraryPageContent() {
   const [sortBy, setSortBy] = useState<string>("name")
 
   // Preview Modal State
-  const [previewModal, setPreviewModal] = useState<{
-    isOpen: boolean
-    title: string
-    url: string
-    type: "pdf" | "office" | "image" | "video" | "slideshare" | null
-    isEmbeddable?: boolean
-  } | null>(null)
+  const [previewModal, setPreviewModal] = useState<PreviewModalData | null>(null)
 
   // Filters State
   const [searchQuery, setSearchQuery] = useState("")
@@ -696,7 +691,7 @@ function SmartLibraryPageContent() {
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title="Smart Library" description="Search across thousands of textbooks, journals, and references curated for your curriculum.">
+      <PageHeader title="Study Library" description="Search across thousands of textbooks, journals, and references curated for your curriculum.">
         <div className="flex flex-wrap items-center gap-2">
           {/* Sort Control */}
           <select
@@ -941,6 +936,7 @@ function SmartLibraryPageContent() {
                                 url: downloadUrl,
                                 type: type,
                                 isEmbeddable: isEmbeddable,
+                                materialId: mat.id,
                               })
                             }}
                           />
@@ -963,6 +959,7 @@ function SmartLibraryPageContent() {
                                 title: img.title,
                                 url: downloadUrl,
                                 type: "image",
+                                materialId: img.id,
                               })
                             }}
                           />
@@ -978,12 +975,10 @@ function SmartLibraryPageContent() {
                 <p className="font-semibold text-foreground text-base mb-1">
                   {selectedCourseObj
                     ? `No materials yet for ${selectedCourseObj.code || selectedCourseObj.title}`
-                    : "No materials yet"}
+                    : "No materials yet for this course"}
                 </p>
                 <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                  {selectedCourseObj
-                    ? "There are currently no uploaded materials for this course in the library."
-                    : "No reference books, tutorial notes, or video materials found. Upload resource materials to populate this library curriculum section."}
+                  Check back soon as more content is added.
                 </p>
                 {(selectedTier !== "all" || selectedType !== "all" || selectedCourseId !== "all" || searchQuery !== "" || appliedSearchQuery !== "" || (selectedCourseIds && selectedCourseIds.length > 0)) && (
                   <Button
@@ -1009,173 +1004,7 @@ function SmartLibraryPageContent() {
       )}
 
       {/* Preview Modal */}
-      {previewModal && previewModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="relative w-full max-w-5xl h-[85vh] bg-background rounded-xl border border-border shadow-2xl flex flex-col overflow-hidden">
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="font-semibold text-lg text-foreground truncate max-w-[50%] sm:max-w-[70%]" title={previewModal.title}>
-                Preview: {previewModal.title}
-              </h3>
-              <div className="flex items-center gap-2">
-                {previewModal.type === "video" && (
-                  <Button variant="outline" size="sm" asChild className="text-xs h-8">
-                    <a href={previewModal.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
-                      Watch on YouTube <ExternalLink className="size-3.5" />
-                    </a>
-                  </Button>
-                )}
-                {previewModal.type === "slideshare" && (
-                  <Button variant="outline" size="sm" asChild className="text-xs h-8">
-                    <a href={previewModal.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
-                      View Slides <ExternalLink className="size-3.5" />
-                    </a>
-                  </Button>
-                )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setPreviewModal(null)}
-                  className="size-8 rounded-full animate-in fade-in zoom-in-75 duration-200"
-                >
-                  <X className="size-4" />
-                  <span className="sr-only">Close</span>
-                </Button>
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 bg-muted relative flex items-center justify-center p-4 overflow-auto">
-              {previewModal.type === "image" ? (
-                <img
-                  src={previewModal.url}
-                  alt={previewModal.title}
-                  className="max-w-full max-h-full object-contain rounded-lg shadow-md"
-                />
-              ) : previewModal.type === "video" ? (
-                (() => {
-                  const ytId = getYouTubeId(previewModal.url)
-                  const ytEmbedUrl = getYouTubeEmbedUrl(previewModal.url)
-
-                  if (ytEmbedUrl && previewModal.isEmbeddable !== false) {
-                    return (
-                      <iframe
-                        src={ytEmbedUrl}
-                        title={previewModal.title}
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                        className="absolute inset-0 w-full h-full border-0"
-                      />
-                    )
-                  }
-
-                  if (ytId) {
-                    return (
-                      <div className="flex flex-col items-center justify-center text-center p-6 max-w-md bg-card rounded-xl border border-border shadow-sm">
-                        <div className="relative aspect-video w-64 overflow-hidden rounded-lg border bg-muted mb-4 shadow-sm">
-                          <img
-                            src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`}
-                            alt={previewModal.title}
-                            className="w-full h-full object-cover"
-                          />
-                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                            <Video className="size-10 text-white/90" />
-                          </div>
-                        </div>
-                        <h4 className="font-semibold text-foreground text-base mb-1">Embedding restricted by uploader</h4>
-                        <p className="text-xs text-muted-foreground mb-4">
-                          This video is restricted and can only be watched directly on YouTube.
-                        </p>
-                        <Button asChild variant="destructive" size="sm">
-                          <a href={previewModal.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
-                            Watch on YouTube <ExternalLink className="size-3.5" />
-                          </a>
-                        </Button>
-                      </div>
-                    )
-                  }
-
-                  // Non-YouTube video (e.g. direct MP4 or external video URL)
-                  return (
-                    <div className="flex flex-col items-center justify-center text-center p-6 max-w-md bg-card rounded-xl border border-border shadow-sm">
-                      <div className="flex size-14 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-950/50 dark:text-red-400 mb-4">
-                        <Video className="size-7" />
-                      </div>
-                      <h4 className="font-semibold text-foreground text-base mb-1">External Video Stream</h4>
-                      <p className="text-xs text-muted-foreground mb-4">
-                        This video material is hosted externally and cannot be embedded inline.
-                      </p>
-                      <Button asChild variant="default" size="sm">
-                        <a href={previewModal.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
-                          Open Video Stream <ExternalLink className="size-3.5" />
-                        </a>
-                      </Button>
-                    </div>
-                  )
-                })()
-              ) : previewModal.type === "slideshare" ? (
-                failedSlideShareEmbeds[previewModal.url] ? (
-                  <div className="flex flex-col items-center justify-center text-center p-6 max-w-md bg-card rounded-xl border border-border shadow-sm">
-                    <h4 className="font-semibold text-foreground text-base mb-1">Slide preview unavailable</h4>
-                    <p className="text-xs text-muted-foreground mb-4">
-                      We were unable to load the slide preview. You can view the slides directly on the source platform.
-                    </p>
-                    <Button asChild variant="outline" size="sm">
-                      <a href={previewModal.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
-                        View Slides <ExternalLink className="size-3.5" />
-                      </a>
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="absolute inset-0 w-full h-full p-4 flex items-center justify-center">
-                    <SlideShareEmbed
-                      url={previewModal.url}
-                      title={previewModal.title}
-                      onError={() => {
-                        setFailedSlideShareEmbeds((prev) => ({
-                          ...prev,
-                          [previewModal.url]: true,
-                        }))
-                      }}
-                    />
-                  </div>
-                )
-              ) : (
-                (() => {
-                const lowerUrl = (previewModal.url || "").toLowerCase()
-                const type = (previewModal.type || "").toLowerCase()
-                const isOffice = ["pptx", "ppt", "docx", "doc", "xlsx", "xls"].some((ext) => lowerUrl.includes("." + ext) || lowerUrl.includes("%2e" + ext)) || type === "office" || type === "lecture_slide"
-                if (isOffice) {
-                  return (
-                    <div className="flex flex-col items-center justify-center text-center p-8 max-w-md bg-card rounded-xl border border-border shadow-sm">
-                      <div className="flex size-16 items-center justify-center rounded-full bg-orange-100 text-orange-600 dark:bg-orange-950/50 dark:text-orange-400 mb-4">
-                        <FileText className="size-8" />
-                      </div>
-                      <h4 className="font-semibold text-foreground text-lg mb-1">{previewModal.title}</h4>
-                      <p className="text-xs text-muted-foreground mb-6">
-                        PowerPoint files must be downloaded to view
-                      </p>
-                      <Button asChild variant="default" size="default" className="w-full sm:w-auto px-6">
-                        <a href={previewModal.url} download className="flex items-center justify-center gap-2">
-                          <Download className="size-4" /> Download File
-                        </a>
-                      </Button>
-                    </div>
-                  )
-                }
-                return (
-                  <iframe
-                    src={getIframePreviewSrc(previewModal.url, previewModal.type)}
-                    className="absolute inset-0 w-full h-full border-0"
-                    title={previewModal.title}
-                  />
-                )
-              })()
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <MaterialPreviewModal modal={previewModal} onClose={() => setPreviewModal(null)} />
     </div>
   )
 }
