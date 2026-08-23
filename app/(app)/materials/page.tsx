@@ -795,7 +795,8 @@ export default function StudyMaterialsPage() {
                               url: downloadUrl,
                               type: type,
                               isEmbeddable: isEmbeddable,
-                                materialId: mat.id,
+                              materialId: mat.id,
+                              storagePath: mat.storage_path,
                             })
                           }}
                         />
@@ -818,7 +819,8 @@ export default function StudyMaterialsPage() {
                               title: img.title,
                               url: downloadUrl,
                               type: "image",
-                                materialId: img.id,
+                              materialId: img.id,
+                              storagePath: img.storage_path,
                             })
                           }}
                         />

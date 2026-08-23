@@ -819,6 +819,7 @@ export default function PastQuestionsPage() {
                               type: type,
                               isEmbeddable: isEmbeddable,
                                 materialId: mat.id,
+                              storagePath: mat.storage_path,
                             })
                           }}
                         />
@@ -842,6 +843,7 @@ export default function PastQuestionsPage() {
                               url: downloadUrl,
                               type: "image",
                                 materialId: img.id,
+                              storagePath: img.storage_path,
                             })
                           }}
                         />
