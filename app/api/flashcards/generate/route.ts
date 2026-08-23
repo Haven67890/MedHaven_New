@@ -70,17 +70,18 @@ export async function POST(request: NextRequest) {
       ? `${courseData.code || ""} ${courseData.title || ""}`.trim()
       : "Medical Course"
 
-    // 5. Query materials to see if we can find a Supabase PDF for this course
+    // 5. Query materials to see if we can find a PDF for this course
     const { data: materials } = await supabase
       .from("materials")
-      .select("id, title, source_url, type")
+      .select("id, title, source_url, storage_path, type")
       .eq("course_id", course_id)
       .eq("status", "published")
 
     const pdfMaterials = (materials || []).filter(
       (m) =>
-        m.source_url?.includes("supabase.co/storage") &&
-        (m.type?.toLowerCase() === "pdf" || m.source_url?.toLowerCase().endsWith(".pdf"))
+        m.type?.toLowerCase() === "pdf" ||
+        m.storage_path?.toLowerCase().endsWith(".pdf") ||
+        m.source_url?.toLowerCase().endsWith(".pdf")
     )
 
     let selectedPdf = null
@@ -96,9 +97,19 @@ export async function POST(request: NextRequest) {
     }
 
     let pdfExcerpt = ""
-    if (selectedPdf && selectedPdf.source_url) {
+    if (selectedPdf) {
       try {
-        const pdfResponse = await fetch(selectedPdf.source_url)
+        const pdfUrl = selectedPdf.storage_path
+          ? `${request.nextUrl.origin}/api/materials/signed-url?path=${encodeURIComponent(selectedPdf.storage_path)}`
+          : selectedPdf.source_url
+
+        if (!pdfUrl) throw new Error("No URL available for PDF")
+
+        const pdfResponse = await fetch(pdfUrl, {
+          headers: {
+            cookie: request.headers.get("cookie") || "",
+          },
+        })
         if (!pdfResponse.ok) {
           throw new Error(`Failed to fetch PDF from storage: ${pdfResponse.statusText}`)
         }

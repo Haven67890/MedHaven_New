@@ -83,13 +83,13 @@ function getYouTubeId(url: string | null | undefined): string | null {
 
 // Helper to resolve material URL
 function getMaterialUrl(material: Material): string {
-  if (material.source_url) return material.source_url
   if (material.storage_path) {
     if (material.storage_path.startsWith("http://") || material.storage_path.startsWith("https://")) {
       return material.storage_path
     }
     return `/api/materials/signed-url?path=${encodeURIComponent(material.storage_path)}`
   }
+  if (material.source_url) return material.source_url
   return "#"
 }
 
@@ -312,13 +312,15 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
   const isOffice = isWord || isPowerPoint || ["xlsx", "xls"].includes(ext) || (material.type?.toLowerCase() === "office" && ext !== "pdf")
   const isImage = ["jpg", "jpeg", "png", "webp", "gif", "svg"].includes(ext)
   const isSupabaseStorage = fileUrl.includes("supabase.co/storage")
+  const isB2Storage = fileUrl.startsWith("/api/materials/signed-url") || Boolean(material.storage_path)
+  const isStoredFile = isB2Storage || isSupabaseStorage
   const isStudyTier = material.tier?.toLowerCase() === "study"
-  const isExternalLinkOnly = !isSupabaseStorage
+  const isExternalLinkOnly = !isStoredFile
 
   const hasEmbed = isVideo ? isYoutubeEmbeddable : isSlideDeck
 
   const showViewButton = isPdf || isOffice || isImage || isVideo || isSlideDeck
-  const showDownloadButton = isSupabaseStorage
+  const showDownloadButton = isStoredFile
   const showOpenLinkButton =
     (!showViewButton && !hasEmbed) || (isStudyTier && isExternalLinkOnly && !hasEmbed)
 

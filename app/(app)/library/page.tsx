@@ -109,14 +109,13 @@ function getYouTubeEmbedUrl(url: string | null | undefined): string | null {
 
 // Helper to resolve material URL
 function getMaterialUrl(material: Material): string {
-  if (material.source_url) return material.source_url
   if (material.storage_path) {
     if (material.storage_path.startsWith("http://") || material.storage_path.startsWith("https://")) {
       return material.storage_path
     }
-    // Safe fallback construction
     return `/api/materials/signed-url?path=${encodeURIComponent(material.storage_path)}`
   }
+  if (material.source_url) return material.source_url
   return "#"
 }
 
@@ -133,8 +132,8 @@ function getFileExtension(url: string | null | undefined): string {
 }
 
 function isImageMaterial(material: Material): boolean {
-  const url = material.source_url || (material.storage_path ? getMaterialUrl(material) : null)
-  if (!url) return false
+  const url = getMaterialUrl(material)
+  if (!url || url === "#") return false
   const ext = getFileExtension(url)
   return ["jpg", "jpeg", "png"].includes(ext)
 }

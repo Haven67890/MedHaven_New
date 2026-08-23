@@ -10,6 +10,8 @@ function getContentTypeByExt(ext: string): string {
     ppt: "application/vnd.ms-powerpoint",
     docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     doc: "application/msword",
+    xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    xls: "application/vnd.ms-excel",
     png: "image/png",
     jpg: "image/jpeg",
     jpeg: "image/jpeg",
@@ -24,21 +26,25 @@ function getContentTypeByExt(ext: string): string {
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
     const { searchParams } = new URL(request.url)
     const path = searchParams.get("path")
     const bucket = searchParams.get("bucket") || "materials"
 
     if (!path) {
       return NextResponse.json({ error: "Missing path parameter" }, { status: 400 })
+    }
+
+    // Allow branding assets without authentication check
+    const isBranding = path.startsWith("branding/")
+    if (!isBranding) {
+      const supabase = await createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      }
     }
 
     const targetB2Bucket =
@@ -67,7 +73,7 @@ export async function GET(request: NextRequest) {
     return new Response(stream, {
       headers: {
         "Content-Type": contentType,
-        "Content-Disposition": `${disposition}; filename="${filename}"`,
+        "Content-Disposition": `${disposition}; filename="${encodeURIComponent(filename)}"`,
         "Cache-Control": "private, max-age=3600",
       },
     })
