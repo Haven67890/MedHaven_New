@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const path = searchParams.get("path")
+    const decodedPath = decodeURIComponent(path || "")
     const bucket = searchParams.get("bucket") || "materials"
 
     if (!path) {
@@ -59,7 +60,7 @@ export async function GET(request: NextRequest) {
 
     const command = new GetObjectCommand({
       Bucket: targetB2Bucket,
-      Key: path,
+      Key: decodedPath,
     })
 
     const response = await b2Client.send(command)
