@@ -99,13 +99,13 @@ function getYouTubeEmbedUrl(url: string | null | undefined): string | null {
 
 // Helper to resolve material URL
 function getMaterialUrl(material: Material): string {
-  if (material.source_url) return material.source_url
   if (material.storage_path) {
     if (material.storage_path.startsWith("http://") || material.storage_path.startsWith("https://")) {
       return material.storage_path
     }
     return `/api/materials/signed-url?path=${encodeURIComponent(material.storage_path)}`
   }
+  if (material.source_url) return material.source_url
   return "#"
 }
 
