@@ -825,11 +825,36 @@ export default function LectureVideosPage() {
                   </div>
                 )
               ) : (
-                <iframe
-                  src={getIframePreviewSrc(previewModal.url, previewModal.type)}
-                  className="absolute inset-0 w-full h-full border-0"
-                  title={previewModal.title}
-                />
+                (() => {
+                const lowerUrl = (previewModal.url || "").toLowerCase()
+                const type = (previewModal.type || "").toLowerCase()
+                const isOffice = ["pptx", "ppt", "docx", "doc", "xlsx", "xls"].some((ext) => lowerUrl.includes("." + ext) || lowerUrl.includes("%2e" + ext)) || type === "office" || type === "lecture_slide"
+                if (isOffice) {
+                  return (
+                    <div className="flex flex-col items-center justify-center text-center p-8 max-w-md bg-card rounded-xl border border-border shadow-sm">
+                      <div className="flex size-16 items-center justify-center rounded-full bg-orange-100 text-orange-600 dark:bg-orange-950/50 dark:text-orange-400 mb-4">
+                        <FileText className="size-8" />
+                      </div>
+                      <h4 className="font-semibold text-foreground text-lg mb-1">{previewModal.title}</h4>
+                      <p className="text-xs text-muted-foreground mb-6">
+                        PowerPoint files must be downloaded to view
+                      </p>
+                      <Button asChild variant="default" size="default" className="w-full sm:w-auto px-6">
+                        <a href={previewModal.url} download className="flex items-center justify-center gap-2">
+                          <Download className="size-4" /> Download File
+                        </a>
+                      </Button>
+                    </div>
+                  )
+                }
+                return (
+                  <iframe
+                    src={getIframePreviewSrc(previewModal.url, previewModal.type)}
+                    className="absolute inset-0 w-full h-full border-0"
+                    title={previewModal.title}
+                  />
+                )
+              })()
               )}
             </div>
           </div>

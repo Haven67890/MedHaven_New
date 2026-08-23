@@ -43,7 +43,7 @@ export const metadata: Metadata = {
     siteName: "MedHaven",
     images: [
       {
-        url: "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/Untitled%20design.png",
+        url: "/logo.png",
         width: 1200,
         height: 630,
         alt: "MedHaven Logo",
@@ -57,7 +57,7 @@ export const metadata: Metadata = {
     description:
       "Free access to course-specific past questions, AI quizzes, flashcards, and verified lecturer slides tailored for MBBS excellence across Nigerian medical schools.",
     images: [
-      "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/Untitled%20design.png",
+      "/logo.png",
     ],
   },
 }
@@ -135,7 +135,7 @@ export default function Home() {
             } as React.CSSProperties}
           >
             <source
-              src="https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/401246b2e1a9c1dfe1d54b6e05cabbfa.mp4"
+              src="/api/materials/signed-url?path=branding%2F401246b2e1a9c1dfe1d54b6e05cabbfa.mp4"
               type="video/mp4"
             />
           </video>

@@ -614,7 +614,7 @@ export default function MarketplacePage() {
             </div>
           ) : filteredListings.length === 0 ? (
             <EmptyState
-              imageSrc="https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/1740135331386.jpg"
+              imageSrc="/logo.png"
               imageAlt="Medical student peer marketplace"
               title="No listings found"
               description={searchQuery || selectedCategory !== "all"
@@ -696,7 +696,7 @@ export default function MarketplacePage() {
             <MarketplaceGridSkeleton count={3} />
           ) : myListings.length === 0 ? (
             <EmptyState
-              imageSrc="https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/1740135331386.jpg"
+              imageSrc="/logo.png"
               imageAlt="Medical student peer marketplace"
               title="You haven't listed anything yet"
               description="Sell study guides, books, devices or extra equipment in just a minute."

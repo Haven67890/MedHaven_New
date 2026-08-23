@@ -10,7 +10,7 @@ type MedHavenLogoProps = {
 }
 
 export function MedHavenLogo({ compact = false, className, imgClassName, href = "/", inverse = false }: MedHavenLogoProps) {
-  const logoUrl = "https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/Untitled%20design.png"
+  const logoUrl = "/logo.png"
 
   // Sizing of the logo that respects location and does not distort:
   const imageSizeClass = compact

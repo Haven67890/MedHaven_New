@@ -1025,7 +1025,7 @@ export default function FlashcardsPage() {
         {filteredDecks.length === 0 ? (
           <div className="mt-4">
             <EmptyState
-              imageSrc="https://fexsfbdvewlmvzfnwqul.supabase.co/storage/v1/object/public/materials/branding/f8ab5be218d74bcaa2721d46f7cb6e1f.jpg"
+              imageSrc="/logo.png"
               imageAlt="Medical study environment"
               title="No decks found"
               description={searchQuery ? "No decks match your active search filter." : "Get started by generating your first high-yield medical flashcards deck using our premium AI."}
