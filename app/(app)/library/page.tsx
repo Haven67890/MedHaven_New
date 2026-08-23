@@ -109,14 +109,13 @@ function getYouTubeEmbedUrl(url: string | null | undefined): string | null {
 
 // Helper to resolve material URL
 function getMaterialUrl(material: Material): string {
-  if (material.storage_path) {
-    if (material.storage_path.startsWith("http://") || material.storage_path.startsWith("https://")) {
-      return material.storage_path
-    }
-    return `/api/materials/signed-url?path=${encodeURIComponent(material.storage_path)}`
+  if (!material.storage_path) {
+    return material.source_url || "#"
   }
-  if (material.source_url) return material.source_url
-  return "#"
+  if (material.storage_path.startsWith("http://") || material.storage_path.startsWith("https://")) {
+    return material.storage_path
+  }
+  return `/api/materials/signed-url?path=${encodeURIComponent(material.storage_path)}`
 }
 
 // Helper to get file extension from URL
@@ -929,6 +928,12 @@ function SmartLibraryPageContent() {
                             key={material.id}
                             material={material}
                             onPreview={(mat, type, isEmbeddable) => {
+                            if (!mat.storage_path) {
+                              if (mat.source_url) {
+                                window.open(mat.source_url, "_blank")
+                              }
+                              return
+                            }
                               const downloadUrl = getMaterialUrl(mat)
                               setPreviewModal({
                                 isOpen: true,
@@ -946,6 +951,12 @@ function SmartLibraryPageContent() {
                           <CollapsibleImageGroupCard
                             images={imageMats}
                             onViewImage={(img) => {
+                            if (!img.storage_path) {
+                              if (img.source_url) {
+                                window.open(img.source_url, "_blank")
+                              }
+                              return
+                            }
                               const downloadUrl = getMaterialUrl(img)
                               setPreviewModal({
                                 isOpen: true,

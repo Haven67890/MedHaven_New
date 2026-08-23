@@ -25,13 +25,20 @@ function getContentTypeByExt(ext: string): string {
 }
 
 export async function GET(request: NextRequest) {
+  console.log('B2 config loaded:', {
+    bucket: !!process.env.B2_BUCKET_NAME,
+    keyId: !!process.env.B2_KEY_ID,
+    appKey: !!process.env.B2_APP_KEY,
+    endpoint: !!process.env.B2_ENDPOINT
+  })
+
   try {
     const { searchParams } = new URL(request.url)
     const path = searchParams.get("path")
     const bucket = searchParams.get("bucket") || "materials"
 
     if (!path) {
-      return NextResponse.json({ error: "Missing path parameter" }, { status: 400 })
+      return new Response('Missing path parameter', { status: 400 })
     }
 
     // Allow branding assets without authentication check
@@ -43,7 +50,7 @@ export async function GET(request: NextRequest) {
       } = await supabase.auth.getUser()
 
       if (!user) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        return new Response('Unauthorized', { status: 401 })
       }
     }
 
@@ -78,10 +85,7 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (err: any) {
-    if (err?.name === "NotFound" || err?.name === "NoSuchKey" || err?.$metadata?.httpStatusCode === 404) {
-      return NextResponse.json({ error: "File not found" }, { status: 404 })
-    }
     console.error("Error streaming file from B2:", err)
-    return NextResponse.json({ error: "Failed to retrieve file" }, { status: 500 })
+    return new Response('File not found', { status: 404 })
   }
 }
