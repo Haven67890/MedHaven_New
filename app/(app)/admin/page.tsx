@@ -78,6 +78,17 @@ export default function AdminDashboard() {
   } | null>(null)
   const [migrationError, setMigrationError] = useState<string | null>(null)
 
+  // Supabase Storage Cleanup state
+  const [cleanLoading, setCleanLoading] = useState(false)
+  const [cleanStatus, setCleanStatus] = useState<string | null>(null)
+  const [cleanProgress, setCleanProgress] = useState<{
+    deleted: number
+    skipped: number
+    failed: number
+    total: number
+  } | null>(null)
+  const [cleanError, setCleanError] = useState<string | null>(null)
+
   // Users list, search, pagination, and filters
   const [users, setUsers] = useState<Profile[]>([])
   const [totalCount, setTotalCount] = useState(0)
@@ -530,6 +541,43 @@ export default function AdminDashboard() {
     void loadMetadata()
   }, [])
 
+  // Fetch initial migration and cleanup statuses on mount
+  useEffect(() => {
+    const fetchInitialStatuses = async () => {
+      try {
+        const [migRes, cleanRes] = await Promise.all([
+          fetch("/api/admin/migration-status"),
+          fetch("/api/admin/clean-status"),
+        ])
+        if (migRes.ok) {
+          const migData = await migRes.json()
+          setMigrationStatus(migData.status)
+          setMigrationProgress({
+            migrated: migData.migrated ?? 0,
+            failed: migData.failed ?? 0,
+            total: migData.total ?? 0,
+            failures: migData.failures || [],
+          })
+          if (migData.status === "running") setMigrationLoading(true)
+        }
+        if (cleanRes.ok) {
+          const cleanData = await cleanRes.json()
+          setCleanStatus(cleanData.status)
+          setCleanProgress({
+            deleted: cleanData.deleted ?? 0,
+            skipped: cleanData.skipped ?? 0,
+            failed: cleanData.failed ?? 0,
+            total: cleanData.total ?? 0,
+          })
+          if (cleanData.status === "running") setCleanLoading(true)
+        }
+      } catch (err) {
+        console.error("Error fetching initial status:", err)
+      }
+    }
+    void fetchInitialStatuses()
+  }, [])
+
   // Poll B2 Migration Status
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null
@@ -571,6 +619,47 @@ export default function AdminDashboard() {
     }
   }, [migrationLoading, migrationStatus])
 
+  // Poll Supabase Storage Cleanup Status
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null
+
+    const checkCleanStatus = async () => {
+      try {
+        const res = await fetch("/api/admin/clean-status")
+        if (!res.ok) return
+        const data = await res.json()
+
+        setCleanStatus(data.status)
+        setCleanProgress({
+          deleted: data.deleted ?? 0,
+          skipped: data.skipped ?? 0,
+          failed: data.failed ?? 0,
+          total: data.total ?? 0,
+        })
+
+        if (data.status === "running") {
+          setCleanLoading(true)
+        } else if (data.status === "complete" || data.status === "failed") {
+          setCleanLoading(false)
+          if (data.status === "failed") {
+            setCleanError("Cleanup process encountered a fatal error")
+          }
+        }
+      } catch (err) {
+        console.error("Error polling clean status:", err)
+      }
+    }
+
+    if (cleanLoading || cleanStatus === "running") {
+      checkCleanStatus()
+      interval = setInterval(checkCleanStatus, 10000)
+    }
+
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [cleanLoading, cleanStatus])
+
   // Run B2 Migration
   const handleRunMigration = async () => {
     setMigrationLoading(true)
@@ -595,6 +684,33 @@ export default function AdminDashboard() {
       setMigrationError("Migration failed - check console for details")
       setMigrationLoading(false)
       setMigrationStatus(null)
+    }
+  }
+
+  // Run Supabase Storage Cleanup
+  const handleCleanStorage = async () => {
+    setCleanLoading(true)
+    setCleanStatus("started")
+    setCleanProgress(null)
+    setCleanError(null)
+
+    try {
+      const res = await fetch("/api/admin/clean-supabase-storage", {
+        method: "POST",
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || "Cleanup failed to start")
+      }
+
+      setCleanStatus("running")
+    } catch (err: any) {
+      console.error("Cleanup error:", err)
+      setCleanError("Cleanup failed - check console for details")
+      setCleanLoading(false)
+      setCleanStatus(null)
     }
   }
 
@@ -2533,6 +2649,48 @@ export default function AdminDashboard() {
                           })}
                         </ul>
                       </div>
+                    )}
+                  </div>
+                )}
+
+                {migrationStatus === "complete" && (
+                  <div className="pt-4 border-t space-y-3">
+                    <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                      This permanently removes files from Supabase. Only click if B2 migration is confirmed complete.
+                    </p>
+                    <div>
+                      <Button
+                        variant="destructive"
+                        onClick={handleCleanStorage}
+                        disabled={cleanLoading || cleanStatus === "running"}
+                      >
+                        {cleanLoading || cleanStatus === "running" ? (
+                          <>
+                            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                            Cleaning... {cleanProgress ? `${cleanProgress.deleted}/${cleanProgress.total} files removed` : "starting..."}
+                          </>
+                        ) : (
+                          "Clean Supabase Storage"
+                        )}
+                      </Button>
+                    </div>
+
+                    {(cleanLoading || cleanStatus === "running") && (
+                      <p className="text-sm text-muted-foreground animate-pulse">
+                        Cleaning... {cleanProgress ? `${cleanProgress.deleted}/${cleanProgress.total} files removed` : "starting background task..."}
+                      </p>
+                    )}
+
+                    {cleanError && (
+                      <div className="rounded-lg border border-destructive/30 bg-destructive/15 p-3 text-sm text-destructive font-medium">
+                        {cleanError}
+                      </div>
+                    )}
+
+                    {cleanStatus === "complete" && cleanProgress && (
+                      <p className="text-sm font-medium text-foreground">
+                        Cleanup complete: {cleanProgress.deleted} files removed from Supabase
+                      </p>
                     )}
                   </div>
                 )}
