@@ -658,21 +658,15 @@ export default function LectureVideosPage() {
                           <MaterialCard
                             material={material}
                             onPreview={(mat, type, isEmbeddable) => {
-                              if (!mat.storage_path) {
-                                if (mat.source_url) {
-                                  window.open(mat.source_url, "_blank")
-                                }
-                                return
-                              }
-                              const downloadUrl = getMaterialUrl(mat)
+                              const targetUrl = mat.storage_path ? getMaterialUrl(mat) : (mat.source_url || "#")
                               setPreviewModal({
                                 isOpen: true,
                                 title: mat.title,
-                                url: downloadUrl,
+                                url: targetUrl,
                                 type: type,
                                 isEmbeddable: isEmbeddable,
                                 materialId: mat.id,
-                                storagePath: mat.storage_path,
+                                storagePath: mat.storage_path || null,
                               })
                             }}
                           />
