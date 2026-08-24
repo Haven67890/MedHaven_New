@@ -14,6 +14,11 @@ import { SectionHeading } from "@/components/dashboard/section-heading"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { createClient } from "@/lib/supabase/client"
 import useAuth from "@/hooks/useAuth"
+import {
+  MotionReveal,
+  MotionStaggerGroup,
+  MotionStaggerItem,
+} from "@/components/ui/motion"
 
 interface GuideSection {
   heading: string
@@ -214,10 +219,18 @@ export default function ClinicalPostingGuidesPage() {
       </PageHeader>
 
       {/* Dynamic Statistics Cards */}
-      <section className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Available Posting Guides" value={String(stats.total)} icon={Stethoscope} accent="primary" />
-        <StatCard label="Unique Specialties" value={String(stats.uniqueSpecs)} icon={Layers} accent="warning" />
-        <StatCard label="My Level Guides" value={String(stats.targetLevelMatch)} icon={Award} accent="secondary" />
+      <section>
+        <MotionStaggerGroup className="grid gap-4 sm:grid-cols-3">
+          <MotionStaggerItem>
+            <StatCard label="Available Posting Guides" value={String(stats.total)} icon={Stethoscope} accent="primary" />
+          </MotionStaggerItem>
+          <MotionStaggerItem>
+            <StatCard label="Unique Specialties" value={String(stats.uniqueSpecs)} icon={Layers} accent="warning" />
+          </MotionStaggerItem>
+          <MotionStaggerItem>
+            <StatCard label="My Level Guides" value={String(stats.targetLevelMatch)} icon={Award} accent="secondary" />
+          </MotionStaggerItem>
+        </MotionStaggerGroup>
       </section>
 
       {/* Search Input Bar */}
@@ -252,63 +265,62 @@ export default function ClinicalPostingGuidesPage() {
           <SectionHeading title="Guides Directory" description="Click on a guide to expand its sections, rules, and expectations." />
 
           {filteredGuides.length > 0 ? (
-            <div className="mt-6 flex flex-col gap-4">
+            <MotionStaggerGroup className="mt-6 flex flex-col gap-4">
               {filteredGuides.map((guide) => {
                 const isExpanded = !!expandedGuides[guide.id]
                 return (
-                  <Card
-                    key={guide.id}
-                    className="overflow-hidden border-border transition-all duration-200"
-                  >
-                    <CardHeader
-                      className="cursor-pointer select-none pb-4"
-                      onClick={() => toggleExpand(guide.id)}
-                    >
-                      <div className="flex items-start gap-3 sm:items-center">
-                        <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
-                          <Stethoscope className="size-5" aria-hidden="true" />
-                        </div>
-                        <div className="flex-1 min-w-0 pr-8">
-                          <div className="flex flex-wrap gap-2 items-center mb-1">
-                            <Badge variant="outline">{guide.specialty}</Badge>
-                            <Badge variant="secondary">Level: {guide.level || "General"}</Badge>
+                  <MotionStaggerItem key={guide.id}>
+                    <Card className="overflow-hidden border-border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+                      <CardHeader
+                        className="cursor-pointer select-none pb-4"
+                        onClick={() => toggleExpand(guide.id)}
+                      >
+                        <div className="flex items-start gap-3 sm:items-center">
+                          <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
+                            <Stethoscope className="size-5" aria-hidden="true" />
                           </div>
-                          <CardTitle className="text-base sm:text-lg leading-snug font-bold">
-                            {guide.title}
-                          </CardTitle>
+                          <div className="flex-1 min-w-0 pr-8">
+                            <div className="flex flex-wrap gap-2 items-center mb-1">
+                              <Badge variant="outline">{guide.specialty}</Badge>
+                              <Badge variant="secondary">Level: {guide.level || "General"}</Badge>
+                            </div>
+                            <CardTitle className="text-base sm:text-lg leading-snug font-bold">
+                              {guide.title}
+                            </CardTitle>
+                          </div>
                         </div>
-                      </div>
-                      <CardAction>
-                        <div className="text-muted-foreground p-1">
-                          {isExpanded ? <ChevronUp className="size-5" /> : <ChevronDown className="size-5" />}
-                        </div>
-                      </CardAction>
-                    </CardHeader>
+                        <CardAction>
+                          <div className="text-muted-foreground p-1">
+                            {isExpanded ? <ChevronUp className="size-5" /> : <ChevronDown className="size-5" />}
+                          </div>
+                        </CardAction>
+                      </CardHeader>
 
-                    {isExpanded && (
-                      <CardContent className="border-t pt-5 bg-muted/5 animate-in fade-in duration-200">
-                        {guide.sections && guide.sections.length > 0 ? (
-                          <div className="space-y-6">
-                            {guide.sections.map((section, idx) => (
-                              <div key={idx} className="space-y-2">
-                                <h4 className="text-sm font-extrabold uppercase tracking-wide text-primary border-b pb-1">
-                                  {section.heading || `Section #${idx + 1}`}
-                                </h4>
-                                <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-                                  {section.content}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-muted-foreground italic">No details or sections added for this posting guide yet.</p>
-                        )}
-                      </CardContent>
-                    )}
-                  </Card>
+                      {isExpanded && (
+                        <CardContent className="border-t pt-5 bg-muted/5 animate-in fade-in duration-200">
+                          {guide.sections && guide.sections.length > 0 ? (
+                            <div className="space-y-6">
+                              {guide.sections.map((section, idx) => (
+                                <div key={idx} className="space-y-2">
+                                  <h4 className="text-sm font-extrabold uppercase tracking-wide text-primary border-b pb-1">
+                                    {section.heading || `Section #${idx + 1}`}
+                                  </h4>
+                                  <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+                                    {section.content}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground italic">No details or sections added for this posting guide yet.</p>
+                          )}
+                        </CardContent>
+                      )}
+                    </Card>
+                  </MotionStaggerItem>
                 )
               })}
-            </div>
+            </MotionStaggerGroup>
           ) : (
             <div className="mt-6 rounded-xl border border-dashed border-border bg-card p-12 text-center text-sm text-muted-foreground">
               <Stethoscope className="size-8 mx-auto mb-3 text-muted-foreground/60" />

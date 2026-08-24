@@ -32,6 +32,12 @@ import { PageHeader } from "@/components/dashboard/page-header"
 import { SectionHeading } from "@/components/dashboard/section-heading"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { createClient } from "@/lib/supabase/client"
+import {
+  MotionReveal,
+  MotionStaggerGroup,
+  MotionStaggerItem,
+  MotionButton,
+} from "@/components/ui/motion"
 
 interface Course {
   id: string
@@ -600,11 +606,21 @@ export default function AIQuizzesPage() {
 
       {/* Overview stats visible on selection or review screens */}
       {!activeQuizId && (
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard label="Quizzes Taken" value={String(totalAttemptsCount)} icon={ListChecks} accent="primary" />
-          <StatCard label="Avg. Accuracy" value={`${avgAccuracy}%`} icon={Target} accent="secondary" />
-          <StatCard label="Best Score" value={`${highestScore}%`} icon={Star} accent="accent" />
-          <StatCard label="Qs Answered" value={String(totalQuestionsAnswered)} icon={CircleCheck} accent="warning" />
+        <section>
+          <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <MotionStaggerItem>
+              <StatCard label="Quizzes Taken" value={String(totalAttemptsCount)} icon={ListChecks} accent="primary" />
+            </MotionStaggerItem>
+            <MotionStaggerItem>
+              <StatCard label="Avg. Accuracy" value={`${avgAccuracy}%`} icon={Target} accent="secondary" />
+            </MotionStaggerItem>
+            <MotionStaggerItem>
+              <StatCard label="Best Score" value={`${highestScore}%`} icon={Star} accent="accent" />
+            </MotionStaggerItem>
+            <MotionStaggerItem>
+              <StatCard label="Qs Answered" value={String(totalQuestionsAnswered)} icon={CircleCheck} accent="warning" />
+            </MotionStaggerItem>
+          </MotionStaggerGroup>
         </section>
       )}
 
@@ -1351,36 +1367,37 @@ export default function AIQuizzesPage() {
                       <span className="text-xs font-semibold text-primary">MCQ · SBA · OSCE · Short Answer</span>
                     </div>
                     <p className="text-[11px] text-muted-foreground">Multiple high-yield formats available for practice: MCQ · SBA · OSCE · Short Answer</p>
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <MotionStaggerGroup className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {formats.map((fmt) => {
                         const Icon = fmt.icon
                         const selected = selectedFormat === fmt.id
                         return (
-                          <button
-                            key={fmt.id}
-                            type="button"
-                            onClick={() => setSelectedFormat(fmt.id as any)}
-                            className={`group text-left border rounded-xl p-3.5 transition-all hover:-translate-y-0.5 hover:shadow-sm cursor-pointer flex flex-col gap-2.5 justify-between ${
-                              selected
-                                ? "border-primary bg-primary/5 ring-1 ring-primary"
-                                : "border-border bg-card hover:border-primary/40"
-                            }`}
-                          >
-                            <div className="flex items-center gap-2.5">
-                              <span className={`flex size-8 items-center justify-center rounded-lg ${fmt.bg} ${fmt.color}`}>
-                                <Icon className="size-4.5" />
-                              </span>
-                              <span className="text-xs font-bold text-foreground group-hover:text-primary transition-colors">
-                                {fmt.id}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-muted-foreground leading-relaxed font-medium">
-                              {fmt.desc}
-                            </p>
-                          </button>
+                          <MotionStaggerItem key={fmt.id}>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedFormat(fmt.id as any)}
+                              className={`group text-left border rounded-xl p-3.5 transition-all hover:-translate-y-0.5 hover:shadow-sm cursor-pointer flex flex-col gap-2.5 justify-between w-full ${
+                                selected
+                                  ? "border-primary bg-primary/5 ring-1 ring-primary"
+                                  : "border-border bg-card hover:border-primary/40"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <span className={`flex size-8 items-center justify-center rounded-lg ${fmt.bg} ${fmt.color}`}>
+                                  <Icon className="size-4.5" />
+                                </span>
+                                <span className="text-xs font-bold text-foreground group-hover:text-primary transition-colors">
+                                  {fmt.id}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-muted-foreground leading-relaxed font-medium">
+                                {fmt.desc}
+                              </p>
+                            </button>
+                          </MotionStaggerItem>
                         )
                       })}
-                    </div>
+                    </MotionStaggerGroup>
                   </div>
 
                   {/* SELECT QUESTION COUNT */}

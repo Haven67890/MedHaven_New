@@ -32,6 +32,11 @@ import { logMaterialActivity } from "@/utils/activity"
 import { getCachedData, setCachedData } from "@/lib/cache"
 import { CollectionsSkeleton, MaterialGridSkeleton } from "@/components/feedback/loading-skeletons"
 import { SearchInput } from "@/components/ui/search-input"
+import {
+  MotionReveal,
+  MotionStaggerGroup,
+  MotionStaggerItem,
+} from "@/components/ui/motion"
 
 interface Faculty {
   id: string
@@ -759,10 +764,18 @@ function SmartLibraryPageContent() {
       </PageHeader>
 
       {/* Stats Cards */}
-      <section className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Total Materials" value={String(totalTitles)} icon={Library} accent="primary" />
-        <StatCard label="Recommended Items" value={String(recommendedCount)} icon={BookOpen} accent="secondary" />
-        <StatCard label="Study Guides" value={String(studyCount)} icon={BookMarked} accent="accent" />
+      <section>
+        <MotionStaggerGroup className="grid gap-4 sm:grid-cols-3">
+          <MotionStaggerItem>
+            <StatCard label="Total Materials" value={String(totalTitles)} icon={Library} accent="primary" />
+          </MotionStaggerItem>
+          <MotionStaggerItem>
+            <StatCard label="Recommended Items" value={String(recommendedCount)} icon={BookOpen} accent="secondary" />
+          </MotionStaggerItem>
+          <MotionStaggerItem>
+            <StatCard label="Study Guides" value={String(studyCount)} icon={BookMarked} accent="accent" />
+          </MotionStaggerItem>
+        </MotionStaggerGroup>
       </section>
 
       {/* Modern Submit-on-Action Search Bar */}
@@ -829,36 +842,37 @@ function SmartLibraryPageContent() {
               }
             />
             {displayedCollections.length > 0 ? (
-              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <MotionStaggerGroup className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {displayedCollections.map((collection) => {
                   const Icon = collectionIcons[collection.icon as keyof typeof collectionIcons] || Library
                   const isSelected = selectedCourseId === collection.id
                   return (
-                    <button
-                      key={collection.id}
-                      onClick={() => {
-                        setSelectedCourseIds(null)
-                        setSelectedCourseId(isSelected ? "all" : collection.id)
-                      }}
-                      className={`group flex flex-col items-start text-left gap-3 rounded-xl border p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] hover:shadow-md w-full cursor-pointer ${
-                        isSelected
-                          ? "border-primary bg-primary/5 ring-1 ring-primary"
-                          : "border-border bg-card hover:border-primary/40"
-                      }`}
-                    >
-                      <span className={`flex size-10 items-center justify-center rounded-xl ${colorMap[collection.color]}`}>
-                        <Icon className="size-5" aria-hidden="true" />
-                      </span>
-                      <div className="flex flex-col gap-0.5 overflow-hidden w-full">
-                        <span className="text-sm font-medium text-foreground truncate block" title={collection.name}>
-                          {collection.code ? `${collection.code}: ` : ""}{collection.name}
+                    <MotionStaggerItem key={collection.id}>
+                      <button
+                        onClick={() => {
+                          setSelectedCourseIds(null)
+                          setSelectedCourseId(isSelected ? "all" : collection.id)
+                        }}
+                        className={`group flex flex-col items-start text-left gap-3 rounded-xl border p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] hover:shadow-md w-full cursor-pointer ${
+                          isSelected
+                            ? "border-primary bg-primary/5 ring-1 ring-primary"
+                            : "border-border bg-card hover:border-primary/40"
+                        }`}
+                      >
+                        <span className={`flex size-10 items-center justify-center rounded-xl ${colorMap[collection.color]}`}>
+                          <Icon className="size-5" aria-hidden="true" />
                         </span>
-                        <span className="text-xs text-muted-foreground">{collection.count} materials</span>
-                      </div>
-                    </button>
+                        <div className="flex flex-col gap-0.5 overflow-hidden w-full">
+                          <span className="text-sm font-medium text-foreground truncate block" title={collection.name}>
+                            {collection.code ? `${collection.code}: ` : ""}{collection.name}
+                          </span>
+                          <span className="text-xs text-muted-foreground">{collection.count} materials</span>
+                        </div>
+                      </button>
+                    </MotionStaggerItem>
                   )
                 })}
-              </div>
+              </MotionStaggerGroup>
             ) : (
               <div className="mt-4 rounded-xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
                 No active courses available to browse.
@@ -918,30 +932,33 @@ function SmartLibraryPageContent() {
 
                       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         {/* Non-image materials */}
+                        <MotionStaggerGroup className="contents">
                         {nonImageMats.map((material) => (
-                          <MaterialCard
-                            key={material.id}
-                            material={material}
-                            onPreview={(mat, type, isEmbeddable) => {
-                            if (!mat.storage_path) {
-                              if (mat.source_url) {
-                                window.open(mat.source_url, "_blank")
+                          <MotionStaggerItem key={material.id}>
+                            <MaterialCard
+                              material={material}
+                              onPreview={(mat, type, isEmbeddable) => {
+                              if (!mat.storage_path) {
+                                if (mat.source_url) {
+                                  window.open(mat.source_url, "_blank")
+                                }
+                                return
                               }
-                              return
-                            }
-                              const downloadUrl = getMaterialUrl(mat)
-                              setPreviewModal({
-                                isOpen: true,
-                                title: mat.title,
-                                url: downloadUrl,
-                                type: type,
-                                isEmbeddable: isEmbeddable,
-                                materialId: mat.id,
-                                storagePath: mat.storage_path,
-                              })
-                            }}
-                          />
+                                const downloadUrl = getMaterialUrl(mat)
+                                setPreviewModal({
+                                  isOpen: true,
+                                  title: mat.title,
+                                  url: downloadUrl,
+                                  type: type,
+                                  isEmbeddable: isEmbeddable,
+                                  materialId: mat.id,
+                                  storagePath: mat.storage_path,
+                                })
+                              }}
+                            />
+                          </MotionStaggerItem>
                         ))}
+                        </MotionStaggerGroup>
 
                         {/* Collapsible Image Folder Card */}
                         {imageMats.length > 0 && (

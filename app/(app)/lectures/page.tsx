@@ -32,6 +32,11 @@ import { MaterialPreviewModal, PreviewModalData } from "@/components/dashboard/m
 import { getCachedData, setCachedData } from "@/lib/cache"
 import { MaterialGridSkeleton } from "@/components/feedback/loading-skeletons"
 import { SearchInput } from "@/components/ui/search-input"
+import {
+  MotionReveal,
+  MotionStaggerGroup,
+  MotionStaggerItem,
+} from "@/components/ui/motion"
 
 interface Faculty {
   id: string
@@ -550,11 +555,21 @@ export default function LectureVideosPage() {
       </PageHeader>
 
       {/* Stats Cards */}
-      <section className="grid gap-4 sm:grid-cols-4">
-        <StatCard label="Total lectures" value={String(totalVideos)} icon={Clapperboard} accent="primary" />
-        <StatCard label="Recommended Videos" value={String(totalRecommendedVideos)} icon={Video} accent="secondary" />
-        <StatCard label="Watched by you" value="42" icon={Play} accent="accent" />
-        <StatCard label="In progress" value="6" icon={Play} accent="warning" />
+      <section>
+        <MotionStaggerGroup className="grid gap-4 sm:grid-cols-4">
+          <MotionStaggerItem>
+            <StatCard label="Total lectures" value={String(totalVideos)} icon={Clapperboard} accent="primary" />
+          </MotionStaggerItem>
+          <MotionStaggerItem>
+            <StatCard label="Recommended Videos" value={String(totalRecommendedVideos)} icon={Video} accent="secondary" />
+          </MotionStaggerItem>
+          <MotionStaggerItem>
+            <StatCard label="Watched by you" value="42" icon={Play} accent="accent" />
+          </MotionStaggerItem>
+          <MotionStaggerItem>
+            <StatCard label="In progress" value="6" icon={Play} accent="warning" />
+          </MotionStaggerItem>
+        </MotionStaggerGroup>
       </section>
 
       {/* Modern Submit-on-Action Search Bar */}
@@ -637,32 +652,33 @@ export default function LectureVideosPage() {
                       </h3>
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                       {videoMats.map((material) => (
-                        <MaterialCard
-                          key={material.id}
-                          material={material}
-                          onPreview={(mat, type, isEmbeddable) => {
-                            if (!mat.storage_path) {
-                              if (mat.source_url) {
-                                window.open(mat.source_url, "_blank")
+                        <MotionStaggerItem key={material.id}>
+                          <MaterialCard
+                            material={material}
+                            onPreview={(mat, type, isEmbeddable) => {
+                              if (!mat.storage_path) {
+                                if (mat.source_url) {
+                                  window.open(mat.source_url, "_blank")
+                                }
+                                return
                               }
-                              return
-                            }
-                            const downloadUrl = getMaterialUrl(mat)
-                            setPreviewModal({
-                              isOpen: true,
-                              title: mat.title,
-                              url: downloadUrl,
-                              type: type,
-                              isEmbeddable: isEmbeddable,
-                              materialId: mat.id,
-                              storagePath: mat.storage_path,
-                            })
-                          }}
-                        />
+                              const downloadUrl = getMaterialUrl(mat)
+                              setPreviewModal({
+                                isOpen: true,
+                                title: mat.title,
+                                url: downloadUrl,
+                                type: type,
+                                isEmbeddable: isEmbeddable,
+                                materialId: mat.id,
+                                storagePath: mat.storage_path,
+                              })
+                            }}
+                          />
+                        </MotionStaggerItem>
                       ))}
-                    </div>
+                    </MotionStaggerGroup>
                   </div>
                 )
               })}

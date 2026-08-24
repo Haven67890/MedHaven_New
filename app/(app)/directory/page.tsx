@@ -14,6 +14,11 @@ import { PageHeader } from "@/components/dashboard/page-header"
 import { SectionHeading } from "@/components/dashboard/section-heading"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { createClient } from "@/lib/supabase/client"
+import {
+  MotionReveal,
+  MotionStaggerGroup,
+  MotionStaggerItem,
+} from "@/components/ui/motion"
 
 interface StaffMember {
   id: string
@@ -124,10 +129,18 @@ export default function StaffDirectoryPage() {
       </PageHeader>
 
       {/* Stats section */}
-      <section className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Total active staff" value={String(totalStaffCount)} icon={Users} accent="primary" />
-        <StatCard label="Departments" value={String(uniqueDeptsCount)} icon={Users} accent="secondary" />
-        <StatCard label="Available today" value={String(totalStaffCount)} icon={Users} accent="accent" />
+      <section>
+        <MotionStaggerGroup className="grid gap-4 sm:grid-cols-3">
+          <MotionStaggerItem>
+            <StatCard label="Total active staff" value={String(totalStaffCount)} icon={Users} accent="primary" />
+          </MotionStaggerItem>
+          <MotionStaggerItem>
+            <StatCard label="Departments" value={String(uniqueDeptsCount)} icon={Users} accent="secondary" />
+          </MotionStaggerItem>
+          <MotionStaggerItem>
+            <StatCard label="Available today" value={String(totalStaffCount)} icon={Users} accent="accent" />
+          </MotionStaggerItem>
+        </MotionStaggerGroup>
       </section>
 
       {/* Filters & search */}
@@ -207,66 +220,68 @@ export default function StaffDirectoryPage() {
             No matching staff members found.
           </div>
         ) : (
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <MotionStaggerGroup className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filteredStaff.map((member) => (
-              <Card key={member.id} className="gap-3">
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    {member.photo_url ? (
-                      <img
-                        src={member.photo_url}
-                        alt={member.full_name}
-                        className="size-12 rounded-full object-cover shrink-0"
-                      />
-                    ) : (
-                      <Avatar initials={getInitials(member.full_name)} className="size-12 text-base" />
-                    )}
-                    <div className="flex flex-col gap-0.5 overflow-hidden">
-                      <CardTitle className="text-base truncate" title={member.full_name}>
-                        {member.full_name}
-                      </CardTitle>
-                      <CardDescription className="truncate" title={member.title}>
-                        {member.title}
-                      </CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-2">
-                  <div className="flex flex-wrap gap-1.5">
-                    <Badge variant="accent" className="w-fit">{member.department}</Badge>
-                    {member.specialty && (
-                      <Badge variant="outline" className="w-fit text-[11px]">{member.specialty}</Badge>
-                    )}
-                  </div>
-
-                  {Array.isArray(member.courses) && member.courses.length > 0 && (
-                    <div className="mt-2 space-y-1">
-                      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Courses Taught</p>
-                      <div className="flex flex-wrap gap-1">
-                        {member.courses.map((course, idx) => (
-                          <Badge key={idx} variant="secondary" className="text-[10px] px-1.5 py-0.5">
-                            {course}
-                          </Badge>
-                        ))}
+              <MotionStaggerItem key={member.id}>
+                <Card className="gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+                  <CardHeader>
+                    <div className="flex items-center gap-3">
+                      {member.photo_url ? (
+                        <img
+                          src={member.photo_url}
+                          alt={member.full_name}
+                          className="size-12 rounded-full object-cover shrink-0"
+                        />
+                      ) : (
+                        <Avatar initials={getInitials(member.full_name)} className="size-12 text-base" />
+                      )}
+                      <div className="flex flex-col gap-0.5 overflow-hidden">
+                        <CardTitle className="text-base truncate" title={member.full_name}>
+                          {member.full_name}
+                        </CardTitle>
+                        <CardDescription className="truncate" title={member.title}>
+                          {member.title}
+                        </CardDescription>
                       </div>
                     </div>
-                  )}
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-2">
+                    <div className="flex flex-wrap gap-1.5">
+                      <Badge variant="accent" className="w-fit">{member.department}</Badge>
+                      {member.specialty && (
+                        <Badge variant="outline" className="w-fit text-[11px]">{member.specialty}</Badge>
+                      )}
+                    </div>
 
-                  <div className="mt-4 border-t pt-3 flex flex-col gap-1.5 text-xs text-muted-foreground">
-                    <p className="flex items-center gap-2"><MapPin className="size-3" aria-hidden="true" /> Main Campus Office</p>
-                    <p className="flex items-center gap-2"><Mail className="size-3" aria-hidden="true" /> {member.full_name.toLowerCase().replace(/\s+/g, "")}@medhaven.edu</p>
-                    <p className="flex items-center gap-2"><Phone className="size-3" aria-hidden="true" /> +233 20 111 2222</p>
-                  </div>
+                    {Array.isArray(member.courses) && member.courses.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Courses Taught</p>
+                        <div className="flex flex-wrap gap-1">
+                          {member.courses.map((course, idx) => (
+                            <Badge key={idx} variant="secondary" className="text-[10px] px-1.5 py-0.5">
+                              {course}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
-                  <Button variant="outline" size="sm" asChild className="mt-4">
-                    <Link href={`mailto:${member.full_name.toLowerCase().replace(/\s+/g, "")}@medhaven.edu`}>
-                      Contact <ArrowRight data-icon="inline-end" />
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card>
+                    <div className="mt-4 border-t pt-3 flex flex-col gap-1.5 text-xs text-muted-foreground">
+                      <p className="flex items-center gap-2"><MapPin className="size-3" aria-hidden="true" /> Main Campus Office</p>
+                      <p className="flex items-center gap-2"><Mail className="size-3" aria-hidden="true" /> {member.full_name.toLowerCase().replace(/\s+/g, "")}@medhaven.edu</p>
+                      <p className="flex items-center gap-2"><Phone className="size-3" aria-hidden="true" /> +233 20 111 2222</p>
+                    </div>
+
+                    <Button variant="outline" size="sm" asChild className="mt-4">
+                      <Link href={`mailto:${member.full_name.toLowerCase().replace(/\s+/g, "")}@medhaven.edu`}>
+                        Contact <ArrowRight data-icon="inline-end" />
+                      </Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              </MotionStaggerItem>
             ))}
-          </div>
+          </MotionStaggerGroup>
         )}
       </section>
     </div>

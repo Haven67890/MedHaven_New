@@ -32,6 +32,11 @@ import { logMaterialActivity } from "@/utils/activity"
 import { getCachedData, setCachedData } from "@/lib/cache"
 import { CollectionsSkeleton, MaterialGridSkeleton } from "@/components/feedback/loading-skeletons"
 import { SearchInput } from "@/components/ui/search-input"
+import {
+  MotionReveal,
+  MotionStaggerGroup,
+  MotionStaggerItem,
+} from "@/components/ui/motion"
 
 interface Faculty {
   id: string
@@ -672,10 +677,18 @@ export default function PastQuestionsPage() {
       </PageHeader>
 
       {/* Stats Cards */}
-      <section className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Past papers" value={String(totalPapers)} icon={Library} accent="primary" />
-        <StatCard label="Total questions" value={String(totalQuestionsMock)} icon={BookOpen} accent="secondary" />
-        <StatCard label="Your attempts" value="32" icon={Star} accent="accent" />
+      <section>
+        <MotionStaggerGroup className="grid gap-4 sm:grid-cols-3">
+          <MotionStaggerItem>
+            <StatCard label="Past papers" value={String(totalPapers)} icon={Library} accent="primary" />
+          </MotionStaggerItem>
+          <MotionStaggerItem>
+            <StatCard label="Total questions" value={String(totalQuestionsMock)} icon={BookOpen} accent="secondary" />
+          </MotionStaggerItem>
+          <MotionStaggerItem>
+            <StatCard label="Your attempts" value="32" icon={Star} accent="accent" />
+          </MotionStaggerItem>
+        </MotionStaggerGroup>
       </section>
 
       {/* Modern Submit-on-Action Search Bar */}
@@ -701,31 +714,32 @@ export default function PastQuestionsPage() {
       <section>
         <SectionHeading title="Browse by subject" description="Pick a subject to see available papers." />
         {subjectData.length > 0 ? (
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <MotionStaggerGroup className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {subjectData.map((subject) => (
-              <button
-                key={subject.id}
-                onClick={() => {
-                  // Fallback course finder
-                  const matched = courses.find(c => c.title === subject.name || c.code === subject.name)
-                  if (matched) {
-                    setSelectedCourseId(matched.id)
-                  }
-                }}
-                className="group flex flex-col items-start gap-2 rounded-xl border border-border bg-card p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] hover:border-primary/40 hover:shadow-md text-left w-full cursor-pointer"
-              >
-                <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <Library className="size-5" aria-hidden="true" />
-                </span>
-                <span className="text-sm font-medium text-foreground truncate w-full block" title={subject.name}>
-                  {subject.name}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {subject.papers} paper{subject.papers > 1 ? "s" : ""} · {subject.questions} Qs
-                </span>
-              </button>
+              <MotionStaggerItem key={subject.id}>
+                <button
+                  onClick={() => {
+                    // Fallback course finder
+                    const matched = courses.find(c => c.title === subject.name || c.code === subject.name)
+                    if (matched) {
+                      setSelectedCourseId(matched.id)
+                    }
+                  }}
+                  className="group flex flex-col items-start gap-2 rounded-xl border border-border bg-card p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] hover:border-primary/40 hover:shadow-md text-left w-full cursor-pointer"
+                >
+                  <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Library className="size-5" aria-hidden="true" />
+                  </span>
+                  <span className="text-sm font-medium text-foreground truncate w-full block" title={subject.name}>
+                    {subject.name}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {subject.papers} paper{subject.papers > 1 ? "s" : ""} · {subject.questions} Qs
+                  </span>
+                </button>
+              </MotionStaggerItem>
             ))}
-          </div>
+          </MotionStaggerGroup>
         ) : (
           <div className="mt-4 rounded-xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
             No subjects with past questions are available to browse.
@@ -800,30 +814,33 @@ export default function PastQuestionsPage() {
 
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                       {/* Non-image materials */}
+                      <MotionStaggerGroup className="contents">
                       {nonImageMats.map((material) => (
-                        <MaterialCard
-                          key={material.id}
-                          material={material}
-                          onPreview={(mat, type, isEmbeddable) => {
-                            if (!mat.storage_path) {
-                              if (mat.source_url) {
-                                window.open(mat.source_url, "_blank")
+                        <MotionStaggerItem key={material.id}>
+                          <MaterialCard
+                            material={material}
+                            onPreview={(mat, type, isEmbeddable) => {
+                              if (!mat.storage_path) {
+                                if (mat.source_url) {
+                                  window.open(mat.source_url, "_blank")
+                                }
+                                return
                               }
-                              return
-                            }
-                            const downloadUrl = getMaterialUrl(mat)
-                            setPreviewModal({
-                              isOpen: true,
-                              title: mat.title,
-                              url: downloadUrl,
-                              type: type,
-                              isEmbeddable: isEmbeddable,
-                              materialId: mat.id,
-                              storagePath: mat.storage_path,
-                            })
-                          }}
-                        />
+                              const downloadUrl = getMaterialUrl(mat)
+                              setPreviewModal({
+                                isOpen: true,
+                                title: mat.title,
+                                url: downloadUrl,
+                                type: type,
+                                isEmbeddable: isEmbeddable,
+                                materialId: mat.id,
+                                storagePath: mat.storage_path,
+                              })
+                            }}
+                          />
+                        </MotionStaggerItem>
                       ))}
+                      </MotionStaggerGroup>
 
                       {/* Collapsible Image Folder Card */}
                       {imageMats.length > 0 && (

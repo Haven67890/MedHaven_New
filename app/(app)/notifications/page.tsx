@@ -11,6 +11,11 @@ import { SectionHeading } from "@/components/dashboard/section-heading"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { cn } from "@/lib/utils"
 import useAuth from "@/hooks/useAuth"
+import {
+  MotionReveal,
+  MotionStaggerGroup,
+  MotionStaggerItem,
+} from "@/components/ui/motion"
 import { createClient } from "@/lib/supabase/client"
 
 type AuditLogNotification = {
@@ -249,21 +254,23 @@ export default function NotificationsPage() {
         ) : (
           <div className="flex flex-col gap-4">
             <SectionHeading title="Recent Events" description="Account-related events logged on your profile." />
-            <div className="flex flex-col gap-3 mt-2">
+            <MotionStaggerGroup className="flex flex-col gap-3 mt-2">
               {translatedNotifications.map((item) => (
-                <div key={item.id} className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 transition-colors">
-                  <span className="mt-1 flex size-2.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
-                  <div className="flex min-w-0 flex-1 flex-col gap-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-medium text-foreground">{item.title}</p>
-                      <Badge variant="secondary" className="shrink-0">{item.category}</Badge>
+                <MotionStaggerItem key={item.id}>
+                  <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:-translate-y-0.5 hover:shadow-xs">
+                    <span className="mt-1 flex size-2.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-medium text-foreground">{item.title}</p>
+                        <Badge variant="secondary" className="shrink-0">{item.category}</Badge>
+                      </div>
+                      <p className="text-xs leading-relaxed text-muted-foreground">{item.body}</p>
+                      <span className="text-xs text-muted-foreground/70">{item.time}</span>
                     </div>
-                    <p className="text-xs leading-relaxed text-muted-foreground">{item.body}</p>
-                    <span className="text-xs text-muted-foreground/70">{item.time}</span>
                   </div>
-                </div>
+                </MotionStaggerItem>
               ))}
-            </div>
+            </MotionStaggerGroup>
           </div>
         )
       ) : (

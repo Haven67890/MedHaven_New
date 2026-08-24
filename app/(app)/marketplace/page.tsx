@@ -41,6 +41,11 @@ import { createClient } from "@/lib/supabase/client"
 import type { MarketplaceListing } from "./types"
 import { getCachedData, setCachedData } from "@/lib/cache"
 import { MarketplaceGridSkeleton } from "@/components/feedback/loading-skeletons"
+import {
+  MotionReveal,
+  MotionStaggerGroup,
+  MotionStaggerItem,
+} from "@/components/ui/motion"
 
 const CATEGORIES = ["books", "electronics", "equipment", "clothing", "other"] as const
 type CategoryType = typeof CATEGORIES[number]
@@ -518,11 +523,21 @@ export default function MarketplacePage() {
       </PageHeader>
 
       {/* Stats row */}
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Active Listings" value={String(stats.totalActive)} icon={Store} accent="primary" />
-        <StatCard label="My Active Listings" value={String(stats.userActive)} icon={ShoppingBag} accent="secondary" />
-        <StatCard label="My Sold Items" value={String(stats.userSold)} icon={CheckCircle} accent="accent" />
-        <StatCard label="My Removed Items" value={String(stats.userRemoved)} icon={Trash2} accent="warning" />
+      <section>
+        <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <MotionStaggerItem>
+            <StatCard label="Active Listings" value={String(stats.totalActive)} icon={Store} accent="primary" />
+          </MotionStaggerItem>
+          <MotionStaggerItem>
+            <StatCard label="My Active Listings" value={String(stats.userActive)} icon={ShoppingBag} accent="secondary" />
+          </MotionStaggerItem>
+          <MotionStaggerItem>
+            <StatCard label="My Sold Items" value={String(stats.userSold)} icon={CheckCircle} accent="accent" />
+          </MotionStaggerItem>
+          <MotionStaggerItem>
+            <StatCard label="My Removed Items" value={String(stats.userRemoved)} icon={Trash2} accent="warning" />
+          </MotionStaggerItem>
+        </MotionStaggerGroup>
       </section>
 
       {/* Navigation tabs */}
@@ -627,61 +642,62 @@ export default function MarketplacePage() {
               }
             />
           ) : (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <MotionStaggerGroup className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {filteredListings.map((listing) => (
-                <Card
-                  key={listing.id}
-                  className="overflow-hidden flex flex-col h-full border hover:shadow-md hover:-translate-y-0.5 active:scale-[0.99] transition-all duration-200 group cursor-pointer"
-                  onClick={() => {
-                    setSelectedListing(listing)
-                    setIsDetailOpen(true)
-                  }}
-                >
-                  <div className="relative aspect-video w-full overflow-hidden bg-muted">
-                    {listing.image_url ? (
-                      <img
-                        src={listing.image_url}
-                        alt={listing.title}
-                        className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="flex items-center justify-center w-full h-full text-muted-foreground bg-muted/40">
-                        <Store className="size-8 opacity-40" />
-                      </div>
-                    )}
-                    <Badge className="absolute top-3 left-3 bg-background/90 text-foreground backdrop-blur-md border border-border/40 font-semibold shadow-sm capitalize">
-                      {CATEGORY_LABELS[listing.category as CategoryType] || listing.category}
-                    </Badge>
-                  </div>
-
-                  <CardHeader className="flex-1 pb-2">
-                    <CardTitle className="line-clamp-1 text-lg group-hover:text-primary transition-colors">
-                      {listing.title}
-                    </CardTitle>
-                    <CardDescription className="line-clamp-2 mt-1 min-h-[40px]">
-                      {listing.description}
-                    </CardDescription>
-                    <CardAction>
-                      <Badge variant="success" className="text-sm font-bold shadow-sm">
-                        {formatPrice(listing.price)}
+                <MotionStaggerItem key={listing.id}>
+                  <Card
+                    className="overflow-hidden flex flex-col h-full border hover:shadow-md hover:-translate-y-0.5 active:scale-[0.99] transition-all duration-200 group cursor-pointer"
+                    onClick={() => {
+                      setSelectedListing(listing)
+                      setIsDetailOpen(true)
+                    }}
+                  >
+                    <div className="relative aspect-video w-full overflow-hidden bg-muted">
+                      {listing.image_url ? (
+                        <img
+                          src={listing.image_url}
+                          alt={listing.title}
+                          className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center w-full h-full text-muted-foreground bg-muted/40">
+                          <Store className="size-8 opacity-40" />
+                        </div>
+                      )}
+                      <Badge className="absolute top-3 left-3 bg-background/90 text-foreground backdrop-blur-md border border-border/40 font-semibold shadow-sm capitalize">
+                        {CATEGORY_LABELS[listing.category as CategoryType] || listing.category}
                       </Badge>
-                    </CardAction>
-                  </CardHeader>
+                    </div>
 
-                  <CardContent className="pt-2 border-t border-border/50 flex items-center justify-between text-xs text-muted-foreground mt-auto bg-muted/5">
-                    <span className="flex items-center gap-1.5 font-medium">
-                      <User className="size-3.5 text-primary/70" />
-                      by {listing.profiles?.full_name || "JUTH Peer"}
-                    </span>
-                    <span className="flex items-center gap-1 opacity-80">
-                      <Clock className="size-3" />
-                      {new Date(listing.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                    </span>
-                  </CardContent>
-                </Card>
+                    <CardHeader className="flex-1 pb-2">
+                      <CardTitle className="line-clamp-1 text-lg group-hover:text-primary transition-colors">
+                        {listing.title}
+                      </CardTitle>
+                      <CardDescription className="line-clamp-2 mt-1 min-h-[40px]">
+                        {listing.description}
+                      </CardDescription>
+                      <CardAction>
+                        <Badge variant="success" className="text-sm font-bold shadow-sm">
+                          {formatPrice(listing.price)}
+                        </Badge>
+                      </CardAction>
+                    </CardHeader>
+
+                    <CardContent className="pt-2 border-t border-border/50 flex items-center justify-between text-xs text-muted-foreground mt-auto bg-muted/5">
+                      <span className="flex items-center gap-1.5 font-medium">
+                        <User className="size-3.5 text-primary/70" />
+                        by {listing.profiles?.full_name || "JUTH Peer"}
+                      </span>
+                      <span className="flex items-center gap-1 opacity-80">
+                        <Clock className="size-3" />
+                        {new Date(listing.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                      </span>
+                    </CardContent>
+                  </Card>
+                </MotionStaggerItem>
               ))}
-            </div>
+            </MotionStaggerGroup>
           )}
         </>
       ) : (

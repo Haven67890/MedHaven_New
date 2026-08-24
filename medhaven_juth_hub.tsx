@@ -9,6 +9,12 @@ import {
   HeartPulse, AlertCircle, X, ShoppingBag, Heart,
   Clock, FileText, Video, Presentation, FilePenLine, Image as ImageIcon
 } from 'lucide-react';
+import {
+  MotionReveal,
+  MotionStaggerGroup,
+  MotionStaggerItem,
+  MotionButton,
+} from '@/components/ui/motion';
 import AIChatDrawer from '@/components/dashboard/ai-chat-drawer';
 import { MaterialPreviewModal, PreviewModalData } from '@/components/dashboard/material-preview-modal';
 
@@ -603,25 +609,28 @@ export default function App() {
           <div className="space-y-6">
             
             {/* Dynamic Level-and-Time-Aware Activity Reminder Banner */}
-            <div
-              onClick={() => router.push('/timetable')}
-              className="bg-rose-500/10 border border-rose-500/20 dark:border-rose-500/30 rounded-2xl p-4 flex items-start gap-3.5 animate-pulse cursor-pointer hover:bg-rose-500/20 transition-colors"
-            >
-              <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
-              <div>
-                <span className="text-[10px] font-bold tracking-wider uppercase text-rose-700 dark:text-rose-400 bg-rose-100 dark:bg-rose-950/40 px-2.5 py-0.5 rounded-full">
-                  {bannerData.title}
-                </span>
-                <h4 className="font-extrabold text-rose-950 dark:text-rose-100 text-sm mt-1.5">
-                  Daily Activity Guidance
-                </h4>
-                <p className="text-xs text-rose-800 dark:text-rose-300 mt-0.5 leading-relaxed">
-                  {bannerData.message}
-                </p>
+            <MotionReveal direction="down" distance={12}>
+              <div
+                onClick={() => router.push('/timetable')}
+                className="bg-rose-500/10 border border-rose-500/20 dark:border-rose-500/30 rounded-2xl p-4 flex items-start gap-3.5 animate-pulse cursor-pointer hover:bg-rose-500/20 transition-colors"
+              >
+                <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="text-[10px] font-bold tracking-wider uppercase text-rose-700 dark:text-rose-400 bg-rose-100 dark:bg-rose-950/40 px-2.5 py-0.5 rounded-full">
+                    {bannerData.title}
+                  </span>
+                  <h4 className="font-extrabold text-rose-950 dark:text-rose-100 text-sm mt-1.5">
+                    Daily Activity Guidance
+                  </h4>
+                  <p className="text-xs text-rose-800 dark:text-rose-300 mt-0.5 leading-relaxed">
+                    {bannerData.message}
+                  </p>
+                </div>
               </div>
-            </div>
+            </MotionReveal>
 
             {/* Hero section featuring JUTH main admission gate */}
+            <MotionReveal direction="up" distance={20}>
             <div className="relative rounded-2xl overflow-hidden bg-card border border-border p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
               <div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-primary/5 z-0" />
 
@@ -654,9 +663,11 @@ export default function App() {
                 />
               </div>
             </div>
+            </MotionReveal>
 
             {/* Recently Viewed Materials Section */}
             {recentlyViewed.length > 0 && (
+              <MotionReveal direction="up" distance={16}>
               <div className="bg-card border border-border p-6 rounded-2xl space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -666,7 +677,7 @@ export default function App() {
                   <span className="text-xs text-muted-foreground">{recentlyViewed.length} recent</span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <MotionStaggerGroup className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {recentlyViewed.map((item) => {
                     const url = item.storage_path
                       ? item.storage_path.startsWith("http")
@@ -675,8 +686,8 @@ export default function App() {
                       : item.source_url || "#";
 
                     return (
+                      <MotionStaggerItem key={item.id}>
                       <div
-                        key={item.id}
                         onClick={() => {
                           if (url !== "#") {
                             const isPdf = item.type?.toLowerCase() === "pdf" || url.endsWith(".pdf");
@@ -713,13 +724,16 @@ export default function App() {
                         </div>
                         <ChevronRight className="size-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
                       </div>
+                      </MotionStaggerItem>
                     );
                   })}
-                </div>
+                </MotionStaggerGroup>
               </div>
+              </MotionReveal>
             )}
 
             {/* Subject curriculum index cards based on level */}
+            <MotionReveal direction="up" distance={16}>
             <div className="bg-card border border-border p-6 rounded-2xl space-y-4">
               <div className="flex items-center gap-2">
                 <Folder className="w-5 h-5 text-primary" />
@@ -727,7 +741,7 @@ export default function App() {
               </div>
 
               {personalizedFolders.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <MotionStaggerGroup className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {personalizedFolders.map((folder: CourseFolder) => {
                     const colorClasses: Record<string, { tag: string; bg: string }> = {
                       cyan: { tag: 'text-cyan-400 bg-cyan-950/40', bg: 'border-border' },
@@ -739,15 +753,17 @@ export default function App() {
                     const cls = colorClasses[folder.color] || colorClasses.cyan;
 
                     return (
-                      <div key={folder.id} className="p-4 rounded-xl bg-muted/40 border border-border space-y-3">
+                      <MotionStaggerItem key={folder.id}>
+                      <div className="p-4 rounded-xl bg-muted/40 border border-border space-y-3 hover:-translate-y-1 hover:shadow-md transition-all">
                         <span className={`text-[10px] font-bold uppercase tracking-widest w-fit px-2 py-0.5 rounded ${cls.tag}`}>{folder.tag}</span>
                         <h4 className="font-bold text-foreground text-xs">{folder.title}</h4>
                         <p className="text-[11px] text-muted-foreground leading-normal">{folder.description}</p>
                         <button onClick={() => { router.push(folder.link); }} className={`text-[11px] hover:underline flex items-center gap-1 font-bold ${folder.color === 'cyan' ? 'text-cyan-400' : folder.color === 'indigo' ? 'text-indigo-400' : folder.color === 'emerald' ? 'text-emerald-400' : folder.color === 'amber' ? 'text-amber-400' : 'text-rose-400'}`}>Open repository <ChevronRight className="w-3.5 h-3.5" /></button>
                       </div>
+                      </MotionStaggerItem>
                     );
                   })}
-                </div>
+                </MotionStaggerGroup>
               ) : (
                 <div className="p-6 bg-muted/40 border border-border rounded-xl text-center space-y-2">
                   <p className="text-xs text-muted-foreground">Pre-clinical curriculum slides, anatomical nerve diagrams, and biochemistry mock tests are loaded.</p>
@@ -755,6 +771,7 @@ export default function App() {
                 </div>
               )}
             </div>
+            </MotionReveal>
 
             {/* Ward 11 Spotlight containing stethoscope photograph */}
             {userIsClinical ? (
@@ -817,7 +834,7 @@ export default function App() {
             )}
 
             {/* Quick actions links */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <MotionStaggerGroup className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {[
                 { label: 'Study Library Repository', desc: 'Lecture slides & notes', action: () => { router.push('/library'); }, icon: BookOpen, color: 'text-cyan-400' },
                 { label: 'Rotation Timetables', desc: 'Ward rounds schedule', action: () => { router.push('/timetable'); }, icon: Calendar, color: 'text-indigo-400' },
@@ -826,10 +843,10 @@ export default function App() {
               ].map((act, index) => {
                 const Icon = act.icon;
                 return (
+                  <MotionStaggerItem key={index}>
                   <button 
-                    key={index}
                     onClick={act.action}
-                    className="p-4 bg-card border border-border rounded-xl text-left hover:border-primary/50 transition"
+                    className="p-4 bg-card border border-border rounded-xl text-left hover:border-primary/50 hover:-translate-y-1 hover:shadow-md transition-all w-full cursor-pointer"
                   >
                     <div className="p-2.5 rounded-lg bg-muted border border-border w-fit mb-3">
                       <Icon className={`w-5 h-5 ${act.color}`} />
@@ -837,11 +854,13 @@ export default function App() {
                     <h5 className="text-xs font-bold text-foreground leading-tight">{act.label}</h5>
                     <p className="text-[10px] text-muted-foreground mt-1">{act.desc}</p>
                   </button>
+                  </MotionStaggerItem>
                 );
               })}
-            </div>
+            </MotionStaggerGroup>
 
             {/* Support MedHaven Banner Card */}
+            <MotionReveal direction="up" distance={16}>
             <div className="bg-gradient-to-r from-rose-500/10 via-card to-rose-500/5 border border-rose-500/20 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
               <div className="flex items-center gap-3.5">
                 <div className="bg-rose-500/10 p-3 rounded-xl border border-rose-500/20 shrink-0">
@@ -852,14 +871,17 @@ export default function App() {
                   <p className="text-xs text-muted-foreground mt-0.5">Help keep MedHaven accessible and updated for medical scholars across Jos and beyond.</p>
                 </div>
               </div>
+              <MotionButton scaleHover={1.04}>
               <button
                 onClick={() => router.push('/donate')}
-                className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition shadow-md shrink-0 flex items-center gap-2"
+                className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition shadow-md shrink-0 flex items-center gap-2 cursor-pointer"
               >
                 <Heart className="w-3.5 h-3.5 fill-white" />
                 <span>Donate Now</span>
               </button>
+              </MotionButton>
             </div>
+            </MotionReveal>
 
           </div>
 

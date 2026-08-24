@@ -32,6 +32,11 @@ import { logMaterialActivity } from "@/utils/activity"
 import { getCachedData, setCachedData } from "@/lib/cache"
 import { MaterialGridSkeleton } from "@/components/feedback/loading-skeletons"
 import { SearchInput } from "@/components/ui/search-input"
+import {
+  MotionReveal,
+  MotionStaggerGroup,
+  MotionStaggerItem,
+} from "@/components/ui/motion"
 
 interface Faculty {
   id: string
@@ -668,11 +673,21 @@ export default function StudyMaterialsPage() {
       </PageHeader>
 
       {/* Stats Cards */}
-      <section className="grid gap-4 sm:grid-cols-4">
-        <StatCard label="Total Materials" value={String(totalTitles)} icon={FileText} accent="primary" />
-        <StatCard label="Downloaded by you" value="0" icon={Download} accent="secondary" />
-        <StatCard label="Your uploads" value="0" icon={FileText} accent="accent" />
-        <StatCard label="Avg. rating" value="4.8" icon={Star} accent="warning" />
+      <section>
+        <MotionStaggerGroup className="grid gap-4 sm:grid-cols-4">
+          <MotionStaggerItem>
+            <StatCard label="Total Materials" value={String(totalTitles)} icon={FileText} accent="primary" />
+          </MotionStaggerItem>
+          <MotionStaggerItem>
+            <StatCard label="Downloaded by you" value="0" icon={Download} accent="secondary" />
+          </MotionStaggerItem>
+          <MotionStaggerItem>
+            <StatCard label="Your uploads" value="0" icon={FileText} accent="accent" />
+          </MotionStaggerItem>
+          <MotionStaggerItem>
+            <StatCard label="Avg. rating" value="4.8" icon={Star} accent="warning" />
+          </MotionStaggerItem>
+        </MotionStaggerGroup>
       </section>
 
       {/* Modern Submit-on-Action Search Bar */}
@@ -777,30 +792,33 @@ export default function StudyMaterialsPage() {
 
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                       {/* Non-image materials */}
+                      <MotionStaggerGroup className="contents">
                       {nonImageMats.map((material) => (
-                        <MaterialCard
-                          key={material.id}
-                          material={material}
-                          onPreview={(mat, type, isEmbeddable) => {
-                            if (!mat.storage_path) {
-                              if (mat.source_url) {
-                                window.open(mat.source_url, "_blank")
+                        <MotionStaggerItem key={material.id}>
+                          <MaterialCard
+                            material={material}
+                            onPreview={(mat, type, isEmbeddable) => {
+                              if (!mat.storage_path) {
+                                if (mat.source_url) {
+                                  window.open(mat.source_url, "_blank")
+                                }
+                                return
                               }
-                              return
-                            }
-                            const downloadUrl = getMaterialUrl(mat)
-                            setPreviewModal({
-                              isOpen: true,
-                              title: mat.title,
-                              url: downloadUrl,
-                              type: type,
-                              isEmbeddable: isEmbeddable,
-                              materialId: mat.id,
-                              storagePath: mat.storage_path,
-                            })
-                          }}
-                        />
+                              const downloadUrl = getMaterialUrl(mat)
+                              setPreviewModal({
+                                isOpen: true,
+                                title: mat.title,
+                                url: downloadUrl,
+                                type: type,
+                                isEmbeddable: isEmbeddable,
+                                materialId: mat.id,
+                                storagePath: mat.storage_path,
+                              })
+                            }}
+                          />
+                        </MotionStaggerItem>
                       ))}
+                      </MotionStaggerGroup>
 
                       {/* Collapsible Image Folder Card */}
                       {imageMats.length > 0 && (

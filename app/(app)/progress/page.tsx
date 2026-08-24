@@ -30,6 +30,11 @@ import { Progress } from "@/components/ui/progress"
 import { SectionHeading } from "@/components/dashboard/section-heading"
 import { Spinner } from "@/components/ui/spinner"
 import { Button } from "@/components/ui/button"
+import {
+  MotionReveal,
+  MotionStaggerGroup,
+  MotionStaggerItem,
+} from "@/components/ui/motion"
 
 // --- TypeScript Types Matching database schema & nested joins ---
 
@@ -605,72 +610,82 @@ export default function ProgressTrackerPage() {
       />
 
       {/* --- STATS OVERVIEW CARDS --- */}
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Streak card */}
-        <Card className="gap-3 relative overflow-hidden bg-gradient-to-br from-card to-amber-500/5">
-          <CardContent className="flex items-start justify-between gap-3 pt-6">
-            <div className="flex flex-col gap-1">
-              <p className="text-sm text-muted-foreground">Current streak</p>
-              <p className="text-2xl font-bold tracking-tight text-foreground">
-                {stats.currentStreak === 0 ? "0 days" : `${stats.currentStreak} day${stats.currentStreak === 1 ? "" : "s"}`}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {stats.currentStreak > 0 ? "Keep the flame burning!" : "Log in tomorrow to start a streak!"}
-              </p>
-            </div>
-            <div className={`flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-500`}>
-              <Flame className="size-5" aria-hidden="true" />
-            </div>
-          </CardContent>
-        </Card>
+      <section>
+        <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Streak card */}
+          <MotionStaggerItem>
+            <Card className="gap-3 relative overflow-hidden bg-gradient-to-br from-card to-amber-500/5">
+              <CardContent className="flex items-start justify-between gap-3 pt-6">
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm text-muted-foreground">Current streak</p>
+                  <p className="text-2xl font-bold tracking-tight text-foreground">
+                    {stats.currentStreak === 0 ? "0 days" : `${stats.currentStreak} day${stats.currentStreak === 1 ? "" : "s"}`}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {stats.currentStreak > 0 ? "Keep the flame burning!" : "Log in tomorrow to start a streak!"}
+                  </p>
+                </div>
+                <div className={`flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-500`}>
+                  <Flame className="size-5" aria-hidden="true" />
+                </div>
+              </CardContent>
+            </Card>
+          </MotionStaggerItem>
 
-        {/* Quizzes Taken Card */}
-        <Card className="gap-3 relative overflow-hidden bg-gradient-to-br from-card to-emerald-500/5">
-          <CardContent className="flex items-start justify-between gap-3 pt-6">
-            <div className="flex flex-col gap-1">
-              <p className="text-sm text-muted-foreground">Quizzes completed</p>
-              <p className="text-2xl font-bold tracking-tight text-foreground">{stats.quizzesCount}</p>
-              <p className="text-xs text-emerald-500 font-medium">
-                {stats.quizzesCount > 0 ? `${stats.avgQuizScorePct}% Average Score` : "No attempts recorded yet"}
-              </p>
-            </div>
-            <div className={`flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-500`}>
-              <ListChecks className="size-5" aria-hidden="true" />
-            </div>
-          </CardContent>
-        </Card>
+          {/* Quizzes Taken Card */}
+          <MotionStaggerItem>
+            <Card className="gap-3 relative overflow-hidden bg-gradient-to-br from-card to-emerald-500/5">
+              <CardContent className="flex items-start justify-between gap-3 pt-6">
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm text-muted-foreground">Quizzes completed</p>
+                  <p className="text-2xl font-bold tracking-tight text-foreground">{stats.quizzesCount}</p>
+                  <p className="text-xs text-emerald-500 font-medium">
+                    {stats.quizzesCount > 0 ? `${stats.avgQuizScorePct}% Average Score` : "No attempts recorded yet"}
+                  </p>
+                </div>
+                <div className={`flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-500`}>
+                  <ListChecks className="size-5" aria-hidden="true" />
+                </div>
+              </CardContent>
+            </Card>
+          </MotionStaggerItem>
 
-        {/* Flashcard Card */}
-        <Card className="gap-3 relative overflow-hidden bg-gradient-to-br from-card to-primary/5">
-          <CardContent className="flex items-start justify-between gap-3 pt-6">
-            <div className="flex flex-col gap-1">
-              <p className="text-sm text-muted-foreground">Cards Reviewed</p>
-              <p className="text-2xl font-bold tracking-tight text-foreground">{stats.cardsReviewedCount}</p>
-              <p className="text-xs text-primary font-medium">
-                {stats.decksStudiedCount > 0 ? `${stats.decksStudiedCount} Decks Studied` : "No active card progress"}
-              </p>
-            </div>
-            <div className={`flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary`}>
-              <BrainCircuit className="size-5" aria-hidden="true" />
-            </div>
-          </CardContent>
-        </Card>
+          {/* Flashcard Card */}
+          <MotionStaggerItem>
+            <Card className="gap-3 relative overflow-hidden bg-gradient-to-br from-card to-primary/5">
+              <CardContent className="flex items-start justify-between gap-3 pt-6">
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm text-muted-foreground">Cards Reviewed</p>
+                  <p className="text-2xl font-bold tracking-tight text-foreground">{stats.cardsReviewedCount}</p>
+                  <p className="text-xs text-primary font-medium">
+                    {stats.decksStudiedCount > 0 ? `${stats.decksStudiedCount} Decks Studied` : "No active card progress"}
+                  </p>
+                </div>
+                <div className={`flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary`}>
+                  <BrainCircuit className="size-5" aria-hidden="true" />
+                </div>
+              </CardContent>
+            </Card>
+          </MotionStaggerItem>
 
-        {/* Materials Viewed Card */}
-        <Card className="gap-3 relative overflow-hidden bg-gradient-to-br from-card to-secondary/5">
-          <CardContent className="flex items-start justify-between gap-3 pt-6">
-            <div className="flex flex-col gap-1">
-              <p className="text-sm text-muted-foreground">Materials read/viewed</p>
-              <p className="text-2xl font-bold tracking-tight text-foreground">{stats.materialsViewed}</p>
-              <p className="text-xs text-secondary font-medium">
-                {stats.materialsDownloaded > 0 ? `${stats.materialsDownloaded} direct downloads` : "0 downloads logged"}
-              </p>
-            </div>
-            <div className={`flex size-10 shrink-0 items-center justify-center rounded-xl bg-secondary/15 text-secondary dark:text-secondary/90`}>
-              <BookOpen className="size-5" aria-hidden="true" />
-            </div>
-          </CardContent>
-        </Card>
+          {/* Materials Viewed Card */}
+          <MotionStaggerItem>
+            <Card className="gap-3 relative overflow-hidden bg-gradient-to-br from-card to-secondary/5">
+              <CardContent className="flex items-start justify-between gap-3 pt-6">
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm text-muted-foreground">Materials read/viewed</p>
+                  <p className="text-2xl font-bold tracking-tight text-foreground">{stats.materialsViewed}</p>
+                  <p className="text-xs text-secondary font-medium">
+                    {stats.materialsDownloaded > 0 ? `${stats.materialsDownloaded} direct downloads` : "0 downloads logged"}
+                  </p>
+                </div>
+                <div className={`flex size-10 shrink-0 items-center justify-center rounded-xl bg-secondary/15 text-secondary dark:text-secondary/90`}>
+                  <BookOpen className="size-5" aria-hidden="true" />
+                </div>
+              </CardContent>
+            </Card>
+          </MotionStaggerItem>
+        </MotionStaggerGroup>
       </section>
 
       {/* --- ZERO STATE OR MAIN DASHBOARD CONTENT --- */}
