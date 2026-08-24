@@ -4,6 +4,7 @@ import { getSlideDeckProvider, getSlideEmbedApiUrl, getSlideDeckProviderName, ge
 
 import { useState, useEffect, useRef, useMemo, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
+import { motion } from "framer-motion"
 import useAuth from "@/hooks/useAuth"
 import {
   BookMarked,
@@ -765,7 +766,18 @@ function SmartLibraryPageContent() {
 
       {/* Stats Cards */}
       <section>
-        <MotionStaggerGroup className="grid gap-4 sm:grid-cols-3">
+        <motion.div
+          initial="hidden"
+          animate="show"
+          variants={{
+            hidden: { opacity: 0 },
+            show: {
+              opacity: 1,
+              transition: { staggerChildren: 0.1 },
+            },
+          }}
+          className="grid gap-4 sm:grid-cols-3"
+        >
           <MotionStaggerItem>
             <StatCard label="Total Materials" value={String(totalTitles)} icon={Library} accent="primary" />
           </MotionStaggerItem>
@@ -775,7 +787,7 @@ function SmartLibraryPageContent() {
           <MotionStaggerItem>
             <StatCard label="Study Guides" value={String(studyCount)} icon={BookMarked} accent="accent" />
           </MotionStaggerItem>
-        </MotionStaggerGroup>
+        </motion.div>
       </section>
 
       {/* Modern Submit-on-Action Search Bar */}
@@ -842,7 +854,18 @@ function SmartLibraryPageContent() {
               }
             />
             {displayedCollections.length > 0 ? (
-              <MotionStaggerGroup className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <motion.div
+                initial="hidden"
+                animate="show"
+                variants={{
+                  hidden: { opacity: 0 },
+                  show: {
+                    opacity: 1,
+                    transition: { staggerChildren: 0.1 },
+                  },
+                }}
+                className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+              >
                 {displayedCollections.map((collection) => {
                   const Icon = collectionIcons[collection.icon as keyof typeof collectionIcons] || Library
                   const isSelected = selectedCourseId === collection.id
@@ -872,7 +895,7 @@ function SmartLibraryPageContent() {
                     </MotionStaggerItem>
                   )
                 })}
-              </MotionStaggerGroup>
+              </motion.div>
             ) : (
               <div className="mt-4 rounded-xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
                 No active courses available to browse.
@@ -930,7 +953,18 @@ function SmartLibraryPageContent() {
                         </h3>
                       </div>
 
-                      <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      <motion.div
+                        initial="hidden"
+                        animate="show"
+                        variants={{
+                          hidden: { opacity: 0 },
+                          show: {
+                            opacity: 1,
+                            transition: { staggerChildren: 0.05 },
+                          },
+                        }}
+                        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                      >
                         {/* Non-image materials */}
                         {nonImageMats.map((material) => (
                           <MotionStaggerItem key={material.id}>
@@ -983,7 +1017,7 @@ function SmartLibraryPageContent() {
                             />
                           </MotionStaggerItem>
                         )}
-                      </MotionStaggerGroup>
+                      </motion.div>
                     </div>
                   )
                 })}

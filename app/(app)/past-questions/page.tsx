@@ -3,6 +3,7 @@
 import { getSlideDeckProvider, getSlideEmbedApiUrl, getSlideDeckProviderName, getIframePreviewSrc } from "@/lib/embed"
 
 import { useState, useEffect, useRef, useMemo } from "react"
+import { motion } from "framer-motion"
 import useAuth from "@/hooks/useAuth"
 import {
   BookMarked,
@@ -678,7 +679,18 @@ export default function PastQuestionsPage() {
 
       {/* Stats Cards */}
       <section>
-        <MotionStaggerGroup className="grid gap-4 sm:grid-cols-3">
+        <motion.div
+          initial="hidden"
+          animate="show"
+          variants={{
+            hidden: { opacity: 0 },
+            show: {
+              opacity: 1,
+              transition: { staggerChildren: 0.1 },
+            },
+          }}
+          className="grid gap-4 sm:grid-cols-3"
+        >
           <MotionStaggerItem>
             <StatCard label="Past papers" value={String(totalPapers)} icon={Library} accent="primary" />
           </MotionStaggerItem>
@@ -688,7 +700,7 @@ export default function PastQuestionsPage() {
           <MotionStaggerItem>
             <StatCard label="Your attempts" value="32" icon={Star} accent="accent" />
           </MotionStaggerItem>
-        </MotionStaggerGroup>
+        </motion.div>
       </section>
 
       {/* Modern Submit-on-Action Search Bar */}
@@ -714,7 +726,18 @@ export default function PastQuestionsPage() {
       <section>
         <SectionHeading title="Browse by subject" description="Pick a subject to see available papers." />
         {subjectData.length > 0 ? (
-          <MotionStaggerGroup className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <motion.div
+            initial="hidden"
+            animate="show"
+            variants={{
+              hidden: { opacity: 0 },
+              show: {
+                opacity: 1,
+                transition: { staggerChildren: 0.1 },
+              },
+            }}
+            className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6"
+          >
             {subjectData.map((subject) => (
               <MotionStaggerItem key={subject.id}>
                 <button
@@ -739,7 +762,7 @@ export default function PastQuestionsPage() {
                 </button>
               </MotionStaggerItem>
             ))}
-          </MotionStaggerGroup>
+          </motion.div>
         ) : (
           <div className="mt-4 rounded-xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
             No subjects with past questions are available to browse.
@@ -812,7 +835,18 @@ export default function PastQuestionsPage() {
                       </h3>
                     </div>
 
-                    <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <motion.div
+                      initial="hidden"
+                      animate="show"
+                      variants={{
+                        hidden: { opacity: 0 },
+                        show: {
+                          opacity: 1,
+                          transition: { staggerChildren: 0.05 },
+                        },
+                      }}
+                      className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                    >
                       {/* Non-image materials */}
                       {nonImageMats.map((material) => (
                         <MotionStaggerItem key={material.id}>
@@ -865,7 +899,7 @@ export default function PastQuestionsPage() {
                           />
                         </MotionStaggerItem>
                       )}
-                    </MotionStaggerGroup>
+                    </motion.div>
                   </div>
                 )
               })}
