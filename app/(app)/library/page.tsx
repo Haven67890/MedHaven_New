@@ -937,6 +937,7 @@ function SmartLibraryPageContent() {
                                 type: type,
                                 isEmbeddable: isEmbeddable,
                                 materialId: mat.id,
+                                storagePath: mat.storage_path,
                               })
                             }}
                           />
@@ -960,6 +961,7 @@ function SmartLibraryPageContent() {
                                 url: downloadUrl,
                                 type: "image",
                                 materialId: img.id,
+                                storagePath: img.storage_path,
                               })
                             }}
                           />
