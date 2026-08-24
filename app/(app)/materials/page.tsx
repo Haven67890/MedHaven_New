@@ -115,11 +115,22 @@ function getMaterialUrl(material: Material): string {
 }
 
 // Helper to get file extension from URL
-function getFileExtension(url: string | null | undefined): string {
-  if (!url) return ""
+function getFileExtension(materialOrUrl: Material | string | null | undefined, maybeUrl?: string): string {
+  let target = ""
+  if (typeof materialOrUrl === "string") {
+    target = materialOrUrl
+  } else if (materialOrUrl) {
+    target = maybeUrl || materialOrUrl.storage_path || materialOrUrl.source_url || ""
+  }
+  if (!target) return ""
   try {
-    const path = url.split('?')[0]
-    const parts = path.split('.')
+    if (target.includes("path=")) {
+      const pathParam = new URLSearchParams(target.split("?")[1] || "").get("path") || ""
+      const pathParts = pathParam.split(".")
+      if (pathParts.length > 1) return pathParts[pathParts.length - 1].toLowerCase()
+    }
+    const cleanPath = target.split("?")[0]
+    const parts = cleanPath.split(".")
     return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : ""
   } catch (e) {
     return ""
@@ -461,12 +472,12 @@ export default function StudyMaterialsPage() {
   }, [courses, contentVisibility, userLevel])
 
   const levelFilteredMaterials = useMemo(() => {
-    if (contentVisibility === "all" || !userLevel) return materials
+    if (contentVisibility === "all" || contentVisibility === "all_levels" || !userLevel) return materials
     const userPhase = getLevelPhase(userLevel)
     return materials.filter((material) => {
       const materialLevel = material.courses?.level ?? null
       if (!materialLevel) return true
-      if (contentVisibility === "exact") {
+      if (contentVisibility === "exact" || contentVisibility === "exact_level") {
         return String(materialLevel).toUpperCase().trim() === String(userLevel).toUpperCase().trim()
       }
       return getLevelPhase(materialLevel) === userPhase
@@ -797,21 +808,15 @@ export default function StudyMaterialsPage() {
                           <MaterialCard
                             material={material}
                             onPreview={(mat, type, isEmbeddable) => {
-                              if (!mat.storage_path) {
-                                if (mat.source_url) {
-                                  window.open(mat.source_url, "_blank")
-                                }
-                                return
-                              }
-                              const downloadUrl = getMaterialUrl(mat)
+                              const targetUrl = mat.storage_path ? getMaterialUrl(mat) : (mat.source_url || "#")
                               setPreviewModal({
                                 isOpen: true,
                                 title: mat.title,
-                                url: downloadUrl,
+                                url: targetUrl,
                                 type: type,
                                 isEmbeddable: isEmbeddable,
                                 materialId: mat.id,
-                                storagePath: mat.storage_path,
+                                storagePath: mat.storage_path || null,
                               })
                             }}
                           />

@@ -91,11 +91,22 @@ function getMaterialUrl(material: Material): string {
   return `/api/materials/signed-url?path=${encodeURIComponent(material.storage_path)}`
 }
 
-function getFileExtension(url: string | null | undefined): string {
-  if (!url) return ""
+function getFileExtension(materialOrUrl: Material | string | null | undefined, maybeUrl?: string): string {
+  let target = ""
+  if (typeof materialOrUrl === "string") {
+    target = materialOrUrl
+  } else if (materialOrUrl) {
+    target = maybeUrl || materialOrUrl.storage_path || materialOrUrl.source_url || ""
+  }
+  if (!target) return ""
   try {
-    const path = url.split("?")[0]
-    const parts = path.split(".")
+    if (target.includes("path=")) {
+      const pathParam = new URLSearchParams(target.split("?")[1] || "").get("path") || ""
+      const pathParts = pathParam.split(".")
+      if (pathParts.length > 1) return pathParts[pathParts.length - 1].toLowerCase()
+    }
+    const cleanPath = target.split("?")[0]
+    const parts = cleanPath.split(".")
     return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : ""
   } catch (e) {
     return ""
@@ -113,7 +124,7 @@ function formatTypeName(type: string): string {
 export function MaterialCard({ material, onPreview }: MaterialCardProps) {
   const { user } = useAuth()
   const fileUrl = getMaterialUrl(material)
-  const ext = getFileExtension(fileUrl)
+  const ext = getFileExtension(material, fileUrl)
   const isPdf = ext === "pdf" || material.type?.toLowerCase() === "pdf"
   const isVideo = material.type?.toLowerCase() === "video"
 
@@ -214,41 +225,14 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
     }
   }, [isSlideDeck, slideDeckProvider, material.source_url])
 
-  // YouTube embeddable check
+  // YouTube embeddable check: Default to true if a valid YouTube ID is present
   useEffect(() => {
     if (isVideo && material.source_url) {
       if (!youtubeId) {
         setIsYoutubeEmbeddable(false)
         return
       }
-
-      const cacheKey = material.source_url
-      if (youtubeEmbedCheckCache[cacheKey] !== undefined) {
-        setIsYoutubeEmbeddable(youtubeEmbedCheckCache[cacheKey])
-        return
-      }
-
-      let active = true
-      const checkEmbeddable = async () => {
-        try {
-          const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(material.source_url!)}&format=json`
-          const response = await fetch(oembedUrl)
-          if (active) {
-            const isOk = response.ok
-            setIsYoutubeEmbeddable(isOk)
-            youtubeEmbedCheckCache[cacheKey] = isOk
-          }
-        } catch (error) {
-          if (active) {
-            setIsYoutubeEmbeddable(false)
-            youtubeEmbedCheckCache[cacheKey] = false
-          }
-        }
-      }
-      void checkEmbeddable()
-      return () => {
-        active = false
-      }
+      setIsYoutubeEmbeddable(true)
     }
   }, [isVideo, material.source_url, youtubeId])
 
@@ -340,6 +324,16 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
       }
     }
 
+    if (isVideo) {
+      onPreview(material, "video", isYoutubeEmbeddable)
+      return
+    }
+
+    if (isSlideDeck) {
+      onPreview(material, "slideshare", true)
+      return
+    }
+
     if (!material.storage_path) {
       if (material.source_url) {
         window.open(material.source_url, "_blank")
@@ -347,11 +341,7 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
       return
     }
 
-    if (isVideo) {
-      onPreview(material, "video", isYoutubeEmbeddable)
-    } else if (isSlideDeck) {
-      onPreview(material, "slideshare", true)
-    } else if (isImage) {
+    if (isImage) {
       onPreview(material, "image", true)
     } else if (isPdf) {
       onPreview(material, "pdf", true)
