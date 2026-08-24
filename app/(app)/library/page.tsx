@@ -930,20 +930,19 @@ function SmartLibraryPageContent() {
                         </h3>
                       </div>
 
-                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         {/* Non-image materials */}
-                        <MotionStaggerGroup className="contents">
                         {nonImageMats.map((material) => (
                           <MotionStaggerItem key={material.id}>
                             <MaterialCard
                               material={material}
                               onPreview={(mat, type, isEmbeddable) => {
-                              if (!mat.storage_path) {
-                                if (mat.source_url) {
-                                  window.open(mat.source_url, "_blank")
+                                if (!mat.storage_path) {
+                                  if (mat.source_url) {
+                                    window.open(mat.source_url, "_blank")
+                                  }
+                                  return
                                 }
-                                return
-                              }
                                 const downloadUrl = getMaterialUrl(mat)
                                 setPreviewModal({
                                   isOpen: true,
@@ -958,32 +957,33 @@ function SmartLibraryPageContent() {
                             />
                           </MotionStaggerItem>
                         ))}
-                        </MotionStaggerGroup>
 
                         {/* Collapsible Image Folder Card */}
                         {imageMats.length > 0 && (
-                          <CollapsibleImageGroupCard
-                            images={imageMats}
-                            onViewImage={(img) => {
-                            if (!img.storage_path) {
-                              if (img.source_url) {
-                                window.open(img.source_url, "_blank")
-                              }
-                              return
-                            }
-                              const downloadUrl = getMaterialUrl(img)
-                              setPreviewModal({
-                                isOpen: true,
-                                title: img.title,
-                                url: downloadUrl,
-                                type: "image",
-                                materialId: img.id,
-                                storagePath: img.storage_path,
-                              })
-                            }}
-                          />
+                          <MotionStaggerItem>
+                            <CollapsibleImageGroupCard
+                              images={imageMats}
+                              onViewImage={(img) => {
+                                if (!img.storage_path) {
+                                  if (img.source_url) {
+                                    window.open(img.source_url, "_blank")
+                                  }
+                                  return
+                                }
+                                const downloadUrl = getMaterialUrl(img)
+                                setPreviewModal({
+                                  isOpen: true,
+                                  title: img.title,
+                                  url: downloadUrl,
+                                  type: "image",
+                                  materialId: img.id,
+                                  storagePath: img.storage_path,
+                                })
+                              }}
+                            />
+                          </MotionStaggerItem>
                         )}
-                      </div>
+                      </MotionStaggerGroup>
                     </div>
                   )
                 })}
