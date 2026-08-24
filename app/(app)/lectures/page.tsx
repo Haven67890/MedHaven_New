@@ -657,6 +657,7 @@ export default function LectureVideosPage() {
                               type: type,
                               isEmbeddable: isEmbeddable,
                               materialId: mat.id,
+                              storagePath: mat.storage_path,
                             })
                           }}
                         />

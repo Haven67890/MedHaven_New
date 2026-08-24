@@ -1,8 +1,11 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { X, Download, ExternalLink, Video } from "lucide-react"
+import { X, Download, ExternalLink, Video, FileText, FilePenLine, FileSpreadsheet } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { PDFViewer } from "@/components/viewers/PDFViewer"
+import { DocxViewer } from "@/components/viewers/DocxViewer"
+import { PptxViewer } from "@/components/viewers/PptxViewer"
 
 export interface PreviewModalData {
   isOpen: boolean
@@ -11,6 +14,7 @@ export interface PreviewModalData {
   type: "pdf" | "office" | "image" | "video" | "slideshare" | null
   isEmbeddable?: boolean
   materialId?: string
+  storagePath?: string | null
 }
 
 interface MaterialPreviewModalProps {
@@ -30,6 +34,20 @@ function getYouTubeEmbedUrl(url: string | null | undefined): string | null {
   return id ? `https://www.youtube.com/embed/${id}` : null
 }
 
+function extractStoragePath(modal: PreviewModalData): string | null {
+  if (modal.storagePath) return modal.storagePath
+  if (modal.url) {
+    try {
+      const urlObj = new URL(modal.url, "http://localhost")
+      const p = urlObj.searchParams.get("path")
+      if (p) return p
+    } catch (e) {
+      // Ignore
+    }
+  }
+  return null
+}
+
 export function MaterialPreviewModal({ modal, onClose }: MaterialPreviewModalProps) {
   const [origin, setOrigin] = useState("")
 
@@ -42,6 +60,7 @@ export function MaterialPreviewModal({ modal, onClose }: MaterialPreviewModalPro
   if (!modal || !modal.isOpen) return null
 
   const { title, url, type, isEmbeddable, materialId } = modal
+  const storagePath = extractStoragePath(modal)
 
   // Record reading progress in localStorage for PDFs when opened in modal
   if (materialId && type === "pdf" && typeof window !== "undefined") {
@@ -53,21 +72,141 @@ export function MaterialPreviewModal({ modal, onClose }: MaterialPreviewModalPro
     }
   }
 
-  const absoluteUrl =
-    url.startsWith("http://") || url.startsWith("https://")
-      ? url
-      : `${origin}${url.startsWith("/") ? "" : "/"}${url}`
+  const targetPath = storagePath || url
+  const ext = targetPath.split("?")[0].split(".").pop()?.toLowerCase() || ""
 
-  const lowerUrl = url.toLowerCase()
-  const isOfficeFile =
-    type === "office" ||
-    ["pptx", "ppt", "docx", "doc", "xlsx", "xls"].some(
-      (ext) => lowerUrl.includes(`.${ext}`) || lowerUrl.includes(`%2e${ext}`)
+  const downloadUrl = storagePath
+    ? `/api/materials/signed-url?path=${encodeURIComponent(storagePath)}`
+    : url
+
+  const renderContent = () => {
+    if (type === "image") {
+      return (
+        <div className="w-full h-full p-4 flex items-center justify-center">
+          <img src={url} alt={title} className="max-w-full max-h-full object-contain rounded-md" />
+        </div>
+      )
+    }
+
+    if (type === "video") {
+      const ytId = getYouTubeId(url)
+      const ytEmbedUrl = getYouTubeEmbedUrl(url)
+
+      if (ytEmbedUrl && isEmbeddable !== false) {
+        return (
+          <iframe
+            src={ytEmbedUrl}
+            title={title}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            className="absolute inset-0 w-full h-full border-0"
+          />
+        )
+      }
+
+      if (ytId) {
+        return (
+          <div className="flex flex-col items-center justify-center text-center p-6 max-w-md bg-card rounded-xl border border-border shadow-md">
+            <div className="relative aspect-video w-64 overflow-hidden rounded-lg border bg-muted mb-4 shadow-sm">
+              <img
+                src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`}
+                alt={title}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                <Video className="size-10 text-white/90" />
+              </div>
+            </div>
+            <h4 className="font-semibold text-foreground text-base mb-1">
+              Embedding restricted by uploader
+            </h4>
+            <p className="text-xs text-muted-foreground mb-4">
+              This video is restricted and can only be watched directly on YouTube.
+            </p>
+            <Button asChild variant="destructive" size="sm">
+              <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
+                Watch on YouTube <ExternalLink className="size-3.5" />
+              </a>
+            </Button>
+          </div>
+        )
+      }
+
+      return (
+        <div className="flex flex-col items-center justify-center text-center p-6 max-w-md bg-card rounded-xl border border-border shadow-md">
+          <div className="flex size-14 items-center justify-center rounded-full bg-red-500/10 text-red-500 mb-4">
+            <Video className="size-7" />
+          </div>
+          <h4 className="font-semibold text-foreground text-base mb-1">External Video Stream</h4>
+          <p className="text-xs text-muted-foreground mb-4">
+            This video material is hosted externally and cannot be embedded inline.
+          </p>
+          <Button asChild variant="default" size="sm">
+            <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
+              Open Video Stream <ExternalLink className="size-3.5" />
+            </a>
+          </Button>
+        </div>
+      )
+    }
+
+    if (type === "slideshare") {
+      return (
+        <iframe
+          src={url}
+          className="absolute inset-0 w-full h-full border-0 bg-black"
+          title={title}
+          allowFullScreen
+        />
+      )
+    }
+
+    // PDF Documents
+    if (ext === "pdf" && storagePath) {
+      return <PDFViewer storagePath={storagePath} />
+    }
+
+    // DOCX Documents
+    if (ext === "docx" && storagePath) {
+      return <DocxViewer storagePath={storagePath} />
+    }
+
+    // PPTX / PPT Presentations
+    if ((ext === "pptx" || ext === "ppt") && storagePath) {
+      return <PptxViewer storagePath={storagePath} />
+    }
+
+    // Fallback card for legacy .doc, .xls, .xlsx, or unknown formats
+    const isDoc = ext === "doc"
+    const isSheet = ext === "xls" || ext === "xlsx"
+
+    let IconComponent = FileText
+    let appName = "Office"
+
+    if (isDoc) {
+      IconComponent = FilePenLine
+      appName = "Word"
+    } else if (isSheet) {
+      IconComponent = FileSpreadsheet
+      appName = "Excel"
+    }
+
+    return (
+      <div className="flex flex-col items-center justify-center text-center p-8 max-w-md bg-zinc-900 rounded-xl border border-zinc-800 shadow-2xl my-auto">
+        <div className="flex size-16 items-center justify-center rounded-2xl bg-primary/10 text-primary mb-4 border border-primary/20">
+          <IconComponent className="size-8" />
+        </div>
+        <h4 className="font-semibold text-zinc-100 text-lg mb-2">{title}</h4>
+        <p className="text-xs text-zinc-400 mb-6 leading-relaxed">
+          This file type cannot be previewed in the browser. Click below to download and open in {appName}.
+        </p>
+        <Button asChild variant="default" size="lg" className="w-full font-medium">
+          <a href={downloadUrl} download className="flex items-center justify-center gap-2">
+            <Download className="size-4" /> Download File
+          </a>
+        </Button>
+      </div>
     )
-
-  let iframeSrc = url
-  if (isOfficeFile) {
-    iframeSrc = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absoluteUrl)}`
   }
 
   return (
@@ -83,14 +222,14 @@ export function MaterialPreviewModal({ modal, onClose }: MaterialPreviewModalPro
 
           <div className="flex items-center gap-2 shrink-0">
             {/* Download Button Top Right */}
-            {url && url !== "#" && (
+            {downloadUrl && downloadUrl !== "#" && (
               <Button
                 variant="outline"
                 size="sm"
                 className="h-8 px-3 text-xs font-medium flex items-center gap-1.5 border-border/80 hover:bg-accent"
                 asChild
               >
-                <a href={url} download target="_blank" rel="noopener noreferrer">
+                <a href={downloadUrl} download target="_blank" rel="noopener noreferrer">
                   <Download className="size-3.5" />
                   <span className="hidden sm:inline">Download</span>
                 </a>
@@ -112,80 +251,7 @@ export function MaterialPreviewModal({ modal, onClose }: MaterialPreviewModalPro
 
         {/* Modal Content */}
         <div className="flex-1 bg-black/90 relative flex items-center justify-center overflow-hidden">
-          {type === "image" ? (
-            <div className="w-full h-full p-4 flex items-center justify-center">
-              <img src={url} alt={title} className="max-w-full max-h-full object-contain rounded-md" />
-            </div>
-          ) : type === "video" ? (
-            (() => {
-              const ytId = getYouTubeId(url)
-              const ytEmbedUrl = getYouTubeEmbedUrl(url)
-
-              if (ytEmbedUrl && isEmbeddable !== false) {
-                return (
-                  <iframe
-                    src={ytEmbedUrl}
-                    title={title}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    className="absolute inset-0 w-full h-full border-0"
-                  />
-                )
-              }
-
-              if (ytId) {
-                return (
-                  <div className="flex flex-col items-center justify-center text-center p-6 max-w-md bg-card rounded-xl border border-border shadow-md">
-                    <div className="relative aspect-video w-64 overflow-hidden rounded-lg border bg-muted mb-4 shadow-sm">
-                      <img
-                        src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`}
-                        alt={title}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                        <Video className="size-10 text-white/90" />
-                      </div>
-                    </div>
-                    <h4 className="font-semibold text-foreground text-base mb-1">
-                      Embedding restricted by uploader
-                    </h4>
-                    <p className="text-xs text-muted-foreground mb-4">
-                      This video is restricted and can only be watched directly on YouTube.
-                    </p>
-                    <Button asChild variant="destructive" size="sm">
-                      <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
-                        Watch on YouTube <ExternalLink className="size-3.5" />
-                      </a>
-                    </Button>
-                  </div>
-                )
-              }
-
-              return (
-                <div className="flex flex-col items-center justify-center text-center p-6 max-w-md bg-card rounded-xl border border-border shadow-md">
-                  <div className="flex size-14 items-center justify-center rounded-full bg-red-500/10 text-red-500 mb-4">
-                    <Video className="size-7" />
-                  </div>
-                  <h4 className="font-semibold text-foreground text-base mb-1">External Video Stream</h4>
-                  <p className="text-xs text-muted-foreground mb-4">
-                    This video material is hosted externally and cannot be embedded inline.
-                  </p>
-                  <Button asChild variant="default" size="sm">
-                    <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
-                      Open Video Stream <ExternalLink className="size-3.5" />
-                    </a>
-                  </Button>
-                </div>
-              )
-            })()
-          ) : (
-            // PDF & Office documents render in <iframe> inside the app modal
-            <iframe
-              src={iframeSrc}
-              className="absolute inset-0 w-full h-full border-0 bg-white dark:bg-zinc-950"
-              title={title}
-            />
-          )}
+          {renderContent()}
         </div>
       </div>
     </div>
