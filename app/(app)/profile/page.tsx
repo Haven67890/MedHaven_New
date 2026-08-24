@@ -12,6 +12,11 @@ import { PageHeader } from "@/components/dashboard/page-header"
 import useAuth from "@/hooks/useAuth"
 import { createClient } from "@/lib/supabase/client"
 import { EditProfileDialog } from "@/components/profile/edit-profile-dialog"
+import {
+  MotionReveal,
+  MotionStaggerGroup,
+  MotionStaggerItem,
+} from "@/components/ui/motion"
 
 type Profile = {
   id: string
@@ -156,98 +161,104 @@ export default function ProfilePage() {
         </div>
       )}
 
-      <Card className="overflow-hidden">
-        <div className="h-28 bg-gradient-to-br from-primary/20 via-primary/10 to-accent" />
-        <CardContent className="-mt-12 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-            <Avatar
-              initials={initials}
-              src={profile?.avatar_url}
-              className="size-24 border-4 border-card text-3xl shadow-sm"
-            />
-            <div className="flex flex-col gap-1 pb-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl font-semibold tracking-tight text-foreground">{displayName}</h2>
-                {profile?.nickname && profile.nickname.trim() !== "" && (
-                  <span className="text-sm font-medium text-muted-foreground">
-                    ("{profile.nickname}")
-                  </span>
-                )}
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {profile?.current_level ? `Level ${profile.current_level}` : "Academic level not set"}
-              </p>
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                {departmentName && (
-                  <Badge variant="muted">{departmentName}</Badge>
-                )}
-                {facultyName && (
-                  <Badge variant="muted">{facultyName}</Badge>
-                )}
-                {universityName && (
-                  <Badge variant="muted">{universityName}</Badge>
-                )}
+      <MotionReveal direction="up" distance={16}>
+        <Card className="overflow-hidden">
+          <div className="h-28 bg-gradient-to-br from-primary/20 via-primary/10 to-accent" />
+          <CardContent className="-mt-12 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+              <Avatar
+                initials={initials}
+                src={profile?.avatar_url}
+                className="size-24 border-4 border-card text-3xl shadow-sm"
+              />
+              <div className="flex flex-col gap-1 pb-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-xl font-semibold tracking-tight text-foreground">{displayName}</h2>
+                  {profile?.nickname && profile.nickname.trim() !== "" && (
+                    <span className="text-sm font-medium text-muted-foreground">
+                      ("{profile.nickname}")
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {profile?.current_level ? `Level ${profile.current_level}` : "Academic level not set"}
+                </p>
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  {departmentName && (
+                    <Badge variant="muted">{departmentName}</Badge>
+                  )}
+                  {facultyName && (
+                    <Badge variant="muted">{facultyName}</Badge>
+                  )}
+                  {universityName && (
+                    <Badge variant="muted">{universityName}</Badge>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-          <Button
-            variant="outline"
-            className="shrink-0"
-            onClick={() => setEditDialogOpen(true)}
-          >
-            <Pencil className="mr-2 size-4" />Edit profile
-          </Button>
-        </CardContent>
-      </Card>
+            <Button
+              variant="outline"
+              className="shrink-0"
+              onClick={() => setEditDialogOpen(true)}
+            >
+              <Pencil className="mr-2 size-4" />Edit profile
+            </Button>
+          </CardContent>
+        </Card>
+      </MotionReveal>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Details</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3 text-sm">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Mail className="size-4" aria-hidden="true" />
-              {email ?? user?.email ?? "Not available"}
-            </div>
-            {departmentName && (
+      <MotionStaggerGroup className="grid gap-6 lg:grid-cols-2">
+        <MotionStaggerItem>
+          <Card>
+            <CardHeader>
+              <CardTitle>Details</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3 text-sm">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Mail className="size-4" aria-hidden="true" />
+                {email ?? user?.email ?? "Not available"}
+              </div>
+              {departmentName && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <BookOpen className="size-4" aria-hidden="true" />
+                  {departmentName}
+                </div>
+              )}
+              {facultyName && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <GraduationCap className="size-4" aria-hidden="true" />
+                  {facultyName}
+                </div>
+              )}
+              {universityName && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <MapPin className="size-4" aria-hidden="true" />
+                  {universityName}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </MotionStaggerItem>
+
+        <MotionStaggerItem>
+          <Card>
+            <CardHeader>
+              <CardTitle>Account info</CardTitle>
+              <CardDescription>Basic account details.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3 text-sm">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <CalendarDays className="size-4" aria-hidden="true" />
+                Account created for MedHaven
+              </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <BookOpen className="size-4" aria-hidden="true" />
-                {departmentName}
+                Role: {formattedRole}
               </div>
-            )}
-            {facultyName && (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <GraduationCap className="size-4" aria-hidden="true" />
-                {facultyName}
-              </div>
-            )}
-            {universityName && (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <MapPin className="size-4" aria-hidden="true" />
-                {universityName}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Account info</CardTitle>
-            <CardDescription>Basic account details.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3 text-sm">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <CalendarDays className="size-4" aria-hidden="true" />
-              Account created for MedHaven
-            </div>
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <BookOpen className="size-4" aria-hidden="true" />
-              Role: {formattedRole}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </MotionStaggerItem>
+      </MotionStaggerGroup>
 
       {profile && (
         <EditProfileDialog

@@ -15,6 +15,11 @@ import { StatCard } from "@/components/dashboard/stat-card"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { createClient } from "@/lib/supabase/client"
 import useAuth from "@/hooks/useAuth"
+import {
+  MotionReveal,
+  MotionStaggerGroup,
+  MotionStaggerItem,
+} from "@/components/ui/motion"
 
 interface TutorialSection {
   heading: string
@@ -224,10 +229,18 @@ export default function TutorialsPage() {
       </PageHeader>
 
       {/* Stats Cards */}
-      <section className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Total Tutorials" value={String(stats.total)} icon={GraduationCap} accent="primary" />
-        <StatCard label="With Interactive Quizzes" value={String(stats.linkedQuizzesCount)} icon={HelpCircle} accent="warning" />
-        <StatCard label="For My Current Level" value={String(stats.userLevelCount)} icon={Award} accent="secondary" />
+      <section>
+        <MotionStaggerGroup className="grid gap-4 sm:grid-cols-3">
+          <MotionStaggerItem>
+            <StatCard label="Total Tutorials" value={String(stats.total)} icon={GraduationCap} accent="primary" />
+          </MotionStaggerItem>
+          <MotionStaggerItem>
+            <StatCard label="With Interactive Quizzes" value={String(stats.linkedQuizzesCount)} icon={HelpCircle} accent="warning" />
+          </MotionStaggerItem>
+          <MotionStaggerItem>
+            <StatCard label="For My Current Level" value={String(stats.userLevelCount)} icon={Award} accent="secondary" />
+          </MotionStaggerItem>
+        </MotionStaggerGroup>
       </section>
 
       {/* Search Input Bar */}
@@ -262,51 +275,52 @@ export default function TutorialsPage() {
           <SectionHeading title="Available Tutorials" description="Review concepts and take integrated assessment quizzes." />
 
           {filteredTutorials.length > 0 ? (
-            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <MotionStaggerGroup className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {filteredTutorials.map((tut) => (
-                <Card
-                  key={tut.id}
-                  className="group hover:shadow-md border-border transition-all duration-200 cursor-pointer flex flex-col justify-between"
-                  onClick={() => setSelectedTutorial(tut)}
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex flex-wrap gap-1.5 items-center mb-2">
+                <MotionStaggerItem key={tut.id}>
+                  <Card
+                    className="group hover:shadow-md border-border transition-all duration-200 cursor-pointer flex flex-col justify-between hover:-translate-y-0.5"
+                    onClick={() => setSelectedTutorial(tut)}
+                  >
+                    <CardHeader className="pb-3">
+                      <div className="flex flex-wrap gap-1.5 items-center mb-2">
+                        {tut.courses && (
+                          <Badge variant="outline" className="text-[10px] uppercase">
+                            {tut.courses.code}
+                          </Badge>
+                        )}
+                        {tut.courses?.level && (
+                          <Badge variant="secondary" className="text-[10px]">
+                            Level: {tut.courses.level}
+                          </Badge>
+                        )}
+                        {tut.linked_quiz_id && (
+                          <Badge variant="accent" className="text-[10px] flex items-center gap-1">
+                            <Sparkles className="size-3" /> Quiz Included
+                          </Badge>
+                        )}
+                      </div>
+                      <CardTitle className="text-base font-bold leading-snug group-hover:text-primary transition-colors">
+                        {tut.title}
+                      </CardTitle>
                       {tut.courses && (
-                        <Badge variant="outline" className="text-[10px] uppercase">
-                          {tut.courses.code}
-                        </Badge>
+                        <CardDescription className="text-xs truncate" title={tut.courses.title || ""}>
+                          {tut.courses.title}
+                        </CardDescription>
                       )}
-                      {tut.courses?.level && (
-                        <Badge variant="secondary" className="text-[10px]">
-                          Level: {tut.courses.level}
-                        </Badge>
-                      )}
-                      {tut.linked_quiz_id && (
-                        <Badge variant="accent" className="text-[10px] flex items-center gap-1">
-                          <Sparkles className="size-3" /> Quiz Included
-                        </Badge>
-                      )}
-                    </div>
-                    <CardTitle className="text-base font-bold leading-snug group-hover:text-primary transition-colors">
-                      {tut.title}
-                    </CardTitle>
-                    {tut.courses && (
-                      <CardDescription className="text-xs truncate" title={tut.courses.title || ""}>
-                        {tut.courses.title}
-                      </CardDescription>
-                    )}
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
-                      {tut.overview}
-                    </p>
-                    <div className="mt-4 flex items-center gap-1 text-xs text-primary font-bold">
-                      Read Tutorial <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-1" />
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
+                        {tut.overview}
+                      </p>
+                      <div className="mt-4 flex items-center gap-1 text-xs text-primary font-bold">
+                        Read Tutorial <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-1" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </MotionStaggerItem>
               ))}
-            </div>
+            </MotionStaggerGroup>
           ) : (
             <div className="mt-6 rounded-xl border border-dashed border-border bg-card p-12 text-center text-sm text-muted-foreground">
               <GraduationCap className="size-8 mx-auto mb-3 text-muted-foreground/60" />

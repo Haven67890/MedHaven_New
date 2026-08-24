@@ -34,6 +34,11 @@ import { SectionHeading } from "@/components/dashboard/section-heading"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { EmptyState } from "@/components/dashboard/empty-state"
 import { createClient } from "@/lib/supabase/client"
+import {
+  MotionReveal,
+  MotionStaggerGroup,
+  MotionStaggerItem,
+} from "@/components/ui/motion"
 
 interface Course {
   id: string
@@ -860,11 +865,21 @@ export default function FlashcardsPage() {
       </PageHeader>
 
       {/* STAT CARDS - REAL DECK VALUES */}
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Total decks" value={String(decks.length)} icon={BrainCircuit} accent="primary" />
-        <StatCard label="Cards reviewed" value={String(totalReviewedCount)} icon={RotateCcw} accent="secondary" />
-        <StatCard label="Mastery rate" value={totalReviewedCount > 0 ? `${globalMasteryRate}%` : "0%"} icon={Star} accent="accent" />
-        <StatCard label="Due today" value={String(totalDueCount)} icon={BrainCircuit} accent="warning" />
+      <section>
+        <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <MotionStaggerItem>
+            <StatCard label="Total decks" value={String(decks.length)} icon={BrainCircuit} accent="primary" />
+          </MotionStaggerItem>
+          <MotionStaggerItem>
+            <StatCard label="Cards reviewed" value={String(totalReviewedCount)} icon={RotateCcw} accent="secondary" />
+          </MotionStaggerItem>
+          <MotionStaggerItem>
+            <StatCard label="Mastery rate" value={totalReviewedCount > 0 ? `${globalMasteryRate}%` : "0%"} icon={Star} accent="accent" />
+          </MotionStaggerItem>
+          <MotionStaggerItem>
+            <StatCard label="Due today" value={String(totalDueCount)} icon={BrainCircuit} accent="warning" />
+          </MotionStaggerItem>
+        </MotionStaggerGroup>
       </section>
 
       {/* AI GENERATOR SETUP UI */}
@@ -1039,7 +1054,7 @@ export default function FlashcardsPage() {
             />
           </div>
         ) : (
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <MotionStaggerGroup className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filteredDecks.map((deck) => {
               const cardsCount = deck.flashcards?.length || 0
               const isSelected = deck.id === selectedDeckId
@@ -1069,62 +1084,63 @@ export default function FlashcardsPage() {
                 : 0
 
               return (
-                <Card
-                  key={deck.id}
-                  className={`gap-3 transition-all cursor-pointer ${
-                    isSelected
-                      ? "border-primary ring-1 ring-primary/40 shadow-md bg-primary/[0.02]"
-                      : "hover:border-primary/20"
-                  }`}
-                  onClick={() => setSelectedDeckId(deck.id)}
-                >
-                  <CardHeader>
-                    <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                      <BrainCircuit className="size-5" aria-hidden="true" />
-                    </div>
-                    <CardTitle className="pt-2 text-base">{deck.topic}</CardTitle>
-                    <CardDescription className="line-clamp-1">
-                      {courseText} · {cardsCount} cards {deckDue > 0 ? `(${deckDue} due)` : ""}
-                    </CardDescription>
-                    <CardAction>
-                      {deck.source === "ai_generated" ? (
-                        <Badge variant="outline" className="text-[10px] py-0 px-2 font-mono bg-primary/5 text-primary">
-                          AI
-                        </Badge>
-                      ) : deck.source === "specimen_bank" ? (
-                        <Badge variant="outline" className="text-[10px] py-0 px-2 font-mono bg-purple-500/10 text-purple-400 border-purple-500/20">
-                          Specimen Bank
-                        </Badge>
-                      ) : null}
-                    </CardAction>
-                  </CardHeader>
-                  <CardContent className="flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">Mastery</span>
-                      <span className="text-xs font-medium text-foreground">{deckMasteryPercent}%</span>
-                    </div>
-                    <Progress value={deckMasteryPercent} indicatorClassName="bg-primary" />
-                    <Button
-                      variant={isSelected ? "default" : "outline"}
-                      size="sm"
-                      className="mt-2 w-full justify-between"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (isSelected) {
-                          handleStartReview(deck)
-                        } else {
-                          setSelectedDeckId(deck.id)
-                        }
-                      }}
-                    >
-                      <span>{isSelected ? "Active recall mode" : "View cards"}</span>
-                      <ChevronRight className="size-4" />
-                    </Button>
-                  </CardContent>
-                </Card>
+                <MotionStaggerItem key={deck.id}>
+                  <Card
+                    className={`gap-3 transition-all cursor-pointer hover:-translate-y-1 hover:shadow-md ${
+                      isSelected
+                        ? "border-primary ring-1 ring-primary/40 shadow-md bg-primary/[0.02]"
+                        : "hover:border-primary/20"
+                    }`}
+                    onClick={() => setSelectedDeckId(deck.id)}
+                  >
+                    <CardHeader>
+                      <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                        <BrainCircuit className="size-5" aria-hidden="true" />
+                      </div>
+                      <CardTitle className="pt-2 text-base">{deck.topic}</CardTitle>
+                      <CardDescription className="line-clamp-1">
+                        {courseText} · {cardsCount} cards {deckDue > 0 ? `(${deckDue} due)` : ""}
+                      </CardDescription>
+                      <CardAction>
+                        {deck.source === "ai_generated" ? (
+                          <Badge variant="outline" className="text-[10px] py-0 px-2 font-mono bg-primary/5 text-primary">
+                            AI
+                          </Badge>
+                        ) : deck.source === "specimen_bank" ? (
+                          <Badge variant="outline" className="text-[10px] py-0 px-2 font-mono bg-purple-500/10 text-purple-400 border-purple-500/20">
+                            Specimen Bank
+                          </Badge>
+                        ) : null}
+                      </CardAction>
+                    </CardHeader>
+                    <CardContent className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Mastery</span>
+                        <span className="text-xs font-medium text-foreground">{deckMasteryPercent}%</span>
+                      </div>
+                      <Progress value={deckMasteryPercent} indicatorClassName="bg-primary" />
+                      <Button
+                        variant={isSelected ? "default" : "outline"}
+                        size="sm"
+                        className="mt-2 w-full justify-between"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (isSelected) {
+                            handleStartReview(deck)
+                          } else {
+                            setSelectedDeckId(deck.id)
+                          }
+                        }}
+                      >
+                        <span>{isSelected ? "Active recall mode" : "View cards"}</span>
+                        <ChevronRight className="size-4" />
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </MotionStaggerItem>
               )
             })}
-          </div>
+          </MotionStaggerGroup>
         )}
       </section>
 

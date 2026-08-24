@@ -25,6 +25,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageHeader } from "@/components/dashboard/page-header"
 import { createClient } from "@/lib/supabase/client"
 import useAuth from "@/hooks/useAuth"
+import {
+  MotionReveal,
+  MotionStaggerGroup,
+  MotionStaggerItem,
+} from "@/components/ui/motion"
 
 interface Course {
   id: string
@@ -491,37 +496,45 @@ export default function TimetablePage() {
       </PageHeader>
 
       {/* STATS STRIP */}
-      <section className="grid gap-4 grid-cols-1 sm:grid-cols-3">
-        <Card className="bg-card/50 dark:bg-slate-900/40 border-border dark:border-slate-800/80">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-xs font-semibold text-muted-foreground dark:text-slate-400 uppercase tracking-wider">
-              <Clock className="size-4 text-sky-400" /> Total Activities
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-foreground dark:text-slate-100">{totalSessions} sessions</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/50 dark:bg-slate-900/40 border-border dark:border-slate-800/80">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-xs font-semibold text-muted-foreground dark:text-slate-400 uppercase tracking-wider">
-              <BookOpen className="size-4 text-indigo-400" /> Lectures Scheduled
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-foreground dark:text-slate-100">{lectureSessions} classes</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/50 dark:bg-slate-900/40 border-border dark:border-slate-800/80">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-xs font-semibold text-muted-foreground dark:text-slate-400 uppercase tracking-wider">
-              <Stethoscope className="size-4 text-emerald-400" /> Clinical Rotations
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-foreground dark:text-slate-100">{clinicalSessions} postings</p>
-          </CardContent>
-        </Card>
+      <section>
+        <MotionStaggerGroup className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+          <MotionStaggerItem>
+            <Card className="bg-card/50 dark:bg-slate-900/40 border-border dark:border-slate-800/80">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-xs font-semibold text-muted-foreground dark:text-slate-400 uppercase tracking-wider">
+                  <Clock className="size-4 text-sky-400" /> Total Activities
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-foreground dark:text-slate-100">{totalSessions} sessions</p>
+              </CardContent>
+            </Card>
+          </MotionStaggerItem>
+          <MotionStaggerItem>
+            <Card className="bg-card/50 dark:bg-slate-900/40 border-border dark:border-slate-800/80">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-xs font-semibold text-muted-foreground dark:text-slate-400 uppercase tracking-wider">
+                  <BookOpen className="size-4 text-indigo-400" /> Lectures Scheduled
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-foreground dark:text-slate-100">{lectureSessions} classes</p>
+              </CardContent>
+            </Card>
+          </MotionStaggerItem>
+          <MotionStaggerItem>
+            <Card className="bg-card/50 dark:bg-slate-900/40 border-border dark:border-slate-800/80">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-xs font-semibold text-muted-foreground dark:text-slate-400 uppercase tracking-wider">
+                  <Stethoscope className="size-4 text-emerald-400" /> Clinical Rotations
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-foreground dark:text-slate-100">{clinicalSessions} postings</p>
+              </CardContent>
+            </Card>
+          </MotionStaggerItem>
+        </MotionStaggerGroup>
       </section>
 
       {/* AGENDA VIEW */}
@@ -550,58 +563,59 @@ export default function TimetablePage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
+            <MotionStaggerGroup className="grid gap-3 sm:grid-cols-2">
               {agendaEntries.map((item) => {
                 const config = getActivityConfig(item.activity_type)
                 const Icon = config.icon
                 return (
-                  <Card
-                    key={item.id}
-                    onClick={() => setSelectedEntry(item)}
-                    className="cursor-pointer group relative bg-card hover:bg-muted dark:bg-slate-900/50 dark:hover:bg-slate-950 border-border dark:border-slate-800/60 hover:border-slate-300 dark:hover:border-slate-700/80 transition-all duration-200 shadow-sm flex items-start gap-4 p-4 rounded-xl overflow-hidden"
-                  >
-                    {/* Left colored status indicator */}
-                    <span className={`absolute left-0 top-0 bottom-0 w-1.5 ${config.border} bg-current`} />
+                  <MotionStaggerItem key={item.id}>
+                    <Card
+                      onClick={() => setSelectedEntry(item)}
+                      className="cursor-pointer group relative bg-card hover:bg-muted dark:bg-slate-900/50 dark:hover:bg-slate-950 border-border dark:border-slate-800/60 hover:border-slate-300 dark:hover:border-slate-700/80 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 shadow-sm flex items-start gap-4 p-4 rounded-xl overflow-hidden"
+                    >
+                      {/* Left colored status indicator */}
+                      <span className={`absolute left-0 top-0 bottom-0 w-1.5 ${config.border} bg-current`} />
 
-                    {/* Icon container */}
-                    <div className={`p-2.5 rounded-xl ${config.color} shrink-0`}>
-                      <Icon className="size-5" />
-                    </div>
-
-                    <div className="flex-1 min-w-0 flex flex-col gap-1.5 pr-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-semibold text-muted-foreground dark:text-slate-400 flex items-center gap-1">
-                          <Clock className="size-3 text-slate-500" />
-                          {formatTime(item.start_time)} - {formatTime(item.end_time)}
-                        </span>
-                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 border-none rounded ${config.badge}`}>
-                          {config.label}
-                        </Badge>
+                      {/* Icon container */}
+                      <div className={`p-2.5 rounded-xl ${config.color} shrink-0`}>
+                        <Icon className="size-5" />
                       </div>
 
-                      <h4 className="font-bold text-foreground dark:text-slate-100 text-sm leading-snug group-hover:text-primary transition-colors truncate">
-                        {item.title}
-                      </h4>
+                      <div className="flex-1 min-w-0 flex flex-col gap-1.5 pr-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-semibold text-muted-foreground dark:text-slate-400 flex items-center gap-1">
+                            <Clock className="size-3 text-slate-500" />
+                            {formatTime(item.start_time)} - {formatTime(item.end_time)}
+                          </span>
+                          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 border-none rounded ${config.badge}`}>
+                            {config.label}
+                          </Badge>
+                        </div>
 
-                      {item.courses && (
-                        <p className="text-xs font-bold text-muted-foreground dark:text-slate-300 flex items-center gap-1">
-                          <GraduationCap className="size-3.5 text-slate-400 shrink-0" />
-                          {item.courses.code}: {item.courses.title}
-                        </p>
-                      )}
+                        <h4 className="font-bold text-foreground dark:text-slate-100 text-sm leading-snug group-hover:text-primary transition-colors truncate">
+                          {item.title}
+                        </h4>
 
-                      {item.lecturer && (
-                        <p className="text-xs text-muted-foreground dark:text-slate-400 italic truncate">
-                          Lecturer: {item.lecturer}
-                        </p>
-                      )}
-                    </div>
+                        {item.courses && (
+                          <p className="text-xs font-bold text-muted-foreground dark:text-slate-300 flex items-center gap-1">
+                            <GraduationCap className="size-3.5 text-slate-400 shrink-0" />
+                            {item.courses.code}: {item.courses.title}
+                          </p>
+                        )}
 
-                    <ChevronRight className="size-4 text-slate-500 group-hover:text-slate-300 shrink-0 self-center transition-transform group-hover:translate-x-0.5" />
-                  </Card>
+                        {item.lecturer && (
+                          <p className="text-xs text-muted-foreground dark:text-slate-400 italic truncate">
+                            Lecturer: {item.lecturer}
+                          </p>
+                        )}
+                      </div>
+
+                      <ChevronRight className="size-4 text-slate-500 group-hover:text-slate-300 shrink-0 self-center transition-transform group-hover:translate-x-0.5" />
+                    </Card>
+                  </MotionStaggerItem>
                 )
               })}
-            </div>
+            </MotionStaggerGroup>
           )}
         </section>
       )}
