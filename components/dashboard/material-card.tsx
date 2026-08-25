@@ -32,9 +32,6 @@ const failedPdfCache: Record<string, boolean> = {}
 const slideDeckThumbnailCache: Record<string, string> = {}
 const failedSlideDeckCache: Record<string, boolean> = {}
 
-// Memory cache for YouTube embed checks
-const youtubeEmbedCheckCache: Record<string, boolean> = {}
-
 export interface Faculty {
   id: string
   name: string
@@ -378,9 +375,9 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
   }
 
   return (
-    <Card className="overflow-hidden border border-border/60 hover:border-primary/45 shadow-xs hover:shadow-md active:scale-[0.995] transition-all duration-200 flex flex-col sm:flex-row gap-4 p-4 bg-card group">
+    <Card className="overflow-hidden border border-border/60 hover:border-primary/45 shadow-xs hover:shadow-md active:scale-[0.995] transition-all duration-200 flex flex-col sm:flex-row gap-3 sm:gap-4 p-3 sm:p-4 bg-card group">
       {/* Thumbnail / Icon Section */}
-      <div className="relative w-full sm:w-40 md:w-44 aspect-video sm:aspect-[4/3] rounded-lg bg-muted flex items-center justify-center overflow-hidden shrink-0 border border-border/40 select-none">
+      <div className="relative w-full max-h-36 sm:max-h-none sm:w-40 md:w-44 aspect-video sm:aspect-[4/3] rounded-lg bg-muted flex items-center justify-center overflow-hidden shrink-0 border border-border/40 select-none">
         {isVideo && youtubeId ? (
           <div className="absolute inset-0 w-full h-full cursor-pointer group/thumb" onClick={handlePreviewClick}>
             <img
@@ -390,8 +387,8 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
               loading="lazy"
             />
             <div className="absolute inset-0 bg-black/30 flex items-center justify-center group-hover/thumb:bg-black/45 transition-colors duration-200">
-              <span className="flex size-11 items-center justify-center rounded-full bg-white/90 text-red-600 shadow-md transform group-hover/thumb:scale-110 transition-transform duration-200">
-                <Play className="size-6 fill-red-600" />
+              <span className="flex size-10 sm:size-11 items-center justify-center rounded-full bg-white/90 text-red-600 shadow-md transform group-hover/thumb:scale-110 transition-transform duration-200">
+                <Play className="size-5 sm:size-6 fill-red-600" />
               </span>
             </div>
           </div>
@@ -404,8 +401,8 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
               loading="lazy"
             />
             <div className="absolute inset-0 bg-black/10 flex items-center justify-center group-hover/thumb:bg-black/25 transition-colors duration-200">
-              <span className="flex size-10 items-center justify-center rounded-full bg-white/90 text-primary shadow-md transform group-hover/thumb:scale-110 transition-transform duration-200">
-                <Eye className="size-5" />
+              <span className="flex size-9 sm:size-10 items-center justify-center rounded-full bg-white/90 text-primary shadow-md transform group-hover/thumb:scale-110 transition-transform duration-200">
+                <Eye className="size-4 sm:size-5" />
               </span>
             </div>
           </div>
@@ -423,9 +420,9 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-2 text-muted-foreground p-3">
+          <div className="flex flex-col items-center gap-1.5 text-muted-foreground p-3">
             {isGeneratingPdfThumb || isSlideDeckLoading ? (
-              <div className="size-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+              <div className="size-5 sm:size-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
             ) : (
               renderTypeIcon()
             )}
@@ -456,7 +453,7 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
         <div className="flex flex-col gap-1">
           <div className="flex items-start justify-between gap-2">
             <h4
-              className="font-semibold text-base leading-snug text-foreground group-hover:text-primary transition-colors cursor-pointer line-clamp-2 min-w-0"
+              className="font-semibold text-sm sm:text-base leading-snug text-foreground group-hover:text-primary transition-colors cursor-pointer line-clamp-2 min-w-0"
               onClick={handlePreviewClick}
               title={material.title}
             >
@@ -491,8 +488,8 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
         </div>
 
         {/* Footer badges and actions */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/40 pt-2 mt-auto">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 border-t border-border/40 pt-2 mt-auto">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <Badge variant="outline" className="text-[10px] font-medium tracking-wider uppercase bg-muted/30">
               {formatTypeName(material.type)}
             </Badge>
@@ -511,16 +508,16 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
               <Button
                 size="sm"
                 variant={isVideo ? "destructive" : "default"}
-                className="h-8 text-xs font-medium px-3 flex items-center gap-1 shadow-sm"
+                className="h-7 sm:h-8 text-xs font-medium px-2.5 sm:px-3 flex items-center gap-1 shadow-sm"
                 onClick={handlePreviewClick}
               >
                 {isVideo ? (
                   <>
-                    <Play className="size-3.5 fill-current shrink-0" /> Play
+                    <Play className="size-3 sm:size-3.5 fill-current shrink-0" /> Play
                   </>
                 ) : (
                   <>
-                    <Eye className="size-3.5 shrink-0" /> View
+                    <Eye className="size-3 sm:size-3.5 shrink-0" /> View
                   </>
                 )}
               </Button>
@@ -530,7 +527,7 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
               <Button
                 size="sm"
                 variant="outline"
-                className="h-8 text-xs font-medium px-3 flex items-center gap-1"
+                className="h-7 sm:h-8 text-xs font-medium px-2.5 sm:px-3 flex items-center gap-1"
                 asChild
               >
                 <a
@@ -542,7 +539,7 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
                     }
                   }}
                 >
-                  <Download className="size-3.5 shrink-0" /> Download
+                  <Download className="size-3 sm:size-3.5 shrink-0" /> Download
                 </a>
               </Button>
             )}
