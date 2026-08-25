@@ -7,8 +7,10 @@ export async function GET(request: NextRequest) {
     const query = searchParams.get("query")?.trim()
 
     if (!query) {
-      return NextResponse.json({ image_url: null })
+      return NextResponse.json({ url: null })
     }
+
+    console.log("Medical image search:", query)
 
     const supabaseAdmin = createServiceClient()
 
@@ -20,7 +22,7 @@ export async function GET(request: NextRequest) {
       .limit(1)
 
     if (!dbError && dbImages && dbImages.length > 0 && dbImages[0].image_url) {
-      return NextResponse.json({ image_url: dbImages[0].image_url })
+      return NextResponse.json({ url: dbImages[0].image_url })
     }
 
     // 2. Fallback: Wikimedia Commons / Wikipedia API
@@ -36,19 +38,20 @@ export async function GET(request: NextRequest) {
           if (pageId && pageId !== "-1") {
             const thumbnail = pages[pageId]?.thumbnail?.source
             if (thumbnail) {
-              return NextResponse.json({ image_url: thumbnail })
+              return NextResponse.json({ url: thumbnail })
             }
           }
         }
       }
     } catch (wikiErr) {
-      console.warn("Wikimedia Commons API fetch warning:", wikiErr)
+      console.error("Wikimedia Commons API fetch error:", wikiErr)
+      return NextResponse.json({ url: null })
     }
 
     // 3. Fallback: return null
-    return NextResponse.json({ image_url: null })
+    return NextResponse.json({ url: null })
   } catch (err: any) {
     console.error("Medical image API route error:", err)
-    return NextResponse.json({ image_url: null }, { status: 500 })
+    return NextResponse.json({ url: null }, { status: 500 })
   }
 }
