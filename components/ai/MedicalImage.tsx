@@ -17,7 +17,8 @@ export default function MedicalImage({ query, alt }: MedicalImageProps) {
       return
     }
 
-    fetch(`/api/assistant/medical-image?query=${encodeURIComponent(query)}`)
+    const decodedQuery = query.replace(/_/g, ' ')
+    fetch(`/api/assistant/medical-image?query=${encodeURIComponent(decodedQuery)}`)
       .then((res) => res.json())
       .then((data) => {
         if (isMounted) {

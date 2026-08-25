@@ -26,6 +26,16 @@ const DEFAULT_SUGGESTIONS = [
   "Outline the stages of hypovolemic shock"
 ]
 
+const preprocessMarkdown = (content: string): string => {
+  return content.replace(
+    /!\[([^\]]*)\]\(MEDICAL_IMAGE:([^)]+)\)/g,
+    (match, alt, query) => {
+      const encoded = query.trim().replace(/\s+/g, '_')
+      return `![${alt}](MEDICAL_IMAGE:${encoded})`
+    }
+  )
+}
+
 function parseFollowUpQuestions(text: string): { mainText: string; questions: string[] } {
   const markerIndex = text.indexOf("**Want to explore further?**")
   if (markerIndex === -1) {
@@ -323,7 +333,7 @@ export default function AIChatDrawer({ isOpen, onClose, suggestions = DEFAULT_SU
                             }
                           }}
                         >
-                          {mainText}
+                          {preprocessMarkdown(mainText)}
                         </ReactMarkdown>
 
                         {/* Web Search Line Indicator */}
