@@ -5,6 +5,7 @@ import { Sparkles, Send, X, Bot, User, Loader2, AlertCircle, CornerDownLeft, Ref
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import rehypeRaw from "rehype-raw"
+import MedicalImage from "@/components/ai/MedicalImage"
 
 interface Message {
   role: "user" | "assistant"
@@ -24,66 +25,6 @@ const DEFAULT_SUGGESTIONS = [
   "Clinical presentation of appendicitis",
   "Outline the stages of hypovolemic shock"
 ]
-
-function MedicalImageResolver({ src, alt }: { src?: string; alt?: string }) {
-  const [imageUrl, setImageUrl] = useState<string | null>(null)
-  const [loading, setLoading] = useState<boolean>(true)
-
-  useEffect(() => {
-    let isMounted = true
-    if (!src) {
-      setLoading(false)
-      return
-    }
-
-    if (src.startsWith("MEDICAL_IMAGE:")) {
-      const query = src.replace("MEDICAL_IMAGE:", "").trim()
-      fetch(`/api/assistant/medical-image?query=${encodeURIComponent(query)}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (isMounted) {
-            setImageUrl(data.image_url || null)
-            setLoading(false)
-          }
-        })
-        .catch(() => {
-          if (isMounted) {
-            setImageUrl(null)
-            setLoading(false)
-          }
-        })
-    } else {
-      setImageUrl(src)
-      setLoading(false)
-    }
-
-    return () => {
-      isMounted = false
-    }
-  }, [src])
-
-  if (loading) {
-    return (
-      <div className="my-3 flex items-center justify-center rounded-lg border border-border bg-card p-4 text-xs text-muted-foreground animate-pulse">
-        Fetching medical diagram...
-      </div>
-    )
-  }
-
-  if (!imageUrl) return null
-
-  return (
-    <div className="my-4">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={imageUrl}
-        alt={alt || "Medical illustration"}
-        className="rounded-lg max-w-full max-h-96 object-contain border border-zinc-700 mx-auto"
-      />
-      {alt && <p className="text-xs text-zinc-500 mt-1 text-center font-medium">{alt}</p>}
-    </div>
-  )
-}
 
 function parseFollowUpQuestions(text: string): { mainText: string; questions: string[] } {
   const markerIndex = text.indexOf("**Want to explore further?**")
@@ -367,9 +308,19 @@ export default function AIChatDrawer({ isOpen, onClose, suggestions = DEFAULT_SU
                             blockquote: ({ node, ...props }) => (
                               <blockquote className="border-l-4 border-blue-500 bg-blue-500/10 p-2.5 rounded-r-lg my-3 text-muted-foreground italic" {...props} />
                             ),
-                            img: ({ node, src, alt }: any) => (
-                              <MedicalImageResolver src={src} alt={alt} />
-                            )
+                            img: ({ src, alt }: any) => {
+                              if (src?.startsWith('MEDICAL_IMAGE:')) {
+                                const query = src.replace('MEDICAL_IMAGE:', '').trim()
+                                return <MedicalImage query={query} alt={alt || query} />
+                              }
+                              // regular images render normally
+                              return (
+                                /* eslint-disable-next-line @next/next/no-img-element */
+                                <img src={src} alt={alt}
+                                  className="rounded-lg max-w-full max-h-80 my-4
+                                    border border-zinc-700" />
+                              )
+                            }
                           }}
                         >
                           {mainText}
