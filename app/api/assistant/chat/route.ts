@@ -269,21 +269,15 @@ Do not use it for pharmacology mechanisms or non-visual topics.
       }))
     ]
 
-    // 6. Call Groq API with Web Search Tool support (with fallback if unsupported)
+    // 6. Call Groq API
     const requestPayload: any = {
       model: "openai/gpt-oss-20b",
       messages: apiMessages,
       temperature: 0.7,
       max_tokens: 1800,
-      tools: [
-        {
-          type: "web_search_20250305",
-          name: "web_search"
-        }
-      ]
     }
 
-    let groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
@@ -291,24 +285,6 @@ Do not use it for pharmacology mechanisms or non-visual topics.
       },
       body: JSON.stringify(requestPayload),
     })
-
-    let searchedWebQuery: string | null = null
-
-    // Fallback: If model doesn't support tools or throws 400 invalid parameter for tools
-    if (!groqResponse.ok) {
-      const errBody = await groqResponse.text()
-      console.warn("Groq initial request with web search failed:", errBody)
-
-      delete requestPayload.tools
-      groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestPayload),
-      })
-    }
 
     if (!groqResponse.ok) {
       const errorText = await groqResponse.text()
@@ -318,28 +294,10 @@ Do not use it for pharmacology mechanisms or non-visual topics.
 
     const groqData = await groqResponse.json()
     const choice = groqData.choices?.[0]
-    let assistantContent = choice?.message?.content
-
-    // Handle tool call results if tool calls were triggered
-    const toolCalls = choice?.message?.tool_calls
-    if (toolCalls && toolCalls.length > 0) {
-      const webSearchCall = toolCalls.find((t: any) => t.function?.name === "web_search" || t.type === "web_search_20250305")
-      if (webSearchCall) {
-        try {
-          const args = JSON.parse(webSearchCall.function?.arguments || "{}")
-          searchedWebQuery = args.query || args.q || "medical literature search"
-        } catch (_e) {
-          searchedWebQuery = "medical literature search"
-        }
-      }
-    }
-
-    if (!assistantContent && !searchedWebQuery) {
-      return NextResponse.json({ error: "MedHaven AI service returned an empty response" }, { status: 502 })
-    }
+    const assistantContent = choice?.message?.content
 
     if (!assistantContent) {
-      assistantContent = "Based on current medical literature and search findings, here is the information requested."
+      return NextResponse.json({ error: "MedHaven AI service returned an empty response" }, { status: 502 })
     }
 
     // 7. Save conversation & topic tags in database
@@ -379,7 +337,6 @@ Do not use it for pharmacology mechanisms or non-visual topics.
     return NextResponse.json({
       content: assistantContent,
       conversationId: savedConvId,
-      searchedWebQuery,
       studentName,
       studentLevel
     })

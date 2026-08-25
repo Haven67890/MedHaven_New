@@ -10,7 +10,6 @@ import MedicalImage from "@/components/ai/MedicalImage"
 interface Message {
   role: "user" | "assistant"
   content: string
-  searchedWebQuery?: string | null
 }
 
 interface AIChatDrawerProps {
@@ -136,8 +135,7 @@ export default function AIChatDrawer({ isOpen, onClose, suggestions = DEFAULT_SU
         ...prev,
         {
           role: "assistant",
-          content: data.content,
-          searchedWebQuery: data.searchedWebQuery || null
+          content: data.content
         }
       ])
     } catch (err: any) {
@@ -336,13 +334,6 @@ export default function AIChatDrawer({ isOpen, onClose, suggestions = DEFAULT_SU
                           {preprocessMarkdown(mainText)}
                         </ReactMarkdown>
 
-                        {/* Web Search Line Indicator */}
-                        {msg.searchedWebQuery && (
-                          <div className="mt-3 pt-2.5 border-t border-border flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
-                            <Search className="h-3.5 w-3.5 text-cyan-500 shrink-0" />
-                            <span>Searched the web for: <strong className="text-foreground">{msg.searchedWebQuery}</strong></span>
-                          </div>
-                        )}
                       </div>
 
                       {/* Follow-up question chips */}
