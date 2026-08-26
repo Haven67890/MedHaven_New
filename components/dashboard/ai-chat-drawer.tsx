@@ -316,17 +316,25 @@ export default function AIChatDrawer({ isOpen, onClose, suggestions = DEFAULT_SU
                             blockquote: ({ node, ...props }) => (
                               <blockquote className="border-l-4 border-blue-500 bg-blue-500/10 p-2.5 rounded-r-lg my-3 text-muted-foreground italic" {...props} />
                             ),
-                            img: ({ src, alt }: any) => {
-                              if (src?.startsWith('MEDICAL_IMAGE:')) {
-                                const query = src.replace('MEDICAL_IMAGE:', '').trim()
-                                return <MedicalImage query={query} alt={alt || query} />
+                            img: ({src, alt}) => {
+                              const srcStr = typeof src === 'string' ? src : ''
+                              const decodedSrc = decodeURIComponent(srcStr)
+                              if (decodedSrc.includes('MEDICAL_IMAGE:')) {
+                                const query = decodedSrc
+                                  .split('MEDICAL_IMAGE:')[1]
+                                  ?.trim()
+                                  ?.replace(/_/g, ' ') || ''
+                                if (query) {
+                                  return <MedicalImage query={query} alt={alt || query} />
+                                }
                               }
-                              // regular images render normally
                               return (
-                                /* eslint-disable-next-line @next/next/no-img-element */
-                                <img src={src} alt={alt}
+                                <img
+                                  src={src}
+                                  alt={alt}
                                   className="rounded-lg max-w-full max-h-80 my-4
-                                    border border-zinc-700" />
+                                    border border-zinc-700"
+                                />
                               )
                             }
                           }}
