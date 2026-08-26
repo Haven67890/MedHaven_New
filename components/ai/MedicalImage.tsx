@@ -32,13 +32,15 @@ export default function MedicalImage({ query, alt }: MedicalImageProps) {
           if (data.url) {
             setSrc(data.url)
           } else {
+            console.warn("[MedicalImage] API returned null URL for query:", query, "(decoded:", decodedQuery, ")")
             setHasError(true)
           }
           setIsLoading(false)
         }
       })
-      .catch(() => {
+      .catch((err) => {
         if (isMounted) {
+          console.error("[MedicalImage] API fetch error for query:", query, err)
           setHasError(true)
           setIsLoading(false)
         }
@@ -76,7 +78,10 @@ export default function MedicalImage({ query, alt }: MedicalImageProps) {
         referrerPolicy="no-referrer"
         crossOrigin="anonymous"
         className="rounded-lg max-w-full max-h-80 object-contain border border-zinc-800 bg-black/40 shadow-sm mx-auto block"
-        onError={() => setHasError(true)}
+        onError={(e) => {
+          console.warn("[MedicalImage] Image element failed to load src:", src, "query:", query)
+          setHasError(true)
+        }}
       />
       <p className="text-xs text-zinc-400 mt-1.5 text-center italic font-medium">{alt}</p>
     </div>

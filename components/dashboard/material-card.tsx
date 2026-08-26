@@ -375,7 +375,7 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
   }
 
   return (
-    <Card className="overflow-hidden border border-border/60 hover:border-primary/45 shadow-xs hover:shadow-md active:scale-[0.995] transition-all duration-200 flex flex-col sm:flex-row gap-3 sm:gap-4 p-3 sm:p-4 bg-card group">
+    <Card className="w-full min-w-0 overflow-hidden border border-border/60 hover:border-primary/45 shadow-xs hover:shadow-md active:scale-[0.995] transition-all duration-200 flex flex-col sm:flex-row gap-3 sm:gap-4 p-3 sm:p-4 bg-card group">
       {/* Thumbnail / Icon Section */}
       <div className="relative w-full sm:w-40 md:w-44 aspect-video sm:aspect-[4/3] rounded-lg bg-muted flex items-center justify-center overflow-hidden shrink-0 border border-border/40 select-none">
         {isVideo && youtubeId ? (
