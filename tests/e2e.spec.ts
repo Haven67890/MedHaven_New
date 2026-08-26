@@ -10,6 +10,23 @@ test.describe('MedHaven Production Issue Fix Verification', () => {
     }
   })
 
+  test('Test 0: Image Proxy API route returns HTTP 200 with valid image content-type header', async ({ page }) => {
+    const testImageUrl = 'https://upload.wikimedia.org/wikipedia/commons/d/de/Human_heart_model.jpg'
+    console.log(`Testing /api/image-proxy?url=${testImageUrl}...`)
+
+    const proxyUrl = `http://localhost:3000/api/image-proxy?url=${encodeURIComponent(testImageUrl)}`
+    const response = await page.goto(proxyUrl)
+
+    expect(response?.status()).toBe(200)
+
+    const contentType = response?.headers()['content-type']
+    console.log(`Image proxy response status: ${response?.status()}, content-type: ${contentType}`)
+
+    expect(contentType).toBeTruthy()
+    expect(contentType).toMatch(/^image\//)
+    console.log('Test 0 PASSED: /api/image-proxy returned HTTP 200 with valid image content-type.')
+  })
+
   test('Test 1: Navigate to Study Library on a 375px mobile viewport and assert main grid spans 100% viewport width', async ({ page }) => {
     console.log('Test 1: Setting 375px mobile viewport...')
     await page.setViewportSize({ width: 375, height: 667 })
@@ -41,10 +58,10 @@ test.describe('MedHaven Production Issue Fix Verification', () => {
 
     expect(data).toHaveProperty('url')
     expect(typeof data.url).toBe('string')
-    expect(data.url).toMatch(/^https?:\/\/.+/)
+    expect(data.url).toMatch(/^https?:\/\/.+|^(\/api\/image-proxy)/)
 
     await page.screenshot({ path: 'test-results/medical-image-api-response.png' })
-    console.log('Test 2 PASSED: Medical image API returned valid http/https URL:', data.url)
+    console.log('Test 2 PASSED: Medical image API returned valid URL:', data.url)
   })
 
   test('Step 1: Homepage verification', async ({ page }) => {
