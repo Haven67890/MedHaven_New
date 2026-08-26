@@ -1,7 +1,6 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { Loader2, ImageIcon } from "lucide-react"
 
 interface MedicalImageProps {
   query: string
@@ -39,8 +38,10 @@ export default function MedicalImage({ query, alt }: MedicalImageProps) {
 
         let candidateList: string[] = []
         if (Array.isArray(data.candidates) && data.candidates.length > 0) {
-          candidateList = data.candidates
-        } else if (data.url) {
+          candidateList = data.candidates.filter(
+            (c: unknown): c is string => typeof c === "string" && Boolean(c)
+          )
+        } else if (typeof data.url === "string" && data.url) {
           candidateList = [data.url]
         }
 
@@ -93,9 +94,15 @@ export default function MedicalImage({ query, alt }: MedicalImageProps) {
 
   if (hasError || (!isFetchingCandidates && candidates.length === 0)) {
     return (
-      <div className="my-3 p-3 border border-zinc-800 bg-zinc-900/30 rounded-lg flex items-center justify-center gap-2 text-xs text-zinc-500 italic">
-        <ImageIcon className="h-4 w-4 shrink-0 text-zinc-600" />
-        <span>Medical illustration unavailable: {alt}</span>
+      <div className="my-4 flex items-center justify-center bg-gray-800 border border-gray-700 rounded-lg p-6">
+        <div className="text-center">
+          <p className="text-gray-400 text-sm">
+            Image unavailable
+          </p>
+          <p className="text-gray-500 text-xs mt-1">
+            {alt}
+          </p>
+        </div>
       </div>
     )
   }
@@ -103,10 +110,7 @@ export default function MedicalImage({ query, alt }: MedicalImageProps) {
   return (
     <div className="my-4 flex flex-col items-center w-full relative">
       {showSkeleton && (
-        <div className="w-full p-4 border border-zinc-800 bg-zinc-900/50 rounded-lg flex flex-col items-center justify-center gap-2 min-h-[140px] text-zinc-400 text-xs">
-          <Loader2 className="h-5 w-5 animate-spin text-cyan-500" />
-          <span className="font-semibold text-zinc-400">Loading medical illustration...</span>
-        </div>
+        <div className="my-4 bg-gray-800 animate-pulse rounded-lg h-48 w-full" />
       )}
 
       {currentSrc && (
@@ -116,7 +120,7 @@ export default function MedicalImage({ query, alt }: MedicalImageProps) {
             src={currentSrc}
             alt={alt}
             referrerPolicy="no-referrer"
-            className="rounded-lg max-w-full max-h-80 object-contain border border-zinc-800 bg-black/40 shadow-sm mx-auto block"
+            className="rounded-lg max-w-full max-h-80 object-contain border border-zinc-700 mx-auto block"
             onLoad={handleImageLoad}
             onError={handleImageError}
           />
