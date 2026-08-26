@@ -68,11 +68,13 @@ export default function MedicalImage({ query, alt }: MedicalImageProps) {
   }
 
   return (
-    <div className="my-4 flex flex-col items-center">
+    <div className="my-4 flex flex-col items-center w-full">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={src}
         alt={alt}
+        referrerPolicy="no-referrer"
+        crossOrigin="anonymous"
         className="rounded-lg max-w-full max-h-80 object-contain border border-zinc-800 bg-black/40 shadow-sm mx-auto block"
         onError={() => setHasError(true)}
       />
