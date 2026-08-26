@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServiceClient } from "@/lib/supabase/server"
 
-function toProxyUrl(rawUrl: string): string {
-  if (rawUrl.startsWith("/api/image-proxy")) {
-    return rawUrl
-  }
-  return `/api/image-proxy?url=${encodeURIComponent(rawUrl)}`
-}
-
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -122,13 +115,13 @@ export async function GET(request: NextRequest) {
       console.error("quiz_image_bank query error:", dbErr)
     }
 
-    const candidateProxyUrls = rawCandidates.slice(0, 5).map(toProxyUrl)
+    const candidates = rawCandidates.slice(0, 5)
 
-    console.log(`Medical image search for "${query}" returning ${candidateProxyUrls.length} candidates.`)
+    console.log(`Medical image search for "${query}" returning ${candidates.length} candidates.`)
 
     return NextResponse.json({
-      url: candidateProxyUrls[0] || null,
-      candidates: candidateProxyUrls,
+      url: candidates[0] || null,
+      candidates,
     })
   } catch (err: any) {
     console.error("Medical image API route error:", err)
