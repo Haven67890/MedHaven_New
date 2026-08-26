@@ -169,6 +169,7 @@ export async function GET(request: NextRequest) {
     const courseId = searchParams.get("course_id") || "all"
     const categoryFilter = searchParams.get("category") || "all"
     const statusFilter = searchParams.get("status") || "all"
+    const sourceFilter = searchParams.get("source") || "all"
     const page = parseInt(searchParams.get("page") || "1", 10)
     const limit = parseInt(searchParams.get("limit") || "20", 10)
 
@@ -205,6 +206,11 @@ export async function GET(request: NextRequest) {
     }
     if (statusFilter !== "all") {
       queryBuilder = queryBuilder.eq("status", statusFilter)
+    }
+    if (sourceFilter === "auto_extracted") {
+      queryBuilder = queryBuilder.ilike("source", "auto_extracted%")
+    } else if (sourceFilter !== "all") {
+      queryBuilder = queryBuilder.eq("source", sourceFilter)
     }
 
     // Sort by created_at desc

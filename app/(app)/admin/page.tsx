@@ -268,6 +268,8 @@ export default function AdminDashboard() {
   const [quizBankCourseFilter, setQuizBankCourseFilter] = useState("all")
   const [quizBankCategoryFilter, setQuizBankCategoryFilter] = useState("all")
   const [quizBankStatusFilter, setQuizBankStatusFilter] = useState("all")
+  const [quizBankSourceFilter, setQuizBankSourceFilter] = useState("all")
+  const [quizBankBatchLoading, setQuizBankBatchLoading] = useState(false)
   const [quizBankPage, setQuizBankPage] = useState(1)
 
   // Quiz Bank Form Sheet State
@@ -800,6 +802,7 @@ export default function AdminDashboard() {
         course_id: quizBankCourseFilter,
         category: quizBankCategoryFilter,
         status: quizBankStatusFilter,
+        source: quizBankSourceFilter,
         page: String(quizBankPage),
         limit: String(itemsPerPage),
       })
@@ -957,6 +960,7 @@ export default function AdminDashboard() {
     quizBankCourseFilter,
     quizBankCategoryFilter,
     quizBankStatusFilter,
+    quizBankSourceFilter,
     quizBankPage,
     staffDebouncedSearch,
     staffDeptFilter,
@@ -3214,13 +3218,39 @@ export default function AdminDashboard() {
                 <CardTitle className="text-lg flex items-center gap-2">
                   <ImageIcon className="size-5 text-primary" /> Quiz Specimen Image Bank
                 </CardTitle>
-                <CardDescription>Upload specimen scans, clinical photos, or radiology images with ground-truth finding keys for Steeplechase exams.</CardDescription>
+                <CardDescription>Upload specimen scans, clinical photos, or review candidates auto-extracted from uploaded materials.</CardDescription>
               </div>
-              <Button onClick={handleOpenQuizBankCreate} size="sm" className="flex items-center gap-1">
-                <Plus className="size-4" /> Add Image Specimen
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={async () => {
+                    try {
+                      setQuizBankBatchLoading(true)
+                      const res = await fetch("/api/admin/extract-images", { method: "POST", body: JSON.stringify({}) })
+                      const data = await res.json()
+                      if (!res.ok) throw new Error(data.error || "Batch extraction failed")
+                      alert(`Batch Extraction Complete!\nProcessed: ${data.stats.materialsProcessed} materials\nSaved Candidates: ${data.stats.totalSaved}\nFiltered Noise: ${data.stats.totalFiltered}`)
+                      setQuizBankStatusFilter("archived")
+                      setQuizBankSourceFilter("auto_extracted")
+                      void fetchQuizBank()
+                    } catch (err: any) {
+                      alert("Batch extraction failed: " + err.message)
+                    } finally {
+                      setQuizBankBatchLoading(false)
+                    }
+                  }}
+                  variant="outline"
+                  size="sm"
+                  disabled={quizBankBatchLoading}
+                  className="flex items-center gap-1"
+                >
+                  <Sparkles className="size-4 text-primary" /> {quizBankBatchLoading ? "Running Extraction..." : "Extract Candidates from Library"}
+                </Button>
+                <Button onClick={handleOpenQuizBankCreate} size="sm" className="flex items-center gap-1">
+                  <Plus className="size-4" /> Add Image Specimen
+                </Button>
+              </div>
             </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+            <CardContent className="grid gap-4 sm:grid-cols-2 md:grid-cols-5">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -3273,6 +3303,18 @@ export default function AdminDashboard() {
                   <option value="all">All Statuses</option>
                   <option value="active">Active</option>
                   <option value="archived">Archived</option>
+                </select>
+              </div>
+
+              <div>
+                <select
+                  value={quizBankSourceFilter}
+                  onChange={(e) => setQuizBankSourceFilter(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="all">All Origins</option>
+                  <option value="auto_extracted">Auto-Extracted Candidates</option>
+                  <option value="own_photo">Manual / Own Photo</option>
                 </select>
               </div>
             </CardContent>

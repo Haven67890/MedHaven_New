@@ -212,6 +212,28 @@ export async function POST(request: NextRequest) {
       payload
     )
 
+    // Trigger non-blocking background image extraction if PDF, PPTX, or DOCX
+    const fileType = (material.type || "").toLowerCase()
+    const filePath = (material.storage_path || material.source_url || "").toLowerCase()
+    if (
+      fileType === "pdf" ||
+      fileType === "pptx" ||
+      fileType === "docx" ||
+      filePath.endsWith(".pdf") ||
+      filePath.endsWith(".pptx") ||
+      filePath.endsWith(".docx")
+    ) {
+      import("@/lib/image-extraction")
+        .then(({ processMaterialImageExtraction }) => {
+          processMaterialImageExtraction(material).catch((err) =>
+            console.error(`Background image extraction failed for material ${material.id}:`, err)
+          )
+        })
+        .catch((importErr) => {
+          console.error("Failed to dynamically import processMaterialImageExtraction:", importErr)
+        })
+    }
+
     return NextResponse.json({ success: true, material })
   } catch (err: any) {
     console.error("Unexpected error in POST admin materials API:", err)
