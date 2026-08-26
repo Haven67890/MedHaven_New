@@ -801,7 +801,7 @@ export default function StudyMaterialsPage() {
                       </h3>
                     </div>
 
-                    <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <MotionStaggerGroup className="grid w-full min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                       {/* Non-image materials */}
                       {nonImageMats.map((material) => (
                         <MotionStaggerItem key={material.id}>

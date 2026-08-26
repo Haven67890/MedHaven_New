@@ -10,7 +10,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ url: null })
     }
 
-    console.log("Medical image search query:", query)
+    const sanitizedQuery = query.replace(/\b(picture|photo|image|diagram|illustration|drawing|figure)s?\s+(of\s+)?/gi, "").trim() || query
+    console.log("Medical image search query:", query, "| Sanitized:", sanitizedQuery)
 
     const supabaseAdmin = createServiceClient()
 
@@ -32,32 +33,9 @@ export async function GET(request: NextRequest) {
       console.error("quiz_image_bank query error:", dbErr)
     }
 
-    // STEP 2 — Search Openverse API (searches CC / open license medical images reliably)
+    // STEP 2 — Search Wikipedia Pageimages (Search generator) with sanitizedQuery first
     try {
-      const openverseUrl = `https://api.openverse.org/v1/images/?q=${encodeURIComponent(query)}&page_size=5`
-      const ovRes = await fetch(openverseUrl, {
-        headers: { "User-Agent": "MedHaven/1.0 (contact@medhaven.org)" },
-        next: { revalidate: 86400 }
-      })
-
-      if (ovRes.ok) {
-        const ovData = await ovRes.json()
-        if (ovData?.results?.length > 0) {
-          for (const item of ovData.results) {
-            if (item.url && (item.url.startsWith("http://") || item.url.startsWith("https://"))) {
-              console.log("Step 2 Openverse hit:", item.url)
-              return NextResponse.json({ url: item.url })
-            }
-          }
-        }
-      }
-    } catch (ovErr) {
-      console.error("Openverse API fetch error:", ovErr)
-    }
-
-    // STEP 3 — Search Wikipedia Pageimages (Search generator)
-    try {
-      const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&prop=pageimages&piprop=thumbnail&pithumbsize=600&format=json&origin=*`
+      const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(sanitizedQuery)}&prop=pageimages&piprop=thumbnail&pithumbsize=600&format=json&origin=*`
       const wikiRes = await fetch(wikiUrl, {
         headers: { "User-Agent": "MedHaven/1.0 (contact@medhaven.org)" },
         next: { revalidate: 86400 }
@@ -69,7 +47,7 @@ export async function GET(request: NextRequest) {
         if (pages) {
           for (const page of Object.values(pages) as any[]) {
             if (page.thumbnail?.source) {
-              console.log("Step 3 Wikipedia pageimages hit:", page.thumbnail.source)
+              console.log("Step 2 Wikipedia pageimages hit:", page.thumbnail.source)
               return NextResponse.json({ url: page.thumbnail.source })
             }
           }
@@ -79,9 +57,32 @@ export async function GET(request: NextRequest) {
       console.error("Wikipedia API fetch error:", wikiErr)
     }
 
+    // STEP 3 — Search Openverse API
+    try {
+      const openverseUrl = `https://api.openverse.org/v1/images/?q=${encodeURIComponent(sanitizedQuery)}&page_size=5`
+      const ovRes = await fetch(openverseUrl, {
+        headers: { "User-Agent": "MedHaven/1.0 (contact@medhaven.org)" },
+        next: { revalidate: 86400 }
+      })
+
+      if (ovRes.ok) {
+        const ovData = await ovRes.json()
+        if (ovData?.results?.length > 0) {
+          for (const item of ovData.results) {
+            if (item.url && (item.url.startsWith("http://") || item.url.startsWith("https://"))) {
+              console.log("Step 3 Openverse hit:", item.url)
+              return NextResponse.json({ url: item.url })
+            }
+          }
+        }
+      }
+    } catch (ovErr) {
+      console.error("Openverse API fetch error:", ovErr)
+    }
+
     // STEP 4 — Search Wikimedia Commons generator search fallback
     try {
-      const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(query)}&prop=imageinfo&iiprop=url&iiurlwidth=600&format=json&origin=*`
+      const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(sanitizedQuery)}&prop=imageinfo&iiprop=url&iiurlwidth=600&format=json&origin=*`
       const commonsRes = await fetch(searchUrl, {
         headers: { "User-Agent": "MedHaven/1.0 (contact@medhaven.org)" },
         next: { revalidate: 86400 }

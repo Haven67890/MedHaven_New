@@ -259,7 +259,7 @@ function CollapsibleImageGroupCard({
   const courseTitle = images[0]?.courses?.title || images[0]?.courses?.code || "General"
 
   return (
-    <Card className="gap-3 flex flex-col justify-between overflow-hidden border-primary/20 hover:border-primary/40 transition-colors duration-200">
+    <Card className="w-full min-w-0 gap-3 flex flex-col justify-between overflow-hidden border-primary/20 hover:border-primary/40 transition-colors duration-200">
       <CardHeader
         className="relative cursor-pointer select-none pb-3"
         onClick={() => setIsOpen(!isOpen)}
@@ -974,7 +974,7 @@ function SmartLibraryPageContent() {
                             transition: { staggerChildren: 0.05 },
                           },
                         }}
-                        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                        className="grid w-full min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
                       >
                         {/* Non-image materials */}
                         {nonImageMats.map((material) => (
