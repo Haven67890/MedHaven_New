@@ -152,7 +152,7 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
       <aside className="hidden w-64 border-r bg-background lg:block" aria-label="Application sidebar">
         <SidebarContent isAdmin={isAdmin} />
       </aside>
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex w-full min-w-0 flex-1 flex-col">
         <header className="flex h-16 items-center justify-between gap-4 border-b bg-background px-4 sm:px-6">
           <div className="flex items-center gap-2 lg:hidden">
             <Sheet open={open} onOpenChange={setOpen}>
@@ -193,7 +193,7 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
             </Button>
           </div>
         </header>
-        <main key={pathname} className="flex-1 p-4 sm:p-6 animate-in fade-in slide-in-from-bottom-1 duration-200">
+        <main key={pathname} className="w-full min-w-0 flex-1 p-4 sm:p-6 animate-in fade-in slide-in-from-bottom-1 duration-200">
           {children}
         </main>
       </div>

@@ -15,6 +15,26 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "fexsfbdvewlmvzfnwqul.supabase.co",
       },
+      {
+        protocol: "https",
+        hostname: "upload.wikimedia.org",
+      },
+      {
+        protocol: "https",
+        hostname: "commons.wikimedia.org",
+      },
+      {
+        protocol: "https",
+        hostname: "live.staticflickr.com",
+      },
+      {
+        protocol: "https",
+        hostname: "api.openverse.org",
+      },
+      {
+        protocol: "https",
+        hostname: "*.wikimedia.org",
+      },
     ],
   },
   async headers() {
