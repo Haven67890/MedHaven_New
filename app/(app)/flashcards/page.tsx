@@ -35,6 +35,7 @@ import { SectionHeading } from "@/components/dashboard/section-heading"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { EmptyState } from "@/components/dashboard/empty-state"
 import { createClient } from "@/lib/supabase/client"
+import { resolveQuizImageUrl } from "@/lib/storage-url"
 import {
   MotionReveal,
   MotionStaggerGroup,
@@ -176,6 +177,11 @@ export default function FlashcardsPage() {
   const [reviewQueue, setReviewQueue] = useState<Flashcard[]>([])
   const [currentReviewIndex, setCurrentReviewIndex] = useState(0)
   const [isCardFlipped, setIsCardFlipped] = useState(false)
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({})
+
+  const handleImageError = (id: string) => {
+    setFailedImages((prev) => ({ ...prev, [id]: true }))
+  }
 
   const handleStartReview = (deck: FlashcardDeck) => {
     const deckCards = deck.flashcards || []
@@ -829,15 +835,22 @@ export default function FlashcardsPage() {
                 <div className="flex flex-col gap-4 w-full items-center">
                   <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Question / Front</span>
 
-                  {(currentCard.quiz_image_bank?.image_url || (currentCard as any).image_url) && (
-                    <div className="relative aspect-video w-full max-h-64 sm:max-h-72 rounded-xl overflow-hidden border border-border/80 bg-black/40 shadow-inner flex items-center justify-center p-1">
-                      <img
-                        src={currentCard.quiz_image_bank?.image_url || (currentCard as any).image_url}
-                        alt="Specimen Landmark"
-                        className="object-contain w-full h-full max-h-full rounded-lg"
-                      />
-                    </div>
-                  )}
+                  {(() => {
+                    const rawUrl = currentCard?.quiz_image_bank?.image_url || (currentCard as any)?.image_url
+                    const resolvedUrl = resolveQuizImageUrl(rawUrl)
+                    if (!resolvedUrl || failedImages[currentCard?.id]) return null
+
+                    return (
+                      <div className="relative aspect-video w-full max-h-64 sm:max-h-72 rounded-xl overflow-hidden border border-border/80 bg-black/40 shadow-inner flex items-center justify-center p-1">
+                        <img
+                          src={resolvedUrl}
+                          alt="Specimen Landmark"
+                          className="object-contain w-full h-full max-h-full rounded-lg"
+                          onError={() => handleImageError(currentCard.id)}
+                        />
+                      </div>
+                    )
+                  })()}
 
                   <p className="text-base sm:text-lg md:text-xl text-foreground font-bold leading-snug">
                     {currentCard.front}
@@ -1268,15 +1281,20 @@ export default function FlashcardsPage() {
           ) : (
             <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {displayCards.map((card, index) => {
-                const imageUrl = card.quiz_image_bank?.image_url || (card as any).image_url
+                const cardId = card?.id || `card-${index}`
+                const rawUrl = card?.quiz_image_bank?.image_url || (card as any)?.image_url
+                const resolvedUrl = resolveQuizImageUrl(rawUrl)
+                const showImg = Boolean(resolvedUrl && !failedImages[cardId])
+
                 return (
-                  <Card key={card.id || index} className="gap-2 border-border/60 hover:border-primary/25 transition-all overflow-hidden">
-                    {imageUrl && (
+                  <Card key={cardId} className="gap-2 border-border/60 hover:border-primary/25 transition-all overflow-hidden">
+                    {showImg && resolvedUrl && (
                       <div className="aspect-video w-full max-h-44 bg-black/40 border-b overflow-hidden flex items-center justify-center p-1">
                         <img
-                          src={imageUrl}
+                          src={resolvedUrl}
                           alt="Specimen preview"
                           className="object-contain w-full h-full max-h-full rounded"
+                          onError={() => handleImageError(cardId)}
                         />
                       </div>
                     )}
