@@ -26,10 +26,6 @@ export async function resolveStorageUrlServer(path: string | null | undefined, b
 export function resolveQuizImageUrl(url: string | null | undefined): string | null {
   if (!url) return null
   if (url.includes("supabase")) {
-    if (url.includes("/quiz-bank/")) {
-      const path = url.split("/quiz-bank/")[1]
-      if (path) return `/api/materials/signed-url?path=${encodeURIComponent(path)}&bucket=quiz-bank`
-    }
     if (url.includes("/materials/")) {
       const path = url.split("/materials/")[1]
       if (path) return `/api/materials/signed-url?path=${encodeURIComponent(path)}`

@@ -459,8 +459,9 @@ export async function processMaterialImageExtraction(material: {
         continue
       }
 
-      // Generate public/signed URL path matching quiz-bank conventions
-      const imageUrl = `/api/materials/signed-url?path=${encodeURIComponent(storagePath)}&bucket=quiz-bank`
+      // Generate direct public Supabase Storage URL for public quiz-bank bucket
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://fexsfbdvewlmvzfnwqul.supabase.co"
+      const imageUrl = `${supabaseUrl}/storage/v1/object/public/quiz-bank/${storagePath}`
 
       // Insert quiz_image_bank row
       const payload = {
