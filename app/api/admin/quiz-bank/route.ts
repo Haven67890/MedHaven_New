@@ -170,6 +170,7 @@ export async function GET(request: NextRequest) {
     const categoryFilter = searchParams.get("category") || "all"
     const statusFilter = searchParams.get("status") || "all"
     const sourceFilter = searchParams.get("source") || "all"
+    const triageFilter = searchParams.get("ai_triage") || "all"
     const page = parseInt(searchParams.get("page") || "1", 10)
     const limit = parseInt(searchParams.get("limit") || "20", 10)
 
@@ -182,6 +183,8 @@ export async function GET(request: NextRequest) {
         category,
         question,
         correct_findings,
+        source_context,
+        ai_triage,
         differential_diagnosis,
         source,
         image_url,
@@ -211,6 +214,9 @@ export async function GET(request: NextRequest) {
       queryBuilder = queryBuilder.ilike("source", "auto_extracted%")
     } else if (sourceFilter !== "all") {
       queryBuilder = queryBuilder.eq("source", sourceFilter)
+    }
+    if (triageFilter !== "all") {
+      queryBuilder = queryBuilder.eq("ai_triage", triageFilter)
     }
 
     // Sort by created_at desc
@@ -255,6 +261,8 @@ export async function POST(request: NextRequest) {
       category,
       question,
       correct_findings,
+      source_context,
+      ai_triage,
       differential_diagnosis,
       source,
       image_url,
@@ -277,17 +285,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Bad Request: Correct findings are required" }, { status: 400 })
     }
 
-    const payload = {
+    const trimmedFindings = correct_findings.trim()
+
+    // Validate active status: must not match untouched draft marker
+    if (status === "active" && trimmedFindings.startsWith("[AI Draft - Unverified]")) {
+      return NextResponse.json({
+        error: "Cannot activate item: Correct findings still contain untouched AI draft. Please review and verify findings first."
+      }, { status: 400 })
+    }
+
+    const payload: Record<string, any> = {
       title: title.trim(),
       course_id: course_id.trim(),
       category: category.trim(),
       question: question.trim(),
-      correct_findings: correct_findings.trim(),
+      correct_findings: trimmedFindings,
       differential_diagnosis: differential_diagnosis?.trim() || null,
       source: source?.trim() || "own_photo",
       image_url: image_url?.trim() || null,
       status: status || "active",
     }
+    if (source_context !== undefined) payload.source_context = source_context?.trim() || null
+    if (ai_triage !== undefined) payload.ai_triage = ai_triage
 
     const { data: imageItem, error: insertError } = await serviceSupabase
       .from("quiz_image_bank")
@@ -336,6 +355,8 @@ export async function PATCH(request: NextRequest) {
       category,
       question,
       correct_findings,
+      source_context,
+      ai_triage,
       differential_diagnosis,
       source,
       image_url,
@@ -357,12 +378,25 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Image bank item not found" }, { status: 404 })
     }
 
+    const targetFindings = correct_findings !== undefined ? correct_findings.trim() : (oldItem.correct_findings || "").trim()
+    const targetStatus = status !== undefined ? status : oldItem.status
+
+    if (targetStatus === "active") {
+      if (!targetFindings || targetFindings.startsWith("[AI Draft - Unverified]")) {
+        return NextResponse.json({
+          error: "Cannot activate item: Correct findings still contain untouched AI draft. Please review and verify findings first."
+        }, { status: 400 })
+      }
+    }
+
     const updates: Record<string, any> = {}
     if (title !== undefined) updates.title = title.trim()
     if (course_id !== undefined) updates.course_id = course_id.trim()
     if (category !== undefined) updates.category = category.trim()
     if (question !== undefined) updates.question = question.trim()
     if (correct_findings !== undefined) updates.correct_findings = correct_findings.trim()
+    if (source_context !== undefined) updates.source_context = source_context?.trim() || null
+    if (ai_triage !== undefined) updates.ai_triage = ai_triage
     if (differential_diagnosis !== undefined) updates.differential_diagnosis = differential_diagnosis?.trim() || null
     if (source !== undefined) updates.source = source?.trim() || "own_photo"
     if (image_url !== undefined) updates.image_url = image_url?.trim() || null
