@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { useDebounce } from "@/hooks/useDebounce"
 import {
@@ -21,7 +21,10 @@ import {
   PlusCircle,
   HelpCircle,
   Check,
-  Award
+  Award,
+  User,
+  Layers,
+  Image as ImageIcon
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -33,6 +36,7 @@ import { Progress } from "@/components/ui/progress"
 import { SectionHeading } from "@/components/dashboard/section-heading"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { EmptyState } from "@/components/dashboard/empty-state"
+import { Skeleton } from "@/components/ui/skeleton"
 import { createClient } from "@/lib/supabase/client"
 import {
   MotionReveal,
@@ -168,6 +172,9 @@ export default function FlashcardsPage() {
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const debouncedSearchQuery = useDebounce(searchQuery, 300)
+
+  // Tab state: "ai_generated" | "user_created" | "specimen_bank"
+  const [activeTab, setActiveTab] = useState<"ai_generated" | "user_created" | "specimen_bank">("ai_generated")
 
   // Active recall review states
   const [isReviewActive, setIsReviewActive] = useState(false)
@@ -596,6 +603,7 @@ export default function FlashcardsPage() {
       })
 
       setSelectedDeckId(freshDeck.id)
+      setActiveTab("ai_generated")
       setCustomTopic("")
       setShowGenerator(false)
     } catch (err: any) {
@@ -604,15 +612,6 @@ export default function FlashcardsPage() {
     } finally {
       setGenerating(false)
     }
-  }
-
-  if (loadingInitial) {
-    return (
-      <div className="flex h-[50vh] flex-col items-center justify-center gap-4">
-        <Loader2 className="size-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground font-medium">Initializing MedHaven Flashcards...</p>
-      </div>
-    )
   }
 
   // Helper to get today string
@@ -681,17 +680,105 @@ export default function FlashcardsPage() {
     : 0
 
   // Filter decks
-  const filteredDecks = decks.filter((deck) => {
-    const query = debouncedSearchQuery.toLowerCase()
-    const matchTopic = deck.topic?.toLowerCase().includes(query)
-    const matchCourse = deck.courses
-      ? `${deck.courses.code || ""} ${deck.courses.title || ""}`.toLowerCase().includes(query)
-      : false
-    return matchTopic || matchCourse
-  })
+  const filteredDecks = useMemo(() => {
+    return decks.filter((deck) => {
+      const query = debouncedSearchQuery.toLowerCase()
+      const matchTopic = deck.topic?.toLowerCase().includes(query)
+      const matchCourse = deck.courses
+        ? `${deck.courses.code || ""} ${deck.courses.title || ""}`.toLowerCase().includes(query)
+        : false
+      return matchTopic || matchCourse
+    })
+  }, [decks, debouncedSearchQuery])
+
+  // Split filtered decks into three sections
+  const aiDecks = useMemo(() => filteredDecks.filter((d) => d.source === "ai_generated"), [filteredDecks])
+  const myDecks = useMemo(() => filteredDecks.filter((d) => d.source === "user_created"), [filteredDecks])
+  const specimenDecks = useMemo(() => filteredDecks.filter((d) => d.source === "specimen_bank"), [filteredDecks])
+
+  // Group decks by course for "ai_generated" and "specimen_bank"
+  const groupDecksByCourse = (deckList: FlashcardDeck[]) => {
+    const map = new Map<string, { courseCode: string; courseTitle: string; decks: FlashcardDeck[] }>()
+
+    deckList.forEach((deck) => {
+      const courseId = deck.courses?.id || deck.course_id || "general"
+      const courseCode = deck.courses?.code || "General"
+      const courseTitle = deck.courses?.title || "General & High-Yield Topics"
+
+      if (!map.has(courseId)) {
+        map.set(courseId, { courseCode, courseTitle, decks: [] })
+      }
+      map.get(courseId)!.decks.push(deck)
+    })
+
+    const groups = Array.from(map.entries()).map(([courseId, data]) => ({
+      courseId,
+      courseCode: data.courseCode,
+      courseTitle: data.courseTitle,
+      decks: data.decks
+    }))
+
+    // Sort groups alphabetically by course code
+    groups.sort((a, b) => a.courseCode.localeCompare(b.courseCode))
+    return groups
+  }
+
+  const aiDeckGroups = useMemo(() => groupDecksByCourse(aiDecks), [aiDecks])
+  const specimenDeckGroups = useMemo(() => groupDecksByCourse(specimenDecks), [specimenDecks])
 
   const selectedDeck = decks.find((d) => d.id === selectedDeckId)
   const displayCards = selectedDeck?.flashcards || []
+
+  // Skeleton loading view
+  if (loadingInitial) {
+    return (
+      <div className="flex flex-col gap-8">
+        <PageHeader title="Smart Recall" description="Active recall flashcard decks powered by premium Groq AI." />
+
+        {/* Stats Skeleton */}
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="p-4 flex items-center justify-between border-border/60">
+              <div className="space-y-2 flex-1 pr-4">
+                <Skeleton className="h-3.5 w-24" />
+                <Skeleton className="h-7 w-16" />
+              </div>
+              <Skeleton className="size-11 rounded-xl shrink-0" />
+            </Card>
+          ))}
+        </section>
+
+        {/* Search Input Skeleton */}
+        <Skeleton className="h-10 w-full rounded-md" />
+
+        {/* Tabs Skeleton */}
+        <div className="flex gap-4 border-b border-border pb-2">
+          <Skeleton className="h-8 w-32 rounded-md" />
+          <Skeleton className="h-8 w-32 rounded-md" />
+          <Skeleton className="h-8 w-48 rounded-md" />
+        </div>
+
+        {/* Deck Cards Grid Skeleton */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i} className="p-5 flex flex-col gap-3 border border-border/60">
+              <div className="flex items-center justify-between">
+                <Skeleton className="size-10 rounded-xl" />
+                <Skeleton className="h-5 w-16 rounded-full" />
+              </div>
+              <Skeleton className="h-5 w-3/4 mt-2" />
+              <Skeleton className="h-4 w-1/2" />
+              <div className="space-y-1.5 mt-2">
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-2 w-full rounded-full" />
+              </div>
+              <Skeleton className="h-9 w-full rounded-md mt-2" />
+            </Card>
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   if (isReviewActive && reviewDeck) {
     const isCompleted = currentReviewIndex >= reviewQueue.length
@@ -848,21 +935,114 @@ export default function FlashcardsPage() {
     )
   }
 
+  // Helper render function for deck cards
+  const renderDeckCard = (deck: FlashcardDeck) => {
+    const cardsCount = deck.flashcards?.length || 0
+    const isSelected = deck.id === selectedDeckId
+    const courseText = deck.courses
+      ? `${deck.courses.code || ""} · ${deck.courses.title || ""}`
+      : "General Course"
+
+    // Calculate deck stats
+    const deckCards = deck.flashcards || []
+    let deckDue = 0
+    let deckReviewed = 0
+    let deckMastered = 0
+    deckCards.forEach((c) => {
+      if (isCardDue(c.id)) {
+        deckDue++
+      }
+      const prog = progressMap[c.id]
+      if (prog && prog.last_reviewed_at) {
+        deckReviewed++
+        if (prog.repetitions >= 2) {
+          deckMastered++
+        }
+      }
+    })
+    const deckMasteryPercent = deckReviewed > 0
+      ? Math.round((deckMastered / deckReviewed) * 100)
+      : 0
+
+    return (
+      <MotionStaggerItem key={deck.id}>
+        <Card
+          className={`gap-3 transition-all cursor-pointer hover:-translate-y-1 hover:shadow-md ${
+            isSelected
+              ? "border-primary ring-1 ring-primary/40 shadow-md bg-primary/[0.02]"
+              : "hover:border-primary/20"
+          }`}
+          onClick={() => setSelectedDeckId(deck.id)}
+        >
+          <CardHeader>
+            <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <BrainCircuit className="size-5" aria-hidden="true" />
+            </div>
+            <CardTitle className="pt-2 text-base">{deck.topic}</CardTitle>
+            <CardDescription className="line-clamp-1">
+              {courseText} · {cardsCount} cards {deckDue > 0 ? `(${deckDue} due)` : ""}
+            </CardDescription>
+            <CardAction>
+              {deck.source === "ai_generated" ? (
+                <Badge variant="outline" className="text-[10px] py-0 px-2 font-mono bg-primary/5 text-primary">
+                  AI
+                </Badge>
+              ) : deck.source === "specimen_bank" ? (
+                <Badge variant="outline" className="text-[10px] py-0 px-2 font-mono bg-purple-500/10 text-purple-400 border-purple-500/20">
+                  Specimen Bank
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-[10px] py-0 px-2 font-mono bg-amber-500/10 text-amber-500 border-amber-500/20">
+                  My Deck
+                </Badge>
+              )}
+            </CardAction>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Mastery</span>
+              <span className="text-xs font-medium text-foreground">{deckMasteryPercent}%</span>
+            </div>
+            <Progress value={deckMasteryPercent} indicatorClassName="bg-primary" />
+            <Button
+              variant={isSelected ? "default" : "outline"}
+              size="sm"
+              className="mt-2 w-full justify-between"
+              onClick={(e) => {
+                e.stopPropagation()
+                if (isSelected) {
+                  handleStartReview(deck)
+                } else {
+                  setSelectedDeckId(deck.id)
+                }
+              }}
+            >
+              <span>{isSelected ? "Active recall mode" : "View cards"}</span>
+              <ChevronRight className="size-4" />
+            </Button>
+          </CardContent>
+        </Card>
+      </MotionStaggerItem>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title="Smart Recall" description="Active recall flashcard decks powered by premium Groq AI.">
-        <Button
-          variant={showGenerator ? "outline" : "default"}
-          onClick={() => setShowGenerator(!showGenerator)}
-          className="flex items-center gap-1.5 transition-all"
-        >
-          {showGenerator ? (
-            <>Close Generator <X className="size-4" /></>
-          ) : (
-            <>Generate with AI <Sparkles className="size-4" /></>
-          )}
-        </Button>
-      </PageHeader>
+      <MotionReveal>
+        <PageHeader title="Smart Recall" description="Active recall flashcard decks powered by premium Groq AI.">
+          <Button
+            variant={showGenerator ? "outline" : "default"}
+            onClick={() => setShowGenerator(!showGenerator)}
+            className="flex items-center gap-1.5 transition-all"
+          >
+            {showGenerator ? (
+              <>Close Generator <X className="size-4" /></>
+            ) : (
+              <>Generate with AI <Sparkles className="size-4" /></>
+            )}
+          </Button>
+        </PageHeader>
+      </MotionReveal>
 
       {/* STAT CARDS - REAL DECK VALUES */}
       <section>
@@ -1020,177 +1200,225 @@ export default function FlashcardsPage() {
       )}
 
       {/* SEARCH FIELD */}
-      <section>
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-          <Input
-            type="search"
-            placeholder="Search decks by title or subject…"
-            className="pl-9"
-            aria-label="Search flashcard decks"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-      </section>
-
-      {/* DECKS GRID LIST */}
-      <section>
-        <SectionHeading title="Your decks" description="Track mastery across each deck." />
-        {filteredDecks.length === 0 ? (
-          <div className="mt-4">
-            <EmptyState
-              imageSrc="/logo.png"
-              imageAlt="Medical study environment"
-              title="No decks found"
-              description={searchQuery ? "No decks match your active search filter." : "Get started by generating your first high-yield medical flashcards deck using our premium AI."}
-              action={
-                !showGenerator ? (
-                  <Button onClick={() => setShowGenerator(true)} className="gap-1.5" size="sm">
-                    <PlusCircle className="size-4" /> Create your first deck
-                  </Button>
-                ) : null
-              }
+      <MotionReveal>
+        <section>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Input
+              type="search"
+              placeholder="Search decks by title or subject…"
+              className="pl-9"
+              aria-label="Search flashcard decks"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-        ) : (
-          <MotionStaggerGroup className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredDecks.map((deck) => {
-              const cardsCount = deck.flashcards?.length || 0
-              const isSelected = deck.id === selectedDeckId
-              const courseText = deck.courses
-                ? `${deck.courses.code || ""} · ${deck.courses.title || ""}`
-                : "General Course"
+        </section>
+      </MotionReveal>
 
-              // Calculate deck stats
-              const deckCards = deck.flashcards || []
-              let deckDue = 0
-              let deckReviewed = 0
-              let deckMastered = 0
-              deckCards.forEach((c) => {
-                if (isCardDue(c.id)) {
-                  deckDue++
-                }
-                const prog = progressMap[c.id]
-                if (prog && prog.last_reviewed_at) {
-                  deckReviewed++
-                  if (prog.repetitions >= 2) {
-                    deckMastered++
-                  }
-                }
-              })
-              const deckMasteryPercent = deckReviewed > 0
-                ? Math.round((deckMastered / deckReviewed) * 100)
-                : 0
+      {/* CATEGORY TABS & SECTIONS */}
+      <section className="flex flex-col gap-6">
+        <MotionReveal>
+          <div className="flex overflow-x-auto border-b border-border gap-2 sm:gap-6 pb-px scrollbar-none">
+            <button
+              onClick={() => setActiveTab("ai_generated")}
+              className={`pb-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                activeTab === "ai_generated"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Sparkles className="size-4" />
+              <span>AI-Generated</span>
+              <Badge variant={activeTab === "ai_generated" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0.5">
+                {aiDecks.length}
+              </Badge>
+            </button>
 
-              return (
-                <MotionStaggerItem key={deck.id}>
-                  <Card
-                    className={`gap-3 transition-all cursor-pointer hover:-translate-y-1 hover:shadow-md ${
-                      isSelected
-                        ? "border-primary ring-1 ring-primary/40 shadow-md bg-primary/[0.02]"
-                        : "hover:border-primary/20"
-                    }`}
-                    onClick={() => setSelectedDeckId(deck.id)}
-                  >
-                    <CardHeader>
-                      <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                        <BrainCircuit className="size-5" aria-hidden="true" />
-                      </div>
-                      <CardTitle className="pt-2 text-base">{deck.topic}</CardTitle>
-                      <CardDescription className="line-clamp-1">
-                        {courseText} · {cardsCount} cards {deckDue > 0 ? `(${deckDue} due)` : ""}
-                      </CardDescription>
-                      <CardAction>
-                        {deck.source === "ai_generated" ? (
-                          <Badge variant="outline" className="text-[10px] py-0 px-2 font-mono bg-primary/5 text-primary">
-                            AI
-                          </Badge>
-                        ) : deck.source === "specimen_bank" ? (
-                          <Badge variant="outline" className="text-[10px] py-0 px-2 font-mono bg-purple-500/10 text-purple-400 border-purple-500/20">
-                            Specimen Bank
-                          </Badge>
-                        ) : null}
-                      </CardAction>
-                    </CardHeader>
-                    <CardContent className="flex flex-col gap-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Mastery</span>
-                        <span className="text-xs font-medium text-foreground">{deckMasteryPercent}%</span>
-                      </div>
-                      <Progress value={deckMasteryPercent} indicatorClassName="bg-primary" />
-                      <Button
-                        variant={isSelected ? "default" : "outline"}
-                        size="sm"
-                        className="mt-2 w-full justify-between"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (isSelected) {
-                            handleStartReview(deck)
-                          } else {
-                            setSelectedDeckId(deck.id)
-                          }
-                        }}
-                      >
-                        <span>{isSelected ? "Active recall mode" : "View cards"}</span>
-                        <ChevronRight className="size-4" />
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </MotionStaggerItem>
-              )
-            })}
-          </MotionStaggerGroup>
+            <button
+              onClick={() => setActiveTab("user_created")}
+              className={`pb-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                activeTab === "user_created"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <User className="size-4" />
+              <span>My Decks</span>
+              <Badge variant={activeTab === "user_created" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0.5">
+                {myDecks.length}
+              </Badge>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("specimen_bank")}
+              className={`pb-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                activeTab === "specimen_bank"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <ImageIcon className="size-4" />
+              <span>Specimen Bank — Steeplechase & Picture Recall</span>
+              <Badge variant={activeTab === "specimen_bank" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0.5">
+                {specimenDecks.length}
+              </Badge>
+            </button>
+          </div>
+        </MotionReveal>
+
+        {/* TAB CONTENT: AI-GENERATED (GROUPED BY COURSE) */}
+        {activeTab === "ai_generated" && (
+          <div className="flex flex-col gap-8">
+            {aiDecks.length === 0 ? (
+              <EmptyState
+                imageSrc="/logo.png"
+                imageAlt="Medical study environment"
+                title="No AI-Generated Decks"
+                description={searchQuery ? "No AI-generated decks match your active search filter." : "Get started by generating your first high-yield medical flashcard deck using AI."}
+                action={
+                  !showGenerator ? (
+                    <Button onClick={() => setShowGenerator(true)} className="gap-1.5" size="sm">
+                      <Sparkles className="size-4" /> Generate AI Deck
+                    </Button>
+                  ) : null
+                }
+              />
+            ) : (
+              aiDeckGroups.map((group) => (
+                <MotionReveal key={group.courseId}>
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center gap-2.5 pb-2 border-b border-border/60">
+                      <span className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">
+                        {group.courseCode}
+                      </span>
+                      <h3 className="text-base font-bold text-foreground">{group.courseTitle}</h3>
+                      <Badge variant="outline" className="text-[10px] font-mono ml-auto">
+                        {group.decks.length} {group.decks.length === 1 ? "deck" : "decks"}
+                      </Badge>
+                    </div>
+
+                    <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {group.decks.map((deck) => renderDeckCard(deck))}
+                    </MotionStaggerGroup>
+                  </div>
+                </MotionReveal>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* TAB CONTENT: MY DECKS (USER CREATED) */}
+        {activeTab === "user_created" && (
+          <div className="flex flex-col gap-8">
+            {myDecks.length === 0 ? (
+              <EmptyState
+                imageSrc="/logo.png"
+                imageAlt="Medical study environment"
+                title="No Custom Decks Yet"
+                description={searchQuery ? "No custom decks match your active search filter." : "Decks created directly by you will appear here."}
+                action={
+                  !showGenerator ? (
+                    <Button onClick={() => setShowGenerator(true)} className="gap-1.5" size="sm">
+                      <PlusCircle className="size-4" /> Create or Generate Deck
+                    </Button>
+                  ) : null
+                }
+              />
+            ) : (
+              <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {myDecks.map((deck) => renderDeckCard(deck))}
+              </MotionStaggerGroup>
+            )}
+          </div>
+        )}
+
+        {/* TAB CONTENT: SPECIMEN BANK — STEEPLECHASE & PICTURE RECALL (GROUPED BY COURSE) */}
+        {activeTab === "specimen_bank" && (
+          <div className="flex flex-col gap-8">
+            {specimenDecks.length === 0 ? (
+              <EmptyState
+                imageSrc="/logo.png"
+                imageAlt="Medical study environment"
+                title="No Specimen Decks Available"
+                description={searchQuery ? "No specimen bank decks match your active search filter." : "Active specimen bank landmark images will appear here grouped by course."}
+              />
+            ) : (
+              specimenDeckGroups.map((group) => (
+                <MotionReveal key={group.courseId}>
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center gap-2.5 pb-2 border-b border-border/60">
+                      <span className="flex size-7 items-center justify-center rounded-lg bg-purple-500/10 text-purple-400 text-xs font-bold">
+                        {group.courseCode}
+                      </span>
+                      <h3 className="text-base font-bold text-foreground">{group.courseTitle}</h3>
+                      <Badge variant="outline" className="text-[10px] font-mono ml-auto">
+                        {group.decks.length} {group.decks.length === 1 ? "specimen deck" : "specimen decks"}
+                      </Badge>
+                    </div>
+
+                    <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {group.decks.map((deck) => renderDeckCard(deck))}
+                    </MotionStaggerGroup>
+                  </div>
+                </MotionReveal>
+              ))
+            )}
+          </div>
         )}
       </section>
 
       {/* SELECTED DECK CARDS PREVIEW */}
-      <section>
-        <SectionHeading
-          title={selectedDeck ? `Cards inside: ${selectedDeck.topic}` : "Deck Preview"}
-          description={selectedDeck ? `Explore all ${displayCards.length} high-yield questions in this deck.` : "Select a deck above to view and study its cards."}
-        />
-        {selectedDeck ? (
-          displayCards.length === 0 ? (
-            <div className="mt-4 text-center p-8 border rounded-xl text-muted-foreground bg-muted/10">
-              This deck does not contain any cards yet.
-            </div>
+      <MotionReveal>
+        <section className="mt-4">
+          <SectionHeading
+            title={selectedDeck ? `Cards inside: ${selectedDeck.topic}` : "Deck Preview"}
+            description={selectedDeck ? `Explore all ${displayCards.length} high-yield questions in this deck.` : "Select a deck above to view and study its cards."}
+          />
+          {selectedDeck ? (
+            displayCards.length === 0 ? (
+              <div className="mt-4 text-center p-8 border rounded-xl text-muted-foreground bg-muted/10">
+                This deck does not contain any cards yet.
+              </div>
+            ) : (
+              <MotionStaggerGroup className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {displayCards.map((card, index) => {
+                  const imageUrl = card.quiz_image_bank?.image_url || (card as any).image_url
+                  return (
+                    <MotionStaggerItem key={card.id || index}>
+                      <Card className="gap-2 border-border/60 hover:border-primary/25 transition-all overflow-hidden h-full flex flex-col justify-between">
+                        {imageUrl && (
+                          <div className="aspect-video w-full max-h-44 bg-black/40 border-b overflow-hidden flex items-center justify-center p-1">
+                            <img
+                              src={imageUrl}
+                              alt="Specimen preview"
+                              className="object-contain w-full h-full max-h-full rounded"
+                            />
+                          </div>
+                        )}
+                        <CardHeader className="pb-2">
+                          <Badge variant="accent" className="w-fit text-[10px]">Card {index + 1} Front</Badge>
+                          <CardTitle className="pt-1.5 text-sm sm:text-base font-semibold leading-snug">{card.front}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="flex flex-col gap-2 pt-2 border-t border-border/40 bg-muted/20 rounded-b-xl mt-auto">
+                          <Badge variant="muted" className="w-fit text-[10px]">Back Explanation</Badge>
+                          <p className="text-xs sm:text-sm leading-relaxed text-muted-foreground font-medium whitespace-pre-wrap">{card.back}</p>
+                        </CardContent>
+                      </Card>
+                    </MotionStaggerItem>
+                  )
+                })}
+              </MotionStaggerGroup>
+            )
           ) : (
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {displayCards.map((card, index) => {
-                const imageUrl = card.quiz_image_bank?.image_url || (card as any).image_url
-                return (
-                  <Card key={card.id || index} className="gap-2 border-border/60 hover:border-primary/25 transition-all overflow-hidden">
-                    {imageUrl && (
-                      <div className="aspect-video w-full max-h-44 bg-black/40 border-b overflow-hidden flex items-center justify-center p-1">
-                        <img
-                          src={imageUrl}
-                          alt="Specimen preview"
-                          className="object-contain w-full h-full max-h-full rounded"
-                        />
-                      </div>
-                    )}
-                    <CardHeader className="pb-2">
-                      <Badge variant="accent" className="w-fit text-[10px]">Card {index + 1} Front</Badge>
-                      <CardTitle className="pt-1.5 text-sm sm:text-base font-semibold leading-snug">{card.front}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex flex-col gap-2 pt-2 border-t border-border/40 bg-muted/20 rounded-b-xl">
-                      <Badge variant="muted" className="w-fit text-[10px]">Back Explanation</Badge>
-                      <p className="text-xs sm:text-sm leading-relaxed text-muted-foreground font-medium whitespace-pre-wrap">{card.back}</p>
-                    </CardContent>
-                  </Card>
-                )
-              })}
+            <div className="mt-4 flex flex-col items-center justify-center text-center p-12 border border-dashed rounded-xl text-muted-foreground">
+              <HelpCircle className="size-8 text-muted-foreground/30 mb-2" />
+              <p className="text-xs font-semibold text-foreground">No deck selected</p>
+              <p className="text-[10px] max-w-sm mt-0.5">Please click one of your decks above to load and preview its active recall questions.</p>
             </div>
-          )
-        ) : (
-          <div className="mt-4 flex flex-col items-center justify-center text-center p-12 border border-dashed rounded-xl text-muted-foreground">
-            <HelpCircle className="size-8 text-muted-foreground/30 mb-2" />
-            <p className="text-xs font-semibold text-foreground">No deck selected</p>
-            <p className="text-[10px] max-w-sm mt-0.5">Please click one of your decks above to load and preview its active recall questions.</p>
-          </div>
-        )}
-      </section>
+          )}
+        </section>
+      </MotionReveal>
     </div>
   )
 }
