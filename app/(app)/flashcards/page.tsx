@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { useDebounce } from "@/hooks/useDebounce"
 import {
@@ -21,7 +21,8 @@ import {
   PlusCircle,
   HelpCircle,
   Check,
-  Award
+  Award,
+  Play
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -690,6 +691,65 @@ export default function FlashcardsPage() {
     return matchTopic || matchCourse
   })
 
+  // Group filtered decks by course for clean card-grid hierarchy
+  const deckCourseGroups = useMemo(() => {
+    const groupsMap = new Map<string | null, FlashcardDeck[]>()
+    filteredDecks.forEach((deck) => {
+      const cid = deck.course_id || (deck.courses?.id ?? null)
+      if (!groupsMap.has(cid)) {
+        groupsMap.set(cid, [])
+      }
+      groupsMap.get(cid)!.push(deck)
+    })
+
+    const groupsList: {
+      courseId: string | null
+      courseCode: string | null
+      courseTitle: string
+      level?: string | number | null
+      decks: FlashcardDeck[]
+    }[] = []
+
+    // 1. Match with known courses in order
+    courses.forEach((course) => {
+      if (groupsMap.has(course.id)) {
+        groupsList.push({
+          courseId: course.id,
+          courseCode: course.code,
+          courseTitle: course.title || "Curriculum Course",
+          level: course.level,
+          decks: groupsMap.get(course.id)!,
+        })
+        groupsMap.delete(course.id)
+      }
+    })
+
+    // 2. Add remaining unmatched/general deck groups
+    groupsMap.forEach((mDecks, cid) => {
+      const firstCourse = mDecks[0]?.courses
+      groupsList.push({
+        courseId: cid,
+        courseCode: firstCourse?.code || null,
+        courseTitle: firstCourse?.title || "General & Custom Decks",
+        level: null,
+        decks: mDecks,
+      })
+    })
+
+    // 3. Sort course groups matching student's level first
+    if (userLevel) {
+      groupsList.sort((a, b) => {
+        const aMatch = a.level && String(a.level) === String(userLevel)
+        const bMatch = b.level && String(b.level) === String(userLevel)
+        if (aMatch && !bMatch) return -1
+        if (!aMatch && bMatch) return 1
+        return 0
+      })
+    }
+
+    return groupsList
+  }, [filteredDecks, courses, userLevel])
+
   const selectedDeck = decks.find((d) => d.id === selectedDeckId)
   const displayCards = selectedDeck?.flashcards || []
 
@@ -1034,9 +1094,9 @@ export default function FlashcardsPage() {
         </div>
       </section>
 
-      {/* DECKS GRID LIST */}
+      {/* DECKS GRID LIST - GROUPED BY COURSE */}
       <section>
-        <SectionHeading title="Your decks" description="Track mastery across each deck." />
+        <SectionHeading title="Your decks" description="Track mastery across each deck grouped by course." />
         {filteredDecks.length === 0 ? (
           <div className="mt-4">
             <EmptyState
@@ -1054,93 +1114,143 @@ export default function FlashcardsPage() {
             />
           </div>
         ) : (
-          <MotionStaggerGroup className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredDecks.map((deck) => {
-              const cardsCount = deck.flashcards?.length || 0
-              const isSelected = deck.id === selectedDeckId
-              const courseText = deck.courses
-                ? `${deck.courses.code || ""} · ${deck.courses.title || ""}`
-                : "General Course"
-
-              // Calculate deck stats
-              const deckCards = deck.flashcards || []
-              let deckDue = 0
-              let deckReviewed = 0
-              let deckMastered = 0
-              deckCards.forEach((c) => {
-                if (isCardDue(c.id)) {
-                  deckDue++
-                }
-                const prog = progressMap[c.id]
-                if (prog && prog.last_reviewed_at) {
-                  deckReviewed++
-                  if (prog.repetitions >= 2) {
-                    deckMastered++
-                  }
-                }
-              })
-              const deckMasteryPercent = deckReviewed > 0
-                ? Math.round((deckMastered / deckReviewed) * 100)
-                : 0
+          <div className="flex flex-col gap-8 mt-4">
+            {deckCourseGroups.map((group) => {
+              if (group.decks.length === 0) return null
 
               return (
-                <MotionStaggerItem key={deck.id}>
-                  <Card
-                    className={`gap-3 transition-all cursor-pointer hover:-translate-y-1 hover:shadow-md ${
-                      isSelected
-                        ? "border-primary ring-1 ring-primary/40 shadow-md bg-primary/[0.02]"
-                        : "hover:border-primary/20"
-                    }`}
-                    onClick={() => setSelectedDeckId(deck.id)}
-                  >
-                    <CardHeader>
-                      <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                        <BrainCircuit className="size-5" aria-hidden="true" />
-                      </div>
-                      <CardTitle className="pt-2 text-base">{deck.topic}</CardTitle>
-                      <CardDescription className="line-clamp-1">
-                        {courseText} · {cardsCount} cards {deckDue > 0 ? `(${deckDue} due)` : ""}
-                      </CardDescription>
-                      <CardAction>
-                        {deck.source === "ai_generated" ? (
-                          <Badge variant="outline" className="text-[10px] py-0 px-2 font-mono bg-primary/5 text-primary">
-                            AI
-                          </Badge>
-                        ) : deck.source === "specimen_bank" ? (
-                          <Badge variant="outline" className="text-[10px] py-0 px-2 font-mono bg-purple-500/10 text-purple-400 border-purple-500/20">
-                            Specimen Bank
-                          </Badge>
-                        ) : null}
-                      </CardAction>
-                    </CardHeader>
-                    <CardContent className="flex flex-col gap-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Mastery</span>
-                        <span className="text-xs font-medium text-foreground">{deckMasteryPercent}%</span>
-                      </div>
-                      <Progress value={deckMasteryPercent} indicatorClassName="bg-primary" />
-                      <Button
-                        variant={isSelected ? "default" : "outline"}
-                        size="sm"
-                        className="mt-2 w-full justify-between"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (isSelected) {
-                            handleStartReview(deck)
-                          } else {
-                            setSelectedDeckId(deck.id)
+                <div key={group.courseId || "general"} className="flex flex-col gap-4">
+                  <div className="border-b border-border pb-2 mt-2 flex items-center justify-between">
+                    <h3 className="font-semibold text-base text-foreground flex items-center gap-2">
+                      <BookOpen className="size-4 text-primary" />
+                      {group.courseCode ? `${group.courseCode}: ` : ""}
+                      {group.courseTitle}
+                    </h3>
+                    <Badge variant="secondary" className="text-xs font-medium">
+                      {group.decks.length} {group.decks.length === 1 ? "deck" : "decks"}
+                    </Badge>
+                  </div>
+
+                  <MotionStaggerGroup className="grid w-full min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {group.decks.map((deck) => {
+                      const cardsCount = deck.flashcards?.length || 0
+                      const isSelected = deck.id === selectedDeckId
+                      const courseText = deck.courses
+                        ? `${deck.courses.code || ""} ${deck.courses.code ? "· " : ""}${deck.courses.title || ""}`.trim()
+                        : "General Course"
+
+                      // Calculate deck stats
+                      const deckCards = deck.flashcards || []
+                      let deckDue = 0
+                      let deckReviewed = 0
+                      let deckMastered = 0
+                      deckCards.forEach((c) => {
+                        if (isCardDue(c.id)) {
+                          deckDue++
+                        }
+                        const prog = progressMap[c.id]
+                        if (prog && prog.last_reviewed_at) {
+                          deckReviewed++
+                          if (prog.repetitions >= 2) {
+                            deckMastered++
                           }
-                        }}
-                      >
-                        <span>{isSelected ? "Active recall mode" : "View cards"}</span>
-                        <ChevronRight className="size-4" />
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </MotionStaggerItem>
+                        }
+                      })
+                      const deckMasteryPercent = deckReviewed > 0
+                        ? Math.round((deckMastered / deckReviewed) * 100)
+                        : 0
+
+                      return (
+                        <MotionStaggerItem key={deck.id}>
+                          <Card
+                            className={`h-full flex flex-col justify-between gap-3 transition-all cursor-pointer hover:-translate-y-1 hover:shadow-md ${
+                              isSelected
+                                ? "border-primary ring-1 ring-primary/40 shadow-md bg-primary/[0.02]"
+                                : "hover:border-primary/40 border-border"
+                            }`}
+                            onClick={() => setSelectedDeckId(deck.id)}
+                          >
+                            <CardHeader className="pb-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
+                                  <BrainCircuit className="size-5" aria-hidden="true" />
+                                </div>
+                                <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                                  {deckDue > 0 && (
+                                    <Badge variant="destructive" className="text-[10px] py-0 px-2 font-semibold">
+                                      {deckDue} due
+                                    </Badge>
+                                  )}
+                                  {deck.source === "ai_generated" ? (
+                                    <Badge variant="outline" className="text-[10px] py-0 px-2 font-mono bg-primary/5 text-primary border-primary/20">
+                                      AI
+                                    </Badge>
+                                  ) : deck.source === "specimen_bank" ? (
+                                    <Badge variant="outline" className="text-[10px] py-0 px-2 font-mono bg-purple-500/10 text-purple-400 border-purple-500/20">
+                                      Specimen Bank
+                                    </Badge>
+                                  ) : null}
+                                </div>
+                              </div>
+                              <CardTitle className="pt-2 text-base font-semibold leading-snug line-clamp-2">
+                                {deck.topic}
+                              </CardTitle>
+                              <CardDescription className="line-clamp-1 text-xs text-muted-foreground">
+                                {courseText}
+                              </CardDescription>
+                            </CardHeader>
+
+                            <CardContent className="flex flex-col gap-3 pt-0">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground font-medium">Card count</span>
+                                <span className="font-semibold text-foreground">{cardsCount} {cardsCount === 1 ? "card" : "cards"}</span>
+                              </div>
+
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-muted-foreground">Mastery</span>
+                                  <span className="font-medium text-foreground">{deckMasteryPercent}%</span>
+                                </div>
+                                <Progress value={deckMasteryPercent} indicatorClassName="bg-primary" />
+                              </div>
+
+                              <div className="flex items-center gap-2 mt-1">
+                                <Button
+                                  variant="default"
+                                  size="sm"
+                                  className="flex-1 font-semibold gap-1.5"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setSelectedDeckId(deck.id)
+                                    handleStartReview(deck)
+                                  }}
+                                >
+                                  <Play className="size-3.5 fill-current" /> Study
+                                </Button>
+
+                                <Button
+                                  variant={isSelected ? "secondary" : "outline"}
+                                  size="sm"
+                                  className="text-xs px-2.5"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setSelectedDeckId(deck.id)
+                                  }}
+                                >
+                                  <Eye className="size-3.5 mr-1" />
+                                  {isSelected ? "Previewing" : "Preview"}
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </MotionStaggerItem>
+                      )
+                    })}
+                  </MotionStaggerGroup>
+                </div>
               )
             })}
-          </MotionStaggerGroup>
+          </div>
         )}
       </section>
 
