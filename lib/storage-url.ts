@@ -1,7 +1,7 @@
 import { getB2SignedUrl } from "@/lib/b2"
 
-export function constructStorageProxyUrl(path: string, bucket?: string): string {
-  if (!path) return "#"
+export function constructStorageProxyUrl(path: string | null | undefined, bucket?: string): string {
+  if (!path || typeof path !== "string" || !path.trim()) return "#"
   if (path.startsWith("http://") || path.startsWith("https://")) {
     return path
   }
@@ -11,7 +11,7 @@ export function constructStorageProxyUrl(path: string, bucket?: string): string 
 }
 
 export async function resolveStorageUrlServer(path: string | null | undefined, bucket?: string): Promise<string | null> {
-  if (!path) return null
+  if (!path || typeof path !== "string" || !path.trim()) return null
   if (path.startsWith("http://") || path.startsWith("https://")) {
     return path
   }
@@ -24,7 +24,7 @@ export async function resolveStorageUrlServer(path: string | null | undefined, b
 }
 
 export function resolveQuizImageUrl(url: string | null | undefined): string | null {
-  if (!url) return null
+  if (!url || typeof url !== "string" || !url.trim()) return null
   if (url.includes("supabase")) {
     if (url.includes("/materials/")) {
       const path = url.split("/materials/")[1]
