@@ -12,6 +12,7 @@ export interface ExtractedImage {
   filename: string
   width: number
   height: number
+  source_context?: string
 }
 
 /**
@@ -120,6 +121,72 @@ function getContentTypeFromFilename(filename: string): string {
 }
 
 /**
+ * Vision API Triage: Classifies image as 'specimen' vs 'decorative_noise' using llama-3.2-11b-vision-preview
+ */
+export async function classifyImageWithVision(
+  imageBuffer: Buffer,
+  contentType: string
+): Promise<"specimen" | "decorative_noise"> {
+  const apiKey = process.env.GROQ_API_KEY
+  if (!apiKey) {
+    return "specimen" // fallback default
+  }
+
+  try {
+    const base64Data = imageBuffer.toString("base64")
+    const dataUrl = `data:${contentType};base64,${base64Data}`
+
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "llama-3.2-11b-vision-preview",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: "Classify this image extracted from a medical lecture. Is it a diagnostic/clinical/pathology/histology/equipment/anatomy specimen worth reviewing for medical study ('specimen'), or is it decorative noise like a logo, icon, chart, page border, or title graphic ('decorative_noise')? Return strictly a JSON object: {\"triage\": \"specimen\"} or {\"triage\": \"decorative_noise\"}."
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: dataUrl
+                }
+              }
+            ]
+          }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.1,
+      })
+    })
+
+    if (!response.ok) {
+      console.warn("Groq vision classification failed with status:", response.status)
+      return "specimen"
+    }
+
+    const data = await response.json()
+    const rawContent = data.choices?.[0]?.message?.content
+    if (!rawContent) return "specimen"
+
+    const parsed = JSON.parse(rawContent)
+    if (parsed.triage === "decorative_noise") {
+      return "decorative_noise"
+    }
+    return "specimen"
+  } catch (err) {
+    console.warn("Error in classifyImageWithVision:", err)
+    return "specimen"
+  }
+}
+
+/**
  * Extract embedded images from PPTX or DOCX zip archive
  */
 export async function extractImagesFromOfficeZip(
@@ -130,7 +197,74 @@ export async function extractImagesFromOfficeZip(
   let filteredCount = 0
 
   const zip = await JSZip.loadAsync(fileBuffer)
-  const prefix = fileType.toLowerCase().includes("pptx") ? "ppt/media/" : "word/media/"
+  const isPptx = fileType.toLowerCase().includes("pptx")
+  const prefix = isPptx ? "ppt/media/" : "word/media/"
+
+  // Text contexts map: filename -> text
+  const mediaToTextMap: Record<string, string> = {}
+
+  if (isPptx) {
+    // Map slide relationship files to media files and slide text
+    const relFiles = Object.keys(zip.files).filter(
+      (f) => f.startsWith("ppt/slides/_rels/") && f.endsWith(".rels")
+    )
+
+    for (const relFile of relFiles) {
+      try {
+        const slideXmlPath = relFile.replace("_rels/", "").replace(".rels", "")
+        const relXml = await zip.files[relFile].async("string")
+        const slideXml = zip.files[slideXmlPath] ? await zip.files[slideXmlPath].async("string") : ""
+
+        // Extract slide text from <a:t> tags
+        const textMatches = slideXml.match(/<a:t[^>]*>(.*?)<\/a:t>/g) || []
+        const slideText = textMatches
+          .map((m) => m.replace(/<[^>]+>/g, "").trim())
+          .filter(Boolean)
+          .join(" ")
+          .replace(/\s+/g, " ")
+
+        // Match media targets in relationship XML
+        const targetMatches = relXml.match(/Target="([^"]+)"/g) || []
+        for (const tm of targetMatches) {
+          const target = tm.replace(/Target="|"/g, "")
+          const mediaName = target.split("/").pop()
+          if (mediaName && slideText) {
+            mediaToTextMap[mediaName] = slideText
+          }
+        }
+      } catch (err) {
+        console.warn(`Failed to parse PPTX slide text for ${relFile}:`, err)
+      }
+    }
+  } else {
+    // DOCX: Extract document text from word/document.xml
+    try {
+      const docXmlFile = zip.files["word/document.xml"]
+      if (docXmlFile) {
+        const docXml = await docXmlFile.async("string")
+        const textMatches = docXml.match(/<w:t[^>]*>(.*?)<\/w:t>/g) || []
+        const docText = textMatches
+          .map((m) => m.replace(/<[^>]+>/g, "").trim())
+          .filter(Boolean)
+          .join(" ")
+          .replace(/\s+/g, " ")
+
+        if (docText) {
+          const mediaFiles = Object.keys(zip.files).filter(
+            (f) => f.startsWith("word/media/") && !zip.files[f].dir
+          )
+          for (const mf of mediaFiles) {
+            const mediaName = mf.split("/").pop()
+            if (mediaName) {
+              mediaToTextMap[mediaName] = docText.slice(0, 3000)
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to parse DOCX document text:", err)
+    }
+  }
 
   const mediaFiles = Object.keys(zip.files).filter(
     (filename) => filename.startsWith(prefix) && !zip.files[filename].dir
@@ -149,12 +283,16 @@ export async function extractImagesFromOfficeZip(
         continue
       }
 
+      const baseName = filename.split("/").pop() || filename
+      const sourceContext = mediaToTextMap[baseName] || undefined
+
       extracted.push({
         buffer: fileData,
         contentType: getContentTypeFromFilename(filename),
-        filename: filename.split("/").pop() || filename,
+        filename: baseName,
         width,
         height,
+        source_context: sourceContext,
       })
     } catch (err) {
       console.warn(`Failed to extract image ${filename} from office zip:`, err)
@@ -247,6 +385,21 @@ export async function extractImagesFromPdf(
     for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
       try {
         const page = await pdf.getPage(pageNum)
+
+        // Capture page text content as source_context
+        let pageText = ""
+        try {
+          const textContent = await page.getTextContent()
+          pageText = textContent.items
+            .map((item: any) => item.str || "")
+            .filter(Boolean)
+            .join(" ")
+            .replace(/\s+/g, " ")
+            .trim()
+        } catch (textErr) {
+          console.warn(`Could not extract text from PDF page ${pageNum}:`, textErr)
+        }
+
         const operatorList = await page.getOperatorList()
 
         for (let i = 0; i < operatorList.fnArray.length; i++) {
@@ -332,6 +485,7 @@ export async function extractImagesFromPdf(
                   filename: `pdf_p${pageNum}_${objId}.${ext}`,
                   width,
                   height,
+                  source_context: pageText ? `[PDF Page ${pageNum}]: ${pageText.slice(0, 3000)}` : undefined,
                 })
               }
             } catch (imgErr) {
@@ -463,6 +617,16 @@ export async function processMaterialImageExtraction(material: {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://fexsfbdvewlmvzfnwqul.supabase.co"
       const imageUrl = `${supabaseUrl}/storage/v1/object/public/quiz-bank/${storagePath}`
 
+      // AI Triage classification via vision model
+      const aiTriage = await classifyImageWithVision(item.buffer, item.contentType)
+
+      // Grounding rule: only pre-fill draft if source_context (real nearby lecturer text) exists
+      let draftFindings = ""
+      if (item.source_context && item.source_context.trim().length > 0) {
+        const cleanContext = item.source_context.trim()
+        draftFindings = `[AI Draft - Unverified]: ${cleanContext.length > 350 ? cleanContext.slice(0, 350) + "..." : cleanContext}`
+      }
+
       // Insert quiz_image_bank row
       const payload = {
         course_id: material.course_id,
@@ -470,7 +634,9 @@ export async function processMaterialImageExtraction(material: {
         image_url: imageUrl,
         category: "other",
         question: "Identify the structure or clinical findings in this extracted specimen.",
-        correct_findings: "", // MUST be left empty for human review
+        correct_findings: draftFindings, // Draft pre-filled ONLY if source_context present, else blank
+        source_context: item.source_context || null,
+        ai_triage: aiTriage,
         differential_diagnosis: null,
         source: `auto_extracted:${material.id}`,
         status: "archived", // ALWAYS archived

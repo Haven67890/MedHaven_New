@@ -269,6 +269,7 @@ export default function AdminDashboard() {
   const [quizBankCategoryFilter, setQuizBankCategoryFilter] = useState("all")
   const [quizBankStatusFilter, setQuizBankStatusFilter] = useState("all")
   const [quizBankSourceFilter, setQuizBankSourceFilter] = useState("all")
+  const [quizBankTriageFilter, setQuizBankTriageFilter] = useState("all")
   const [quizBankBatchLoading, setQuizBankBatchLoading] = useState(false)
   const [quizBankPage, setQuizBankPage] = useState(1)
 
@@ -286,6 +287,8 @@ export default function AdminDashboard() {
   const [formBankCategory, setFormBankCategory] = useState("gross_specimen")
   const [formBankQuestion, setFormBankQuestion] = useState("")
   const [formBankCorrectFindings, setFormBankCorrectFindings] = useState("")
+  const [formBankSourceContext, setFormBankSourceContext] = useState("")
+  const [formBankAiTriage, setFormBankAiTriage] = useState("specimen")
   const [formBankDifferentialDiagnosis, setFormBankDifferentialDiagnosis] = useState("")
   const [formBankSource, setFormBankSource] = useState("own_photo")
   const [formBankStatus, setFormBankStatus] = useState<"active" | "archived">("active")
@@ -803,6 +806,7 @@ export default function AdminDashboard() {
         category: quizBankCategoryFilter,
         status: quizBankStatusFilter,
         source: quizBankSourceFilter,
+        ai_triage: quizBankTriageFilter,
         page: String(quizBankPage),
         limit: String(itemsPerPage),
       })
@@ -1271,6 +1275,8 @@ export default function AdminDashboard() {
     setFormBankCategory("gross_specimen")
     setFormBankQuestion("Identify the main structure or diagnostic feature highlighted in this specimen.")
     setFormBankCorrectFindings("")
+    setFormBankSourceContext("")
+    setFormBankAiTriage("specimen")
     setFormBankDifferentialDiagnosis("")
     setFormBankSource("own_photo")
     setFormBankStatus("active")
@@ -1289,6 +1295,8 @@ export default function AdminDashboard() {
     setFormBankCategory(item.category || "gross_specimen")
     setFormBankQuestion(item.question || "")
     setFormBankCorrectFindings(item.correct_findings || "")
+    setFormBankSourceContext(item.source_context || "")
+    setFormBankAiTriage(item.ai_triage || "specimen")
     setFormBankDifferentialDiagnosis(item.differential_diagnosis || "")
     setFormBankSource(item.source || "own_photo")
     setFormBankStatus(item.status === "archived" ? "archived" : "active")
@@ -1338,6 +1346,11 @@ export default function AdminDashboard() {
       return
     }
 
+    if (formBankStatus === "active" && formBankCorrectFindings.trim().startsWith("[AI Draft - Unverified]")) {
+      setQuizBankFormError("Cannot activate item while findings still contain untouched '[AI Draft - Unverified]'. Please review and edit findings first.")
+      return
+    }
+
     setQuizBankFormLoading(true)
     setQuizBankFormError("")
     setQuizBankFormSuccess("")
@@ -1362,6 +1375,8 @@ export default function AdminDashboard() {
         category: formBankCategory,
         question: formBankQuestion.trim(),
         correct_findings: formBankCorrectFindings.trim(),
+        source_context: formBankSourceContext.trim() || null,
+        ai_triage: formBankAiTriage,
         differential_diagnosis: formBankDifferentialDiagnosis.trim() || null,
         source: formBankSource.trim() || "own_photo",
         status: formBankStatus,
@@ -3317,6 +3332,18 @@ export default function AdminDashboard() {
                   <option value="own_photo">Manual / Own Photo</option>
                 </select>
               </div>
+
+              <div>
+                <select
+                  value={quizBankTriageFilter}
+                  onChange={(e) => setQuizBankTriageFilter(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="all">All AI Triage</option>
+                  <option value="specimen">Likely Specimen</option>
+                  <option value="decorative_noise">Likely Decorative Noise</option>
+                </select>
+              </div>
             </CardContent>
           </Card>
 
@@ -3373,7 +3400,18 @@ export default function AdminDashboard() {
                                 )}
                                 <div>
                                   <div className="font-semibold text-foreground">{item.title}</div>
-                                  <div className="text-xs text-muted-foreground font-mono">Source: {item.source || "own_photo"}</div>
+                                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
+                                    <span>Source: {item.source || "own_photo"}</span>
+                                    {item.ai_triage === "decorative_noise" ? (
+                                      <Badge variant="outline" className="text-[10px] text-amber-500 border-amber-500/30 bg-amber-500/10">
+                                        Decorative Noise
+                                      </Badge>
+                                    ) : item.ai_triage === "specimen" ? (
+                                      <Badge variant="outline" className="text-[10px] text-emerald-500 border-emerald-500/30 bg-emerald-500/10">
+                                        Likely Specimen
+                                      </Badge>
+                                    ) : null}
+                                  </div>
                                 </div>
                               </div>
                             </td>
@@ -3838,19 +3876,42 @@ export default function AdminDashboard() {
               />
             </div>
 
+            {/* Real Nearby Lecturer Text Context Display */}
+            {formBankSourceContext && (
+              <div className="border border-primary/20 bg-primary/5 rounded-lg p-3 space-y-1.5">
+                <span className="text-xs font-semibold text-primary flex items-center gap-1">
+                  <FileText className="size-3.5" /> Lecturer Source Text (Real Nearby Context)
+                </span>
+                <p className="text-xs text-muted-foreground leading-relaxed max-h-36 overflow-y-auto whitespace-pre-wrap font-sans">
+                  {formBankSourceContext}
+                </p>
+              </div>
+            )}
+
             {/* Required Correct Findings Textarea */}
             <div className="flex flex-col gap-1.5">
               <label htmlFor="bank-findings" className="text-xs font-medium text-foreground flex items-center justify-between">
                 <span>Correct Findings (Answer Key) <span className="text-destructive">*</span></span>
                 <span className="text-[10px] text-muted-foreground">Admin-entered</span>
               </label>
+
+              {formBankCorrectFindings.startsWith("[AI Draft - Unverified]") && (
+                <div className="bg-amber-500/15 border border-amber-500/30 rounded p-2 text-xs text-amber-600 dark:text-amber-400 font-medium">
+                  AI-suggested from lecture text — please verify and edit before activating.
+                </div>
+              )}
+
               <textarea
                 id="bank-findings"
                 placeholder="Required ground-truth findings, landmark structures, diagnostic features, or histological hallmarks..."
                 value={formBankCorrectFindings}
                 onChange={(e) => setFormBankCorrectFindings(e.target.value)}
                 rows={4}
-                className="flex min-h-[90px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className={`flex min-h-[90px] w-full rounded-md border px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  formBankCorrectFindings.startsWith("[AI Draft - Unverified]")
+                    ? "bg-amber-500/5 border-amber-500/40"
+                    : "border-input bg-background"
+                }`}
                 required
               />
             </div>
