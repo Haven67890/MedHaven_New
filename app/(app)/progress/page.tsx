@@ -135,100 +135,96 @@ export default function ProgressTrackerPage() {
       try {
         setLoadingData(true)
 
-        // 1. Fetch material activity logs with nested materials and courses
-        const { data: activityData, error: activityError } = await supabase
-          .from("material_activity")
-          .select(`
-            id,
-            action,
-            created_at,
-            material_id,
-            materials (
+        // Run aggregation queries in parallel with selected fields
+        const [activityRes, attemptsRes, progressRes] = await Promise.all([
+          supabase
+            .from("material_activity")
+            .select(`
               id,
-              title,
-              type,
-              course_id,
-              courses (
+              action,
+              created_at,
+              material_id,
+              materials (
                 id,
-                code,
-                title
-              )
-            )
-          `)
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-
-        if (activityError) {
-          console.error("Error fetching material activity logs:", activityError)
-        }
-
-        // 2. Fetch quiz attempts with nested quizzes and courses
-        const { data: attemptsData, error: attemptsError } = await supabase
-          .from("quiz_attempts")
-          .select(`
-            id,
-            quiz_id,
-            score,
-            total_questions,
-            completed_at,
-            quizzes (
-              id,
-              course_id,
-              topic,
-              format,
-              courses (
-                id,
-                code,
-                title
-              )
-            )
-          `)
-          .eq("user_id", user.id)
-          .order("completed_at", { ascending: false })
-
-        if (attemptsError) {
-          console.error("Error fetching quiz attempts:", attemptsError)
-        }
-
-        // 3. Fetch flashcard progress with nested flashcards, decks, and courses
-        const { data: progressData, error: progressError } = await supabase
-          .from("flashcard_progress")
-          .select(`
-            id,
-            user_id,
-            flashcard_id,
-            ease_factor,
-            interval_days,
-            repetitions,
-            next_review_date,
-            last_reviewed_at,
-            flashcards (
-              id,
-              front,
-              back,
-              deck_id,
-              flashcard_decks (
-                id,
+                title,
+                type,
                 course_id,
-                topic,
                 courses (
                   id,
                   code,
                   title
                 )
               )
-            )
-          `)
-          .eq("user_id", user.id)
+            `)
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("quiz_attempts")
+            .select(`
+              id,
+              quiz_id,
+              score,
+              total_questions,
+              completed_at,
+              quizzes (
+                id,
+                course_id,
+                topic,
+                format,
+                courses (
+                  id,
+                  code,
+                  title
+                )
+              )
+            `)
+            .eq("user_id", user.id)
+            .order("completed_at", { ascending: false }),
+          supabase
+            .from("flashcard_progress")
+            .select(`
+              id,
+              user_id,
+              flashcard_id,
+              ease_factor,
+              interval_days,
+              repetitions,
+              next_review_date,
+              last_reviewed_at,
+              flashcards (
+                id,
+                front,
+                back,
+                deck_id,
+                flashcard_decks (
+                  id,
+                  course_id,
+                  topic,
+                  courses (
+                    id,
+                    code,
+                    title
+                  )
+                )
+              )
+            `)
+            .eq("user_id", user.id)
+        ])
 
-        if (progressError) {
-          console.error("Error fetching flashcard progress:", progressError)
+        if (activityRes.error) {
+          console.error("Error fetching material activity logs:", activityRes.error)
+        }
+        if (attemptsRes.error) {
+          console.error("Error fetching quiz attempts:", attemptsRes.error)
+        }
+        if (progressRes.error) {
+          console.error("Error fetching flashcard progress:", progressRes.error)
         }
 
         if (active) {
-          setMaterialActivities((activityData as unknown as MaterialActivityRow[]) || [])
-          setQuizAttempts((attemptsData as unknown as QuizAttemptRow[]) || [])
-          setFlashcardProgress((progressData as unknown as FlashcardProgressRow[]) || [])
+          setMaterialActivities((activityRes.data as unknown as MaterialActivityRow[]) || [])
+          setQuizAttempts((attemptsRes.data as unknown as QuizAttemptRow[]) || [])
+          setFlashcardProgress((progressRes.data as unknown as FlashcardProgressRow[]) || [])
         }
       } catch (err) {
         console.error("Exception loading user progress metrics:", err)

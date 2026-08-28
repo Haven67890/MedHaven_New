@@ -37,6 +37,7 @@ function NavLink({ item, onNavigate }: { item: NavItem; onNavigate?: () => void 
   return (
     <Link
       href={item.href}
+      prefetch={false}
       onClick={handleClick}
       aria-current={isActive ? "page" : undefined}
       className={cn(

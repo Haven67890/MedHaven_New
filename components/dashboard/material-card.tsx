@@ -135,6 +135,7 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
   const [isGeneratingPdfThumb, setIsGeneratingPdfThumb] = useState(false)
   const [slideDeckThumbnail, setSlideDeckThumbnail] = useState<string | null>(null)
   const [isSlideDeckLoading, setIsSlideDeckLoading] = useState(false)
+  const [imageError, setImageError] = useState(false)
 
   // YouTube embedding state
   const [isYoutubeEmbeddable, setIsYoutubeEmbeddable] = useState<boolean>(true)
@@ -378,13 +379,14 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
     <Card className="w-full min-w-0 overflow-hidden border border-border/60 hover:border-primary/45 shadow-xs hover:shadow-md active:scale-[0.995] transition-all duration-200 flex flex-col sm:flex-row gap-3 sm:gap-4 p-3 sm:p-4 bg-card group">
       {/* Thumbnail / Icon Section */}
       <div className="relative w-full sm:w-40 md:w-44 aspect-video sm:aspect-[4/3] rounded-lg bg-muted flex items-center justify-center overflow-hidden shrink-0 border border-border/40 select-none">
-        {isVideo && youtubeId ? (
+        {isVideo && youtubeId && !imageError ? (
           <div className="absolute inset-0 w-full h-full cursor-pointer group/thumb" onClick={handlePreviewClick}>
             <img
               src={`https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`}
               alt={material.title}
               className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-300"
               loading="lazy"
+              onError={() => setImageError(true)}
             />
             <div className="absolute inset-0 bg-black/30 flex items-center justify-center group-hover/thumb:bg-black/45 transition-colors duration-200">
               <span className="flex size-10 sm:size-11 items-center justify-center rounded-full bg-white/90 text-red-600 shadow-md transform group-hover/thumb:scale-110 transition-transform duration-200">
@@ -392,13 +394,14 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
               </span>
             </div>
           </div>
-        ) : isSlideDeck && slideDeckThumbnail ? (
+        ) : isSlideDeck && slideDeckThumbnail && !imageError ? (
           <div className="absolute inset-0 w-full h-full cursor-pointer group/thumb" onClick={handlePreviewClick}>
             <img
               src={slideDeckThumbnail}
               alt={material.title}
               className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-300"
               loading="lazy"
+              onError={() => setImageError(true)}
             />
             <div className="absolute inset-0 bg-black/10 flex items-center justify-center group-hover/thumb:bg-black/25 transition-colors duration-200">
               <span className="flex size-9 sm:size-10 items-center justify-center rounded-full bg-white/90 text-primary shadow-md transform group-hover/thumb:scale-110 transition-transform duration-200">
@@ -406,12 +409,13 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
               </span>
             </div>
           </div>
-        ) : isPdf && pdfThumbnail ? (
+        ) : isPdf && pdfThumbnail && !imageError ? (
           <div className="absolute inset-0 w-full h-full cursor-pointer group/thumb" onClick={handlePreviewClick}>
             <img
               src={pdfThumbnail}
               alt={material.title}
               className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-300"
+              onError={() => setImageError(true)}
             />
             <div className="absolute inset-0 bg-black/5 flex items-center justify-center group-hover/thumb:bg-black/15 transition-colors duration-200">
               <span className="flex size-9 items-center justify-center rounded-full bg-white/90 text-primary shadow-md transform group-hover/thumb:scale-110 transition-transform duration-200">
