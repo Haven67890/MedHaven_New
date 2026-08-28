@@ -50,6 +50,7 @@ function extractStoragePath(modal: PreviewModalData): string | null {
 
 export function MaterialPreviewModal({ modal, onClose }: MaterialPreviewModalProps) {
   const [origin, setOrigin] = useState("")
+  const [ytThumbError, setYtThumbError] = useState(false)
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -107,12 +108,17 @@ export function MaterialPreviewModal({ modal, onClose }: MaterialPreviewModalPro
       if (ytId) {
         return (
           <div className="flex flex-col items-center justify-center text-center p-6 max-w-md bg-card rounded-xl border border-border shadow-md">
-            <div className="relative aspect-video w-64 overflow-hidden rounded-lg border bg-muted mb-4 shadow-sm">
-              <img
-                src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`}
-                alt={title}
-                className="w-full h-full object-cover"
-              />
+            <div className="relative aspect-video w-64 overflow-hidden rounded-lg border bg-muted mb-4 shadow-sm flex items-center justify-center">
+              {!ytThumbError ? (
+                <img
+                  src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`}
+                  alt={title}
+                  className="w-full h-full object-cover"
+                  onError={() => setYtThumbError(true)}
+                />
+              ) : (
+                <Video className="size-10 text-red-500" />
+              )}
               <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                 <Video className="size-10 text-white/90" />
               </div>
