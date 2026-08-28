@@ -120,21 +120,74 @@ function getContentTypeFromFilename(filename: string): string {
   return "image/png"
 }
 
+export interface AIDraftedSpecimenFields {
+  title: string
+  category: "gross_specimen" | "histology_slide" | "blood_film" | "clinical_photo" | "equipment" | "radiology" | "other"
+  question: string
+  correct_findings: string
+  differential_diagnosis: string | null
+  ai_triage: "specimen" | "decorative_noise"
+}
+
 /**
- * Vision API Triage: Classifies image as 'specimen' vs 'decorative_noise' using llama-3.2-11b-vision-preview
+ * Vision + Lecture Context AI Draft Generation using llama-3.2-11b-vision-preview
  */
-export async function classifyImageWithVision(
+export async function generateAIDraftedSpecimenFields(
   imageBuffer: Buffer,
-  contentType: string
-): Promise<"specimen" | "decorative_noise"> {
+  contentType: string,
+  sourceContext?: string,
+  materialTitle?: string
+): Promise<AIDraftedSpecimenFields> {
   const apiKey = process.env.GROQ_API_KEY
+  const defaultFallback: AIDraftedSpecimenFields = {
+    title: materialTitle ? `${materialTitle} (Extracted Specimen)` : "Extracted Specimen Candidate",
+    category: "other",
+    question: "Identify the main structure or diagnostic feature highlighted in this specimen.",
+    correct_findings: sourceContext && sourceContext.trim()
+      ? `[AI Draft - Unverified]: ${sourceContext.trim().slice(0, 300)}`
+      : "[AI Draft - Unverified]: Pending admin review.",
+    differential_diagnosis: null,
+    ai_triage: "specimen",
+  }
+
   if (!apiKey) {
-    return "specimen" // fallback default
+    return defaultFallback
   }
 
   try {
     const base64Data = imageBuffer.toString("base64")
     const dataUrl = `data:${contentType};base64,${base64Data}`
+
+    const promptText = `You are a medical pathology & clinical vision expert assisting a medical professor.
+Examine this medical image extracted from a lecture presentation, alongside the surrounding lecture slide/page text context below.
+
+SURROUNDING LECTURE TEXT CONTEXT:
+"""
+${sourceContext?.trim() || "No surrounding text context available."}
+"""
+
+MATERIAL / LECTURE TITLE:
+"${materialTitle || "Medical Lecture Material"}"
+
+YOUR TASK:
+1. Determine if this image is a genuine medical specimen/scan/photo worth studying ('specimen') or decorative noise/logo/icon ('decorative_noise').
+2. Generate comprehensive, academic AI-DRAFTED fields for a medical quiz image bank flashcard:
+   - "title": A concise, descriptive title of the image landmark/pathology (e.g., "Renal Cell Carcinoma — Gross Specimen", "Normal Cardiac Histology", "Chest X-Ray Pneumonia").
+   - "category": Choose strictly one from: "gross_specimen", "histology_slide", "blood_film", "clinical_photo", "equipment", "radiology", "other".
+   - "question": An appropriate question prompt for students reviewing this image as a flashcard (e.g., "Identify the main histopathological feature indicated by this arrow.").
+   - "correct_findings": Ground-truth findings or answer key derived from analyzing BOTH the image AND lecture context. MUST start with "[AI Draft - Unverified]: " followed by detailed findings.
+   - "differential_diagnosis": Plausible differential diagnoses or related mimickers if relevant, otherwise null.
+   - "ai_triage": "specimen" or "decorative_noise".
+
+Return strictly a valid JSON object matching this schema:
+{
+  "title": "...",
+  "category": "gross_specimen",
+  "question": "...",
+  "correct_findings": "[AI Draft - Unverified]: ...",
+  "differential_diagnosis": "...",
+  "ai_triage": "specimen"
+}`
 
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -148,41 +201,46 @@ export async function classifyImageWithVision(
           {
             role: "user",
             content: [
-              {
-                type: "text",
-                text: "Classify this image extracted from a medical lecture. Is it a diagnostic/clinical/pathology/histology/equipment/anatomy specimen worth reviewing for medical study ('specimen'), or is it decorative noise like a logo, icon, chart, page border, or title graphic ('decorative_noise')? Return strictly a JSON object: {\"triage\": \"specimen\"} or {\"triage\": \"decorative_noise\"}."
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: dataUrl
-                }
-              }
+              { type: "text", text: promptText },
+              { type: "image_url", image_url: { url: dataUrl } }
             ]
           }
         ],
         response_format: { type: "json_object" },
-        temperature: 0.1,
+        temperature: 0.2,
       })
     })
 
     if (!response.ok) {
-      console.warn("Groq vision classification failed with status:", response.status)
-      return "specimen"
+      console.warn("Groq vision specimen drafting failed with status:", response.status)
+      return defaultFallback
     }
 
     const data = await response.json()
     const rawContent = data.choices?.[0]?.message?.content
-    if (!rawContent) return "specimen"
+    if (!rawContent) return defaultFallback
 
     const parsed = JSON.parse(rawContent)
-    if (parsed.triage === "decorative_noise") {
-      return "decorative_noise"
+
+    const categories = ["gross_specimen", "histology_slide", "blood_film", "clinical_photo", "equipment", "radiology", "other"]
+    const category = categories.includes(parsed.category) ? parsed.category : "other"
+
+    let findings = parsed.correct_findings?.trim() || defaultFallback.correct_findings
+    if (!findings.startsWith("[AI Draft - Unverified]")) {
+      findings = `[AI Draft - Unverified]: ${findings}`
     }
-    return "specimen"
+
+    return {
+      title: parsed.title?.trim() || defaultFallback.title,
+      category,
+      question: parsed.question?.trim() || defaultFallback.question,
+      correct_findings: findings,
+      differential_diagnosis: parsed.differential_diagnosis?.trim() || null,
+      ai_triage: parsed.ai_triage === "decorative_noise" ? "decorative_noise" : "specimen",
+    }
   } catch (err) {
-    console.warn("Error in classifyImageWithVision:", err)
-    return "specimen"
+    console.warn("Error in generateAIDraftedSpecimenFields:", err)
+    return defaultFallback
   }
 }
 
@@ -617,29 +675,25 @@ export async function processMaterialImageExtraction(material: {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://fexsfbdvewlmvzfnwqul.supabase.co"
       const imageUrl = `${supabaseUrl}/storage/v1/object/public/quiz-bank/${storagePath}`
 
-      // AI Triage classification via vision model
-      const aiTriage = await classifyImageWithVision(item.buffer, item.contentType)
-
-      // Grounding rule: only pre-fill draft if source_context (real nearby lecturer text) exists
-      let draftFindings = ""
-      if (item.source_context && item.source_context.trim().length > 0) {
-        const cleanContext = item.source_context.trim()
-        draftFindings = `[AI Draft - Unverified]: ${cleanContext.length > 350 ? cleanContext.slice(0, 350) + "..." : cleanContext}`
-      }
+      // Vision + Lecture Context AI Draft Generation
+      const aiDrafts = await generateAIDraftedSpecimenFields(
+        item.buffer,
+        item.contentType,
+        item.source_context,
+        material.title
+      )
 
       // Insert quiz_image_bank row
       const payload = {
         course_id: material.course_id,
-        title: `${material.title} (Extracted Image ${index + 1})`,
+        title: aiDrafts.title,
         image_url: imageUrl,
-        category: "other",
-        question: "Identify the structure or clinical findings in this extracted specimen.",
-        correct_findings: draftFindings, // Draft pre-filled ONLY if source_context present, else blank
-        source_context: item.source_context || null,
-        ai_triage: aiTriage,
-        differential_diagnosis: null,
+        category: aiDrafts.category,
+        question: aiDrafts.question,
+        correct_findings: aiDrafts.correct_findings,
+        differential_diagnosis: aiDrafts.differential_diagnosis,
         source: `auto_extracted:${material.id}`,
-        status: "archived", // ALWAYS archived
+        status: "archived", // ALWAYS archived for admin review
         uploaded_by: material.uploaded_by || null,
       }
 

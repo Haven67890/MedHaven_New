@@ -183,8 +183,6 @@ export async function GET(request: NextRequest) {
         category,
         question,
         correct_findings,
-        source_context,
-        ai_triage,
         differential_diagnosis,
         source,
         image_url,
@@ -214,9 +212,6 @@ export async function GET(request: NextRequest) {
       queryBuilder = queryBuilder.ilike("source", "auto_extracted%")
     } else if (sourceFilter !== "all") {
       queryBuilder = queryBuilder.eq("source", sourceFilter)
-    }
-    if (triageFilter !== "all") {
-      queryBuilder = queryBuilder.eq("ai_triage", triageFilter)
     }
 
     // Sort by created_at desc
@@ -305,8 +300,6 @@ export async function POST(request: NextRequest) {
       image_url: image_url?.trim() || null,
       status: status || "active",
     }
-    if (source_context !== undefined) payload.source_context = source_context?.trim() || null
-    if (ai_triage !== undefined) payload.ai_triage = ai_triage
 
     const { data: imageItem, error: insertError } = await serviceSupabase
       .from("quiz_image_bank")
@@ -395,8 +388,6 @@ export async function PATCH(request: NextRequest) {
     if (category !== undefined) updates.category = category.trim()
     if (question !== undefined) updates.question = question.trim()
     if (correct_findings !== undefined) updates.correct_findings = correct_findings.trim()
-    if (source_context !== undefined) updates.source_context = source_context?.trim() || null
-    if (ai_triage !== undefined) updates.ai_triage = ai_triage
     if (differential_diagnosis !== undefined) updates.differential_diagnosis = differential_diagnosis?.trim() || null
     if (source !== undefined) updates.source = source?.trim() || "own_photo"
     if (image_url !== undefined) updates.image_url = image_url?.trim() || null
