@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { GetObjectCommand } from "@aws-sdk/client-s3"
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { b2Client, DEFAULT_B2_BUCKET } from "@/lib/b2"
 import { createClient } from "@/lib/supabase/server"
 
@@ -58,35 +59,28 @@ export async function GET(request: NextRequest) {
     const targetB2Bucket =
       bucket === "quiz-bank" ? DEFAULT_B2_BUCKET : process.env.B2_BUCKET_NAME || DEFAULT_B2_BUCKET
 
-    const command = new GetObjectCommand({
-      Bucket: targetB2Bucket,
-      Key: decodedPath,
-    })
-
-    const response = await b2Client.send(command)
-
     const filename = path.split("/").pop() || "file"
     const ext = filename.split(".").pop()?.toLowerCase() || ""
 
     const attachmentExtensions = ["pptx", "ppt", "docx", "doc", "xlsx", "xls"]
     const disposition = attachmentExtensions.includes(ext) ? "attachment" : "inline"
+    const contentDisposition = `${disposition}; filename="${encodeURIComponent(filename)}"`
+    const contentType = getContentTypeByExt(ext)
 
-    let contentType = response.ContentType
-    if (!contentType || contentType === "application/octet-stream") {
-      contentType = getContentTypeByExt(ext)
-    }
-
-    const stream = (response.Body as any)?.transformToWebStream?.() || (response.Body as ReadableStream)
-
-    return new Response(stream, {
-      headers: {
-        "Content-Type": contentType,
-        "Content-Disposition": `${disposition}; filename="${encodeURIComponent(filename)}"`,
-        "Cache-Control": "private, max-age=3600",
-      },
+    const command = new GetObjectCommand({
+      Bucket: targetB2Bucket,
+      Key: decodedPath,
+      ResponseContentDisposition: contentDisposition,
+      ResponseContentType: contentType,
     })
+
+    const presignedUrl = await getSignedUrl(b2Client, command, {
+      expiresIn: 3600,
+    })
+
+    return Response.redirect(presignedUrl, 302)
   } catch (err: any) {
-    console.error("Error streaming file from B2:", err)
+    console.error("Error generating presigned URL from B2:", err)
     return new Response('File not found', { status: 404 })
   }
 }
