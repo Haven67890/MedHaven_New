@@ -1,7 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import { GetObjectCommand } from "@aws-sdk/client-s3"
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
-import { b2Client, DEFAULT_B2_BUCKET } from "@/lib/b2"
 import { createClient } from "@/lib/supabase/server"
 
 export async function GET(request: NextRequest) {
@@ -22,18 +19,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const workerUrl = process.env.CLOUDFLARE_WORKER_URL
+    if (!workerUrl) {
+      return Response.json({ error: 'Worker URL not configured' },
+        { status: 500 })
+    }
+
     const decodedPath = decodeURIComponent(path)
-    const bucket = process.env.B2_BUCKET_NAME || DEFAULT_B2_BUCKET
+    const encodedPath = decodedPath
+      .split('/')
+      .map(segment => encodeURIComponent(segment))
+      .join('/')
 
-    const command = new GetObjectCommand({
-      Bucket: bucket,
-      Key: decodedPath,
-      ResponseContentDisposition: "inline",
-    })
+    const workerBase = workerUrl.endsWith('/')
+      ? workerUrl.slice(0, -1)
+      : workerUrl
 
-    const presignedUrl = await getSignedUrl(b2Client, command, { expiresIn: 3600 })
-
-    return NextResponse.json({ url: presignedUrl })
+    return Response.json({ url: `${workerBase}/${encodedPath}` })
   } catch (err: any) {
     console.error("Error generating preview presigned URL:", err)
     return NextResponse.json({ error: "Preview unavailable" }, { status: 404 })
