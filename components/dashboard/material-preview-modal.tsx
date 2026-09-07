@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button"
 import { PDFViewer } from "@/components/viewers/PDFViewer"
 import { DocxViewer } from "@/components/viewers/DocxViewer"
 import { PptxViewer } from "@/components/viewers/PptxViewer"
+import { getSlideDeckProvider, getSlideEmbedApiUrl } from "@/lib/embed"
 
 export interface PreviewModalData {
   isOpen: boolean
   title: string
   url: string
-  type: "pdf" | "office" | "image" | "video" | "slideshare" | null
+  type: "pdf" | "office" | "image" | "video" | "slideshare" | "slideserve" | null
   isEmbeddable?: boolean
   materialId?: string
   storagePath?: string | null
@@ -46,6 +47,98 @@ function extractStoragePath(modal: PreviewModalData): string | null {
     }
   }
   return null
+}
+
+function SlideDeckEmbedPreview({ url, title }: { url: string; title: string }) {
+  const [embedSrc, setEmbedSrc] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    const fetchEmbed = async () => {
+      setLoading(true)
+      setError(false)
+      try {
+        const provider = getSlideDeckProvider(url) || "slideshare"
+        const res = await fetch(getSlideEmbedApiUrl(provider, url))
+        if (!res.ok) {
+          throw new Error("Failed to fetch embed configuration")
+        }
+        const data = await res.json()
+        if (!data.html) {
+          throw new Error("No HTML field in embed response")
+        }
+
+        const parser = new DOMParser()
+        const doc = parser.parseFromString(data.html, "text/html")
+        const iframe = doc.querySelector("iframe")
+        let src = iframe ? iframe.getAttribute("src") : null
+
+        if (!src && data.html && (data.html.startsWith("http") || data.html.startsWith("//"))) {
+          src = data.html
+        }
+
+        if (src && active) {
+          const normalizedSrc = src.startsWith("//") ? `https:${src}` : src
+          setEmbedSrc(normalizedSrc)
+        } else {
+          throw new Error("Could not extract iframe src")
+        }
+      } catch (err) {
+        console.error("Slide deck embed preview failed:", err)
+        if (active) {
+          setError(true)
+        }
+      } finally {
+        if (active) {
+          setLoading(false)
+        }
+      }
+    }
+
+    void fetchEmbed()
+    return () => {
+      active = false
+    }
+  }, [url])
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 text-muted-foreground p-8">
+        <div className="size-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+        <p className="text-sm font-medium text-zinc-300">Loading presentation preview...</p>
+      </div>
+    )
+  }
+
+  if (error || !embedSrc) {
+    return (
+      <div className="flex flex-col items-center justify-center text-center p-6 max-w-md bg-card rounded-xl border border-border shadow-md">
+        <div className="flex size-14 items-center justify-center rounded-full bg-amber-500/10 text-amber-500 mb-4">
+          <ExternalLink className="size-7" />
+        </div>
+        <h4 className="font-semibold text-foreground text-base mb-1">External Presentation</h4>
+        <p className="text-xs text-muted-foreground mb-4">
+          This presentation cannot be embedded inline. Click below to view it directly on the provider website.
+        </p>
+        <Button asChild variant="default" size="sm">
+          <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
+            Open Presentation <ExternalLink className="size-3.5" />
+          </a>
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <iframe
+      src={embedSrc}
+      className="absolute inset-0 w-full h-full border-0 bg-black"
+      title={title}
+      allowFullScreen
+    />
+  )
 }
 
 export function MaterialPreviewModal({ modal, onClose }: MaterialPreviewModalProps) {
@@ -156,15 +249,8 @@ export function MaterialPreviewModal({ modal, onClose }: MaterialPreviewModalPro
       )
     }
 
-    if (type === "slideshare") {
-      return (
-        <iframe
-          src={url}
-          className="absolute inset-0 w-full h-full border-0 bg-black"
-          title={title}
-          allowFullScreen
-        />
-      )
+    if (type === "slideshare" || type === "slideserve" || Boolean(getSlideDeckProvider(url))) {
+      return <SlideDeckEmbedPreview url={url} title={title} />
     }
 
     // PDF Documents
