@@ -14,11 +14,14 @@ import {
 } from "@/components/ui/motion"
 
 export const metadata: Metadata = {
-  title: "About Us — MedHaven Story & Mission",
+  title: "About Us — Story & Mission",
   description:
     "Learn about MedHaven: a platform built by medical students for medical students. Discover our mission, vision, and how we empower medical scholars across Nigeria.",
+  alternates: {
+    canonical: "https://medhaven.onrender.com/about",
+  },
   openGraph: {
-    title: "About Us — MedHaven Story & Mission",
+    title: "About Us — Story & Mission | MedHaven",
     description:
       "Learn about MedHaven: a platform built by medical students for medical students. Discover our mission, vision, and how we empower medical scholars across Nigeria.",
     url: "https://medhaven.onrender.com/about",
@@ -35,7 +38,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "About Us — MedHaven Story & Mission",
+    title: "About Us — Story & Mission | MedHaven",
     description:
       "Learn about MedHaven: a platform built by medical students for medical students. Discover our mission, vision, and how we empower medical scholars across Nigeria.",
     images: [
