@@ -254,7 +254,7 @@ export function MaterialPreviewModal({ modal, onClose }: MaterialPreviewModalPro
     }
 
     // PDF Documents
-    if (ext === "pdf" && storagePath) {
+    if ((ext === "pdf" || type === "pdf") && storagePath) {
       return <PDFViewer storagePath={storagePath} />
     }
 
@@ -263,8 +263,8 @@ export function MaterialPreviewModal({ modal, onClose }: MaterialPreviewModalPro
       return <DocxViewer storagePath={storagePath} />
     }
 
-    // PPTX / PPT Presentations
-    if ((ext === "pptx" || ext === "ppt") && storagePath) {
+    // Office Presentations / Documents (PPT, PPTX, DOC, XLS, XLSX)
+    if ((["pptx", "ppt", "doc", "xls", "xlsx"].includes(ext) || type === "office") && storagePath) {
       return <PptxViewer storagePath={storagePath} />
     }
 
