@@ -35,6 +35,9 @@ export const metadata: Metadata = {
   title: "MedHaven — The Digital Workspace for Nigerian Medical Scholars",
   description:
     "Free access to course-specific past questions, AI quizzes, flashcards, and verified lecturer slides tailored for MBBS excellence across Nigerian medical schools.",
+  alternates: {
+    canonical: "https://medhaven.onrender.com",
+  },
   openGraph: {
     title: "MedHaven — The Digital Workspace for Nigerian Medical Scholars",
     description:
@@ -158,10 +161,14 @@ export default function Home() {
           </MotionReveal>
 
           <MotionReveal delay={0.1} direction="up" distance={15}>
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/20 px-4 py-1.5 text-xs font-semibold tracking-wide text-primary-foreground sm:text-primary uppercase shadow-sm backdrop-blur-sm">
+            <Link
+              href="/about"
+              className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/20 px-4 py-1.5 text-xs font-semibold tracking-wide text-primary-foreground sm:text-primary uppercase shadow-sm backdrop-blur-sm hover:border-primary/50 transition-colors"
+            >
               <Sparkles className="h-3.5 w-3.5" />
-              <span>Built by Medical Students, for Medical Students</span>
-            </div>
+              <span>Built by Medical Students, for Medical Students — Read Our Story</span>
+              <ArrowRight className="h-3 w-3" />
+            </Link>
           </MotionReveal>
 
           <MotionReveal delay={0.2} direction="up" distance={20}>
@@ -250,6 +257,16 @@ export default function Home() {
             )
           })}
         </MotionStaggerGroup>
+
+        <div className="mt-12 text-center">
+          <MotionButton scaleHover={1.04} className="inline-block">
+            <Button asChild variant="outline" size="lg" className="gap-2 font-semibold">
+              <Link href="/features">
+                Explore All Features <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          </MotionButton>
+        </div>
       </section>
 
       {/* How It Works Section */}
@@ -303,11 +320,18 @@ export default function Home() {
             <p className="mt-4 text-muted-foreground max-w-xl mx-auto text-sm sm:text-base">
               We are actively expanding our course database and past questions to support medical schools across the entire nation.
             </p>
-            <div className="mt-6">
+            <div className="mt-6 flex flex-wrap justify-center gap-4">
               <MotionButton scaleHover={1.04} className="inline-block">
                 <Button asChild size="lg" className="gap-2">
                   <Link href="/register">
                     Register to Get Notified <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </MotionButton>
+              <MotionButton scaleHover={1.04} className="inline-block">
+                <Button asChild variant="outline" size="lg" className="gap-2 font-semibold">
+                  <Link href="/courses">
+                    Browse Course Catalog <ArrowRight className="h-4 w-4" />
                   </Link>
                 </Button>
               </MotionButton>

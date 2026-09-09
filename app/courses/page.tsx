@@ -12,11 +12,14 @@ import { SiteShell } from "@/components/layout/site-shell"
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: "Courses — MBBS Curriculum at MedHaven",
+  title: "Courses — MBBS Curriculum",
   description:
     "Browse all MBBS courses available on MedHaven, from 100L to 600L. Built for University of Jos, expanding to all Nigerian medical schools.",
+  alternates: {
+    canonical: "https://medhaven.onrender.com/courses",
+  },
   openGraph: {
-    title: "Courses — MBBS Curriculum at MedHaven",
+    title: "Courses — MBBS Curriculum | MedHaven",
     description:
       "Browse all MBBS courses available on MedHaven, from 100L to 600L. Built for University of Jos, expanding to all Nigerian medical schools.",
     url: "https://medhaven.onrender.com/courses",
@@ -33,7 +36,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Courses — MBBS Curriculum at MedHaven",
+    title: "Courses — MBBS Curriculum | MedHaven",
     description:
       "Browse all MBBS courses available on MedHaven, from 100L to 600L. Built for University of Jos, expanding to all Nigerian medical schools.",
     images: [

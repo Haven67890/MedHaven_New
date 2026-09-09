@@ -22,11 +22,14 @@ import {
 } from "@/components/ui/motion"
 
 export const metadata: Metadata = {
-  title: "Features — MedHaven Medical Study Platform",
+  title: "Features — Medical Study Platform",
   description:
     "Explore MedHaven's full suite of study features built specifically for MBBS students: past questions, smart library, MCQ/SBA quizzes, picture tests & steeplechase, lecturer materials, and AI flashcards.",
+  alternates: {
+    canonical: "https://medhaven.onrender.com/features",
+  },
   openGraph: {
-    title: "Features — MedHaven Medical Study Platform",
+    title: "Features — Medical Study Platform | MedHaven",
     description:
       "Explore MedHaven's full suite of study features built specifically for MBBS students: past questions, smart library, MCQ/SBA quizzes, picture tests & steeplechase, lecturer materials, and AI flashcards.",
     url: "https://medhaven.onrender.com/features",
@@ -43,7 +46,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Features — MedHaven Medical Study Platform",
+    title: "Features — Medical Study Platform | MedHaven",
     description:
       "Explore MedHaven's full suite of study features built specifically for MBBS students: past questions, smart library, MCQ/SBA quizzes, picture tests & steeplechase, lecturer materials, and AI flashcards.",
     images: [
