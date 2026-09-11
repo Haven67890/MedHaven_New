@@ -44,9 +44,22 @@ function RegisterContent() {
 
   const [showOtpStep, setShowOtpStep] = useState(false)
   const [otpCode, setOtpCode] = useState("")
+  const [resendCountdown, setResendCountdown] = useState(60)
+  const [isResending, setIsResending] = useState(false)
+  const [successMessage, setSuccessMessage] = useState("")
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
+
+  useEffect(() => {
+    if (!showOtpStep || resendCountdown <= 0) return
+
+    const timer = setInterval(() => {
+      setResendCountdown((prev) => (prev > 0 ? prev - 1 : 0))
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [showOtpStep, resendCountdown])
 
   useEffect(() => {
     const fetchMetadata = async () => {
@@ -172,6 +185,9 @@ function RegisterContent() {
       } else {
         // Show OTP Step instead of hiding form or resetting
         setShowOtpStep(true)
+        setResendCountdown(60)
+        setError("")
+        setSuccessMessage("")
       }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (submitError: any) {
@@ -181,9 +197,35 @@ function RegisterContent() {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const isExpiredOrInvalidOtpError = (err: any): boolean => {
+    if (!err) return false
+    const code = (err.code || "").toLowerCase()
+    const name = (err.name || "").toLowerCase()
+    const message = (err.message || (typeof err === "string" ? err : "")).toLowerCase()
+
+    return (
+      code === "otp_expired" ||
+      code === "token_expired" ||
+      code === "invalid_grant" ||
+      code.includes("expired") ||
+      name.includes("expired") ||
+      message.includes("expired") ||
+      message.includes("invalid otp") ||
+      message.includes("invalid token") ||
+      message.includes("token is invalid") ||
+      message.includes("invalid code") ||
+      message.includes("token has expired") ||
+      message.includes("bad jwt")
+    )
+  }
+
   const handleOtpSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (isSubmitting || isResending) return
+
     setError("")
+    setSuccessMessage("")
     setIsSubmitting(true)
 
     try {
@@ -194,16 +236,52 @@ function RegisterContent() {
       })
 
       if (otpError) {
-        setError(otpError.message || (typeof otpError === 'string' ? otpError : JSON.stringify(otpError)))
+        if (isExpiredOrInvalidOtpError(otpError)) {
+          setError("This code has expired. Please request a new code.")
+        } else {
+          setError(otpError.message || (typeof otpError === 'string' ? otpError : JSON.stringify(otpError)))
+        }
         return
       }
 
       router.replace("/dashboard")
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (verifyError: any) {
-      setError(verifyError?.message || (typeof verifyError === 'string' ? verifyError : JSON.stringify(verifyError)))
+      if (isExpiredOrInvalidOtpError(verifyError)) {
+        setError("This code has expired. Please request a new code.")
+      } else {
+        setError(verifyError?.message || (typeof verifyError === 'string' ? verifyError : JSON.stringify(verifyError)))
+      }
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleResendCode = async () => {
+    if (isSubmitting || isResending || resendCountdown > 0) return
+
+    setError("")
+    setSuccessMessage("")
+    setIsResending(true)
+
+    try {
+      const { error: resendError } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+      })
+
+      if (resendError) {
+        setError(resendError.message || (typeof resendError === 'string' ? resendError : JSON.stringify(resendError)))
+        return
+      }
+
+      setSuccessMessage("A new verification code has been sent to your email.")
+      setResendCountdown(60)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (resendErr: any) {
+      setError(resendErr?.message || (typeof resendErr === 'string' ? resendErr : JSON.stringify(resendErr)))
+    } finally {
+      setIsResending(false)
     }
   }
 
@@ -237,6 +315,14 @@ function RegisterContent() {
         </CardHeader>
         <CardContent>
           <form aria-label="Verify OTP" className="flex flex-col gap-6" onSubmit={handleOtpSubmit}>
+            {/* SUCCESS ALERT BANNER */}
+            {successMessage ? (
+              <div className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-sm rounded-lg p-4 flex flex-col gap-1 shadow-sm font-medium">
+                <span className="font-extrabold uppercase text-xs tracking-wider">Success</span>
+                <p>{successMessage}</p>
+              </div>
+            ) : null}
+
             {/* LOUD ERROR ALERT BANNER */}
             {(error || errorQuery) ? (
               <div className="bg-destructive/15 border border-destructive/30 text-destructive text-sm rounded-lg p-4 flex flex-col gap-1 shadow-sm font-medium">
@@ -248,17 +334,53 @@ function RegisterContent() {
             <FieldGroup>
               <Field>
                 <FieldLabel htmlFor="register-otp">Verification Code</FieldLabel>
-                <Input id="register-otp" type="text" maxLength={6} placeholder="Enter 6-digit OTP code" value={otpCode} onChange={(event) => setOtpCode(event.target.value)} required />
+                <Input
+                  id="register-otp"
+                  type="text"
+                  maxLength={6}
+                  placeholder="Enter 6-digit OTP code"
+                  value={otpCode}
+                  onChange={(event) => setOtpCode(event.target.value)}
+                  disabled={isSubmitting || isResending}
+                  required
+                />
               </Field>
             </FieldGroup>
 
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? "Verifying..." : "Verify Code"}
-            </Button>
+            <div className="flex flex-col gap-3">
+              <Button type="submit" className="w-full" disabled={isSubmitting || isResending}>
+                {isSubmitting ? "Verifying..." : "Verify Code"}
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={handleResendCode}
+                disabled={isSubmitting || isResending || resendCountdown > 0}
+              >
+                {isResending
+                  ? "Sending..."
+                  : resendCountdown > 0
+                  ? `Resend available in ${resendCountdown}s`
+                  : "Resend code"}
+              </Button>
+            </div>
           </form>
         </CardContent>
         <CardFooter className="justify-center border-t border-border pt-6 text-sm text-muted-foreground">
-          Didn&apos;t get a code?&nbsp;<button type="button" onClick={() => setShowOtpStep(false)} className="font-medium text-primary underline-offset-4 hover:underline">Go back to signup</button>
+          Didn&apos;t get a code?&nbsp;
+          <button
+            type="button"
+            onClick={() => {
+              setShowOtpStep(false)
+              setError("")
+              setSuccessMessage("")
+            }}
+            className="font-medium text-primary underline-offset-4 hover:underline"
+          >
+            Go back to signup
+          </button>
         </CardFooter>
       </Card>
     )
