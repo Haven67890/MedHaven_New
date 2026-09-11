@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { FormEvent, useState, useEffect, Suspense } from "react"
+import { FormEvent, useState, useEffect, useRef, Suspense, KeyboardEvent, ClipboardEvent } from "react"
 
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -43,7 +43,8 @@ function RegisterContent() {
   const [confirmPassword, setConfirmPassword] = useState("")
 
   const [showOtpStep, setShowOtpStep] = useState(false)
-  const [otpCode, setOtpCode] = useState("")
+  const [otp, setOtp] = useState<string[]>(["", "", "", "", "", "", "", ""])
+  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([])
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
@@ -181,15 +182,55 @@ function RegisterContent() {
     }
   }
 
+  const handleOtpChange = (index: number, value: string) => {
+    const digit = value.slice(-1)
+    const newOtp = [...otp]
+    newOtp[index] = digit
+    setOtp(newOtp)
+
+    if (digit && index < 7) {
+      otpInputRefs.current[index + 1]?.focus()
+    }
+  }
+
+  const handleOtpKeyDown = (index: number, e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace" && !otp[index] && index > 0) {
+      otpInputRefs.current[index - 1]?.focus()
+    }
+  }
+
+  const handleOtpPaste = (e: ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault()
+    const pastedData = e.clipboardData.getData("text").trim().replace(/\D/g, "")
+    if (!pastedData) return
+
+    const digits = pastedData.slice(0, 8).split("")
+    const newOtp = [...otp]
+    digits.forEach((d, i) => {
+      newOtp[i] = d
+    })
+    setOtp(newOtp)
+
+    const nextIndex = Math.min(digits.length, 7)
+    otpInputRefs.current[nextIndex]?.focus()
+  }
+
   const handleOtpSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError("")
+
+    const otpString = otp.join("").trim()
+    if (otpString.length < 8) {
+      setError("Please enter the complete 8-digit verification code.")
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
       const { error: otpError } = await supabase.auth.verifyOtp({
         email,
-        token: otpCode.trim(),
+        token: otpString,
         type: 'signup',
       })
 
@@ -232,7 +273,7 @@ function RegisterContent() {
         <CardHeader>
           <CardTitle className="text-2xl">Verify Your Email</CardTitle>
           <CardDescription>
-            Enter the 6-digit verification code sent to your email. You can either type the 6-digit code below OR click the confirmation link in your email to verify.
+            Enter the 8-digit verification code sent to your email. You can either type the 8-digit code below OR click the confirmation link in your email to verify.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -247,8 +288,28 @@ function RegisterContent() {
 
             <FieldGroup>
               <Field>
-                <FieldLabel htmlFor="register-otp">Verification Code</FieldLabel>
-                <Input id="register-otp" type="text" maxLength={6} placeholder="Enter 6-digit OTP code" value={otpCode} onChange={(event) => setOtpCode(event.target.value)} required />
+                <FieldLabel htmlFor="otp-box-0">8-Digit Verification Code</FieldLabel>
+                <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+                  {otp.map((digit, idx) => (
+                    <input
+                      key={idx}
+                      id={`otp-box-${idx}`}
+                      ref={(el) => {
+                        otpInputRefs.current[idx] = el
+                      }}
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={1}
+                      value={digit}
+                      onChange={(e) => handleOtpChange(idx, e.target.value)}
+                      onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                      onPaste={handleOtpPaste}
+                      aria-label={`Digit ${idx + 1} of 8`}
+                      className="w-8 h-10 sm:w-10 sm:h-12 text-center text-lg sm:text-xl font-bold rounded-md border border-input bg-background text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-ring"
+                    />
+                  ))}
+                </div>
               </Field>
             </FieldGroup>
 
