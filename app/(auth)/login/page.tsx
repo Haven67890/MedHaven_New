@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { FormEvent, useState, Suspense } from "react"
+import { FormEvent, useState, useRef, Suspense, KeyboardEvent, ClipboardEvent } from "react"
 
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -22,6 +22,16 @@ function LoginContent() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
 
+  // Unverified email inline state
+  const [isUnverified, setIsUnverified] = useState(false)
+  const [otp, setOtp] = useState<string[]>(["", "", "", "", "", "", "", ""])
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false)
+  const [otpError, setOtpError] = useState("")
+  const [resendStatus, setResendStatus] = useState<string | null>(null)
+  const [isResending, setIsResending] = useState(false)
+
+  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([])
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError("")
@@ -34,7 +44,16 @@ function LoginContent() {
       })
 
       if (signInError) {
-        setError(signInError.message)
+        const msg = signInError.message || ""
+        if (
+          msg.toLowerCase().includes("email not confirmed") ||
+          msg.toLowerCase().includes("not verified") ||
+          msg.toLowerCase().includes("unverified")
+        ) {
+          setIsUnverified(true)
+        } else {
+          setError(msg)
+        }
         return
       }
 
@@ -43,6 +62,95 @@ function LoginContent() {
       setError(submitError instanceof Error ? submitError.message : "Unable to sign in.")
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleOtpChange = (index: number, value: string) => {
+    const digit = value.slice(-1)
+    const newOtp = [...otp]
+    newOtp[index] = digit
+    setOtp(newOtp)
+
+    if (digit && index < 7) {
+      otpInputRefs.current[index + 1]?.focus()
+    }
+  }
+
+  const handleOtpKeyDown = (index: number, e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace" && !otp[index] && index > 0) {
+      otpInputRefs.current[index - 1]?.focus()
+    }
+  }
+
+  const handleOtpPaste = (e: ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault()
+    const pastedData = e.clipboardData.getData("text").trim().replace(/\D/g, "")
+    if (!pastedData) return
+
+    const digits = pastedData.slice(0, 8).split("")
+    const newOtp = [...otp]
+    digits.forEach((d, i) => {
+      newOtp[i] = d
+    })
+    setOtp(newOtp)
+
+    const nextIndex = Math.min(digits.length, 7)
+    otpInputRefs.current[nextIndex]?.focus()
+  }
+
+  const handleResendVerification = async () => {
+    setIsResending(true)
+    setOtpError("")
+    setResendStatus(null)
+
+    try {
+      const { error: resendError } = await supabase.auth.resend({
+        type: "signup",
+        email: email.trim(),
+      })
+
+      if (resendError) {
+        setOtpError(resendError.message)
+      } else {
+        setResendStatus("A new verification code has been sent to your email.")
+      }
+    } catch (err) {
+      setOtpError("Failed to resend verification email. Please try again.")
+    } finally {
+      setIsResending(false)
+    }
+  }
+
+  const handleVerifyOtp = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setOtpError("")
+    setResendStatus(null)
+
+    const code = otp.join("").trim()
+    if (code.length < 8) {
+      setOtpError("Please enter the complete 8-digit verification code.")
+      return
+    }
+
+    setIsVerifyingOtp(true)
+
+    try {
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email: email.trim(),
+        token: code,
+        type: "signup",
+      })
+
+      if (verifyError) {
+        setOtpError("Invalid or expired code. Try resending.")
+        return
+      }
+
+      router.replace("/dashboard")
+    } catch (err) {
+      setOtpError("Invalid or expired code. Try resending.")
+    } finally {
+      setIsVerifyingOtp(false)
     }
   }
 
@@ -61,6 +169,97 @@ function LoginContent() {
     } catch (oauthErr) {
       setError(oauthErr instanceof Error ? oauthErr.message : "Google sign-in failed.")
     }
+  }
+
+  if (isUnverified) {
+    return (
+      <Card className="border-border shadow-xl shadow-primary/5">
+        <CardHeader>
+          <CardTitle className="text-2xl text-primary">Email Verification Required</CardTitle>
+          <CardDescription className="text-base text-foreground font-medium mt-1">
+            Your email hasn&apos;t been verified yet
+          </CardDescription>
+          <p className="text-xs text-muted-foreground mt-1">
+            Enter the 8-digit code sent to <span className="font-semibold text-foreground">{email}</span> or request a new code below.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <form aria-label="Verify OTP Code" className="flex flex-col gap-6" onSubmit={handleVerifyOtp}>
+            {otpError ? (
+              <div className="bg-destructive/15 border border-destructive/30 text-destructive text-sm rounded-lg p-4 flex flex-col gap-1 shadow-sm font-medium">
+                <span className="font-extrabold uppercase text-xs tracking-wider">Verification Error:</span>
+                <p>{otpError}</p>
+              </div>
+            ) : null}
+
+            {resendStatus ? (
+              <div className="bg-primary/15 border border-primary/30 text-primary text-sm rounded-lg p-4 font-medium shadow-sm">
+                <p>{resendStatus}</p>
+              </div>
+            ) : null}
+
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="otp-box-0">8-Digit Verification Code</FieldLabel>
+                <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+                  {otp.map((digit, idx) => (
+                    <input
+                      key={idx}
+                      id={`otp-box-${idx}`}
+                      ref={(el) => {
+                        otpInputRefs.current[idx] = el
+                      }}
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={1}
+                      value={digit}
+                      onChange={(e) => handleOtpChange(idx, e.target.value)}
+                      onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                      onPaste={handleOtpPaste}
+                      aria-label={`Digit ${idx + 1} of 8`}
+                      className="w-8 h-10 sm:w-10 sm:h-12 text-center text-lg sm:text-xl font-bold rounded-md border border-input bg-background text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-ring"
+                    />
+                  ))}
+                </div>
+              </Field>
+            </FieldGroup>
+
+            <div className="flex flex-col gap-3">
+              <Button type="submit" className="w-full" disabled={isVerifyingOtp}>
+                {isVerifyingOtp ? "Verifying..." : "Verify Code"}
+              </Button>
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={handleResendVerification}
+                  disabled={isResending}
+                  className="text-xs text-primary underline-offset-4 hover:underline disabled:opacity-50 font-medium"
+                >
+                  {isResending ? "Resending..." : "Resend verification email"}
+                </button>
+              </div>
+            </div>
+          </form>
+        </CardContent>
+        <CardFooter className="justify-center border-t border-border pt-6 text-sm text-muted-foreground">
+          <button
+            type="button"
+            onClick={() => {
+              setIsUnverified(false)
+              setOtp(["", "", "", "", "", "", "", ""])
+              setOtpError("")
+              setResendStatus(null)
+              setError("")
+            }}
+            className="font-medium text-primary underline-offset-4 hover:underline"
+          >
+            Back to sign in
+          </button>
+        </CardFooter>
+      </Card>
+    )
   }
 
   return (
