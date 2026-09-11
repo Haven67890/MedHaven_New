@@ -1403,8 +1403,8 @@ export default function AIQuizzesPage() {
                   {/* SELECT QUESTION COUNT */}
                   <div className="flex flex-col gap-2">
                     <span className="text-xs font-semibold text-muted-foreground">Number of Questions</span>
-                    <div className="flex items-center gap-2">
-                      {[5, 10, 15].map((val) => {
+                    <div className="flex flex-wrap items-center gap-2">
+                      {[5, 10, 15, 20, 25, 30].map((val) => {
                         const active = questionCount === val
                         return (
                           <button
