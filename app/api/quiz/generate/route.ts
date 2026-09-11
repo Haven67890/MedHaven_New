@@ -1,6 +1,28 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 
+async function extractTextFromPdfBuffer(buffer: ArrayBuffer): Promise<string> {
+  try {
+    const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs")
+    const loadingTask = pdfjs.getDocument({ data: new Uint8Array(buffer) })
+    const pdf = await loadingTask.promise
+    let fullText = ""
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i)
+      const content = await page.getTextContent()
+      const pageText = content.items
+        .map((item: any) => item.str || "")
+        .filter(Boolean)
+        .join(" ")
+      fullText += pageText + "\n"
+    }
+    return fullText.trim()
+  } catch (err) {
+    console.warn("Failed to extract PDF text from past question material:", err)
+    return ""
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     // 1. Authenticate user
@@ -63,7 +85,7 @@ export async function POST(request: NextRequest) {
       console.error("Error querying cached quizzes:", fetchError)
     }
 
-    if (existingQuiz && existingQuiz.quiz_questions && existingQuiz.quiz_questions.length > 0) {
+    if (existingQuiz && existingQuiz.quiz_questions && existingQuiz.quiz_questions.length >= limitCount) {
       // Map questions to standard response format, sliced to requested count
       const formattedQuestions = existingQuiz.quiz_questions.map((q: any) => ({
         id: q.id,
@@ -100,49 +122,154 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Groq API configuration missing on the server" }, { status: 500 })
     }
 
+    // 5. Query local past question materials first for grounding context
+    let groundingContext = ""
+    try {
+      const { data: pqMaterials } = await supabase
+        .from("materials")
+        .select("id, title, storage_path")
+        .eq("course_id", course_id)
+        .ilike("storage_path", "%past-questions%")
+        .limit(3)
+
+      if (pqMaterials && pqMaterials.length > 0) {
+        const workerBase = process.env.CLOUDFLARE_WORKER_URL || "https://medhaven-b2-proxy.v10.workers.dev"
+        const extractedTexts: string[] = []
+
+        for (const mat of pqMaterials) {
+          if (!mat.storage_path) continue
+          const fetchUrl = `${workerBase}/${mat.storage_path}`
+          try {
+            const res = await fetch(fetchUrl)
+            if (res.ok) {
+              const isPdf = mat.storage_path.toLowerCase().endsWith(".pdf")
+              if (isPdf) {
+                const arrayBuf = await res.arrayBuffer()
+                const text = await extractTextFromPdfBuffer(arrayBuf)
+                if (text) extractedTexts.push(text)
+              } else {
+                const text = await res.text()
+                if (text) extractedTexts.push(text)
+              }
+            }
+          } catch (fetchErr) {
+            console.warn(`Failed to fetch PQ material ${mat.id}:`, fetchErr)
+          }
+        }
+
+        const combinedPqText = extractedTexts.join("\n\n").trim()
+        if (combinedPqText) {
+          groundingContext = `Use the following past questions from this institution as style and content reference. Generate questions that closely mirror the format, difficulty, and topics of these past questions:\n\n${combinedPqText.slice(0, 6000)}`
+        }
+      }
+    } catch (pqErr) {
+      console.warn("Error querying local past questions:", pqErr)
+    }
+
+    // 6. Topic-enrichment fallback if past questions are absent/insufficient
+    const groqModel = process.env.GROQ_MODEL || "llama-3.3-70b-versatile"
+    let enrichedTopicsContext = ""
+    if (!groundingContext) {
+      try {
+        const topicResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: groqModel,
+            messages: [
+              {
+                role: "system",
+                content: "You are a medical education expert specialising in Nigerian MBBS and USMLE board examinations.",
+              },
+              {
+                role: "user",
+                content: `List the top 5-8 highest-yield clinical topics, common exam questions, and core concepts for the medical course "${courseContext}" and topic "${trimmedTopic}". Return a concise list of high-yield exam topics.`,
+              },
+            ],
+            temperature: 0.5,
+            max_tokens: 500,
+          }),
+        })
+
+        if (topicResponse.ok) {
+          const topicData = await topicResponse.json()
+          const topicContent = topicData.choices?.[0]?.message?.content
+          if (topicContent) {
+            enrichedTopicsContext = `High-yield exam topics and clinical concepts reference:\n${topicContent}`
+          }
+        }
+      } catch (topicErr) {
+        console.warn("Topic enrichment call failed:", topicErr)
+      }
+    }
+
     // -------------------------------------------------------------
-    // STANDARD QUIZ GENERATION FLOW (MCQ, SBA, OSCE, Short Answer)
+    // GENERATION PROMPT PREPARATION
     // -------------------------------------------------------------
-    const countToGenerate = trimmedTopic === "General Course Review" ? 15 : limitCount
+    const countToGenerate = limitCount
 
-    let systemPrompt = `You are an expert medical educator. Your task is to generate a quiz on the specified medical course and topic.
-You must return strictly valid JSON. Do not include any markdown formatting, backticks, or explanatory text outside the JSON structure.
-
-The response must be a single JSON object containing a key "questions", which is an array of exactly ${countToGenerate} question objects.
-Each question object in the array must have exactly the following keys:
-`
-
+    let formatStyleInstruction = ""
     if (chosenFormat === "Short Answer") {
-      systemPrompt += `- "question": string (the short answer question or clinical vignette requiring a free-text response)
+      formatStyleInstruction = `Generate short answer questions in the UNIJOS written exam style: direct, specific questions that require a 1-3 sentence factual answer. Include marks allocation hint in brackets e.g. (2 marks). Mirror past questions.
+
+Each question object in the array must have exactly the following keys:
+- "question": string (the short answer question or clinical vignette requiring a free-text response, including mark allocation e.g. "(2 marks)")
 - "options": array of strings (MUST be empty: [])
 - "correct_answer": string (the correct short answer or key terms/phrases)
 - "explanation": string (a brief explanation of why this answer is correct, key terms to include, and a clinical grading rubric)`
     } else if (chosenFormat === "OSCE") {
-      systemPrompt += `- "question": string (the OSCE clinical station vignette/scenario, e.g. "A 45-year-old male presents with severe chest pain...")
+      formatStyleInstruction = `Generate a realistic OSCE station as set in Nigerian teaching hospitals: a brief clinical scenario followed by 2-4 structured tasks (examination findings to elicit, investigations to request, diagnosis to state, or management steps to outline). Mirror past questions.
+
+Each question object in the array must have exactly the following keys:
+- "question": string (the OSCE clinical station vignette/scenario, e.g. "A 45-year-old male presents with severe chest pain...")
 - "sub_questions": array of 2 to 4 objects, each with {"question": string (a structured follow-up question, e.g. "What is the most likely diagnosis?"), "expected_answer": string (the expected clinical model answer), "explanation": string (brief clinical rationale for this sub-question)}
 - "options": array of strings (MUST be empty: [])
 - "correct_answer": string (summary answer, e.g. "OSCE Station Evaluation Key")
 - "explanation": string (overall station clinical performance rubric)`
     } else if (chosenFormat === "SBA") {
-      systemPrompt += `- "question": string (the single best answer clinical vignette question)
+      formatStyleInstruction = `Generate SBA questions in the Nigerian MBBS finals style: a clinical vignette of 3-5 sentences describing a real patient presentation, followed by 4-5 options where only one is the single best answer. Options should be plausible and closely related — not obviously wrong distractors. Mirror the style of the past questions provided.
+
+Each question object in the array must have exactly the following keys:
+- "question": string (the single best answer clinical vignette question)
 - "options": array of exactly 4 strings (the choices)
 - "correct_answer": string (the correct answer, which MUST match one of the strings inside the "options" array exactly. Distractors should be highly plausible but clearly inferior to the single best answer)
 - "explanation": string (a brief explanation of why this is the single best answer and why other distractors are incorrect)`
     } else { // MCQ
-      systemPrompt += `- "question": string (the question stem for the multiple True/False question, e.g. "Regarding acute appendicitis:")
+      formatStyleInstruction = `Generate questions in the USMLE/Nigerian MBBS MCQ style: one clinical stem followed by 4-5 independent True/False statements. Each statement should test a distinct fact about the condition. Mirror the style of the past questions provided.
+
+Each question object in the array must have exactly the following keys:
+- "question": string (the question stem for the multiple True/False question, e.g. "Regarding acute appendicitis:")
 - "tf_options": array of 4 to 5 objects, each with {"statement": string (a medical statement about the question stem), "answer": boolean (true if statement is correct/True, false if statement is incorrect/False)}
 - "options": array of strings (MUST be empty: [])
 - "correct_answer": string (summary answer, e.g. "A-True, B-False, C-True, D-True")
 - "explanation": string (brief explanation for each statement's True/False classification)`
     }
 
-    const userPrompt = `Generate a high-yield medical quiz for:
+    let systemPrompt = `You are an expert medical educator. Your task is to generate a quiz on the specified medical course and topic.
+You must return strictly valid JSON. Do not include any markdown formatting, backticks, or explanatory text outside the JSON structure.
+
+The response must be a single JSON object containing a key "questions", which is an array of exactly ${countToGenerate} question objects.
+
+${formatStyleInstruction}`
+
+    if (groundingContext) {
+      systemPrompt += `\n\n${groundingContext}`
+    }
+
+    let userPrompt = `Generate a high-yield medical quiz for:
 Course: ${courseContext}
 Topic: ${trimmedTopic}
 Format: ${chosenFormat}
-Number of Questions: ${countToGenerate}
+Number of Questions: ${countToGenerate}`
 
-Remember, return strictly a JSON object with a "questions" array of exactly ${countToGenerate} objects matching the format's structural requirements.`
+    if (enrichedTopicsContext) {
+      userPrompt += `\n\n${enrichedTopicsContext}`
+    }
+
+    userPrompt += `\n\nRemember, return strictly a JSON object with a "questions" array of exactly ${countToGenerate} objects matching the format's structural requirements.`
 
     const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -151,7 +278,7 @@ Remember, return strictly a JSON object with a "questions" array of exactly ${co
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "openai/gpt-oss-20b",
+        model: groqModel,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
