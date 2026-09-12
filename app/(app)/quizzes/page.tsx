@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import {
-  ArrowRight,
   Sparkles,
   Target,
   TrendingUp,
@@ -21,7 +20,10 @@ import {
   Activity,
   Image as ImageIcon,
   Check,
-  X
+  X,
+  Database,
+  Layers,
+  Info
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -29,14 +31,11 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { PageHeader } from "@/components/dashboard/page-header"
-import { SectionHeading } from "@/components/dashboard/section-heading"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { createClient } from "@/lib/supabase/client"
 import {
-  MotionReveal,
   MotionStaggerGroup,
   MotionStaggerItem,
-  MotionButton,
 } from "@/components/ui/motion"
 
 interface Course {
@@ -75,6 +74,7 @@ interface QuizQuestion {
     correct_findings: string
     differential_diagnosis?: string | null
   } | null
+  provenance?: Record<string, any>
 }
 
 interface AttemptWithDetails {
@@ -137,7 +137,40 @@ const formats = [
   }
 ] as const
 
-export default function AIQuizzesPage() {
+const quizModes = [
+  {
+    id: "practice",
+    title: "Practice Bank",
+    badge: "Fast & Deterministic",
+    desc: "Instant validated database questions from the MedHaven Question Bank. Zero AI delay.",
+    icon: Database,
+    color: "text-emerald-500",
+    border: "border-emerald-500/30",
+    bg: "bg-emerald-500/5"
+  },
+  {
+    id: "ai",
+    title: "AI Quiz",
+    badge: "Fresh & Adaptive",
+    desc: "Freshly generated questions grounded in course materials & blueprints with automatic bank safety net.",
+    icon: Sparkles,
+    color: "text-primary",
+    border: "border-primary/30",
+    bg: "bg-primary/5"
+  },
+  {
+    id: "mixed",
+    title: "Mixed Mode",
+    badge: "50% Bank + 50% AI",
+    desc: "Seamless combination of validated database questions and fresh AI generation.",
+    icon: Layers,
+    color: "text-amber-500",
+    border: "border-amber-500/30",
+    bg: "bg-amber-500/5"
+  }
+] as const
+
+export default function QuestionBankPage() {
   const supabase = createClient()
 
   // Data states
@@ -151,19 +184,21 @@ export default function AIQuizzesPage() {
   const [selectedCourseId, setSelectedCourseId] = useState("")
   const [customTopic, setCustomTopic] = useState("")
   const [selectedFormat, setSelectedFormat] = useState<"MCQ" | "SBA" | "OSCE" | "Short Answer">("MCQ")
-  const [questionCount, setQuestionCount] = useState<number>(10)
+  const [selectedMode, setSelectedMode] = useState<"practice" | "ai" | "mixed">("practice")
+  const [questionCount, setQuestionCount] = useState<number>(10) // Strictly 5 or 10
   const [generating, setGenerating] = useState(false)
   const [generationError, setGenerationError] = useState<string | null>(null)
+  const [fallbackNotice, setFallbackNotice] = useState<string | null>(null)
+  const [noQuestionsNotice, setNoQuestionsNotice] = useState<string | null>(null)
 
   // Loader message rotations
   const [loaderMessageIndex, setLoaderMessageIndex] = useState(0)
   const loaderMessages = [
-    "Analyzing course syllabus...",
-    "Querying local database cache...",
-    "Contacting MedHaven Groq AI...",
+    "Querying MedHaven Question Bank...",
     "Formulating clinical vignettes...",
-    "Polishing distractors and correct keys...",
-    "Injecting detailed rationales..."
+    "Validating single best answer keys...",
+    "Checking exam blueprint alignment...",
+    "Polishing rationales and feedback..."
   ]
 
   // Active quiz states
@@ -175,19 +210,18 @@ export default function AIQuizzesPage() {
   const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false)
   const [answersState, setAnswersState] = useState<Record<number, { selected: string; correct: boolean }>>({})
 
-  // Real MCQ T/F answers state: maps key `${questionIndex}_${statementIndex}` -> boolean
+  // Real MCQ T/F answers state
   const [tfAnswers, setTfAnswers] = useState<Record<string, boolean>>({})
 
-  // Steeplechase sub-questions state: maps key `${stationIndex}_${subIndex}`
+  // Steeplechase / OSCE sub-questions state
   const [typedSubAnswers, setTypedSubAnswers] = useState<Record<string, string>>({})
   const [submittedSubAnswers, setSubmittedSubAnswers] = useState<Record<string, boolean>>({})
   const [gradedSubAnswers, setGradedSubAnswers] = useState<Record<string, boolean>>({})
 
   // Finish states
   const [isFinished, setIsFinished] = useState(false)
-  const [savingAttempt, setSavingAttempt] = useState(false)
+  const [, setSavingAttempt] = useState(false)
 
-  // Handle rotating generation loader message
   useEffect(() => {
     if (!generating) {
       setLoaderMessageIndex(0)
@@ -199,7 +233,6 @@ export default function AIQuizzesPage() {
     return () => clearInterval(interval)
   }, [generating])
 
-  // Fetch initial data (user, courses, attempts)
   useEffect(() => {
     let active = true
 
@@ -207,7 +240,6 @@ export default function AIQuizzesPage() {
       try {
         setLoadingInitial(true)
 
-        // 1. Get user session
         const { data: { session } } = await supabase.auth.getSession()
         if (active) {
           setUserSession(session)
@@ -218,7 +250,6 @@ export default function AIQuizzesPage() {
           return
         }
 
-        // Fetch user level first
         let currentLvl = ""
         const { data: profileData } = await supabase
           .from("profiles")
@@ -232,74 +263,6 @@ export default function AIQuizzesPage() {
           }
         }
 
-        // Check for quizId query parameter to preload quiz
-        let urlQuizId: string | null = null
-        if (typeof window !== "undefined") {
-          const params = new URLSearchParams(window.location.search)
-          urlQuizId = params.get("quizId")
-        }
-
-        if (urlQuizId && active) {
-          const { data: quizData, error: quizError } = await supabase
-            .from("quizzes")
-            .select(`
-              id,
-              course_id,
-              topic,
-              format,
-              quiz_questions (
-                id,
-                question_text,
-                options,
-                correct_answer,
-                explanation,
-                image_bank_id,
-                sub_questions,
-                quiz_image_bank (
-                  id,
-                  title,
-                  category,
-                  image_url,
-                  correct_findings,
-                  differential_diagnosis
-                )
-              )
-            `)
-            .eq("id", urlQuizId)
-            .maybeSingle()
-
-          if (!quizError && quizData) {
-            const formattedQs = (quizData.quiz_questions || []).map((q: any) => ({
-              id: q.id,
-              question: q.question_text,
-              options: q.options || [],
-              correct_answer: q.correct_answer,
-              explanation: q.explanation || "No explanation provided.",
-              image_bank_id: q.image_bank_id || null,
-              sub_questions: q.sub_questions || null,
-              quiz_image_bank: q.quiz_image_bank || null,
-            }))
-
-            setQuestions(formattedQs)
-            setActiveQuizId(quizData.id)
-            setSelectedFormat((quizData.format || "MCQ") as any)
-            setSelectedCourseId(quizData.course_id || "")
-            setCurrentQuestionIndex(0)
-            setSelectedAnswer(null)
-            setTypedShortAnswer("")
-            setIsAnswerSubmitted(false)
-            setAnswersState({})
-            setTfAnswers({})
-            setTypedSubAnswers({})
-            setSubmittedSubAnswers({})
-            setGradedSubAnswers({})
-            setIsFinished(false)
-          } else {
-            console.error("Error fetching preloaded quiz:", quizError)
-          }
-        }
-
-        // 2. Fetch courses
         const { data: coursesData, error: coursesError } = await supabase
           .from("courses")
           .select("id, code, title, level")
@@ -308,7 +271,6 @@ export default function AIQuizzesPage() {
         if (coursesError) throw coursesError
 
         if (active && coursesData) {
-          // Sort courses: level match first, then alphabetically by code
           const sorted = [...(coursesData as Course[])].sort((a, b) => {
             const aMatch = a.level && currentLvl && String(a.level) === String(currentLvl)
             const bMatch = b.level && currentLvl && String(b.level) === String(currentLvl)
@@ -323,7 +285,6 @@ export default function AIQuizzesPage() {
           }
         }
 
-        // 3. Fetch past quiz attempts for this user
         const { data: attemptsData, error: attemptsError } = await supabase
           .from("quiz_attempts")
           .select(`
@@ -366,7 +327,6 @@ export default function AIQuizzesPage() {
     }
   }, [supabase])
 
-  // Generate / Fetch Quiz Questions
   const handleGenerateQuiz = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
     if (!selectedCourseId) return
@@ -376,6 +336,8 @@ export default function AIQuizzesPage() {
     try {
       setGenerating(true)
       setGenerationError(null)
+      setFallbackNotice(null)
+      setNoQuestionsNotice(null)
 
       const response = await fetch("/api/quiz/generate", {
         method: "POST",
@@ -384,6 +346,7 @@ export default function AIQuizzesPage() {
           course_id: selectedCourseId,
           topic: topicToUse,
           format: selectedFormat,
+          mode: selectedMode,
           count: questionCount
         })
       })
@@ -391,7 +354,17 @@ export default function AIQuizzesPage() {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to generate quiz. Please try again.")
+        throw new Error(data.error || "Failed to start quiz session. Please try again.")
+      }
+
+      if (data.message && (!data.questions || data.questions.length === 0)) {
+        setNoQuestionsNotice(data.message)
+        setGenerating(false)
+        return
+      }
+
+      if (data.fallback && data.fallback_reason) {
+        setFallbackNotice(data.fallback_reason)
       }
 
       setQuestions(data.questions)
@@ -407,20 +380,18 @@ export default function AIQuizzesPage() {
       setGradedSubAnswers({})
       setIsFinished(false)
     } catch (err: any) {
-      console.error("Quiz generation error:", err)
-      setGenerationError(err.message || "An unexpected error occurred while generating the quiz.")
+      console.error("Quiz start error:", err)
+      setGenerationError(err.message || "An unexpected error occurred while loading the quiz.")
     } finally {
       setGenerating(false)
     }
   }
 
-  // Handle selecting an answer choice
   const handleSelectAnswer = (choice: string) => {
     if (isAnswerSubmitted) return
     setSelectedAnswer(choice)
   }
 
-  // Submit single question answer
   const handleSubmitAnswer = () => {
     if (selectedFormat === "Short Answer") {
       if (!typedShortAnswer.trim() || isAnswerSubmitted) return
@@ -447,7 +418,6 @@ export default function AIQuizzesPage() {
     }
   }
 
-  // Next question / station logic
   const handleNextQuestion = () => {
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex((prev) => prev + 1)
@@ -460,7 +430,6 @@ export default function AIQuizzesPage() {
     }
   }
 
-  // Finish quiz and save attempt record to Supabase
   const handleFinishQuiz = async () => {
     setIsFinished(true)
     if (!activeQuizId || !userSession?.user?.id) return
@@ -468,7 +437,7 @@ export default function AIQuizzesPage() {
     let score = 0
     let totalQs = questions.length
 
-    if ((selectedFormat as string) === "Steeplechase" || isSteeplechaseStation) {
+    if (selectedFormat === "OSCE" || isSteeplechaseStation) {
       let correctSubCount = 0
       let totalSubCount = 0
       questions.forEach((st, stIdx) => {
@@ -547,7 +516,6 @@ export default function AIQuizzesPage() {
     }
   }
 
-  // Reset quiz states and go back to selection screen
   const handleBackToSetup = () => {
     setActiveQuizId(null)
     setQuestions([])
@@ -562,9 +530,10 @@ export default function AIQuizzesPage() {
     setGradedSubAnswers({})
     setIsFinished(false)
     setGenerationError(null)
+    setFallbackNotice(null)
+    setNoQuestionsNotice(null)
   }
 
-  // Render stats
   const totalAttemptsCount = attempts.length
   const avgAccuracy = attempts.length > 0
     ? Math.round((attempts.reduce((sum, item) => sum + (item.score / item.total_questions), 0) / attempts.length) * 100)
@@ -580,7 +549,7 @@ export default function AIQuizzesPage() {
     return (
       <div className="flex h-[50vh] flex-col items-center justify-center gap-4">
         <Loader2 className="size-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground font-medium">Initializing MedHaven Quiz Portal...</p>
+        <p className="text-sm text-muted-foreground font-medium">Initializing MedHaven Question Bank Portal...</p>
       </div>
     )
   }
@@ -588,7 +557,6 @@ export default function AIQuizzesPage() {
   const currentQ = questions[currentQuestionIndex]
   const isSteeplechaseStation = Boolean(currentQ && Array.isArray(currentQ.sub_questions) && currentQ.sub_questions.length > 0)
 
-  // Check if all sub-questions for current Steeplechase station are graded
   const currentStationSubQs = currentQ?.sub_questions || []
   const allSubQsGradedForCurrentStation = isSteeplechaseStation
     ? currentStationSubQs.every((_, subIdx) => gradedSubAnswers[`${currentQuestionIndex}_${subIdx}`] !== undefined)
@@ -596,7 +564,7 @@ export default function AIQuizzesPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title="Question Bank" description="Redesigned interactive revision system with multiple high-yield clinical formats, powered by Groq.">
+      <PageHeader title="Question Bank" description="Hybrid Medical Practice System: Practice Bank + Grounded AI Generation.">
         {activeQuizId && (
           <Button variant="outline" size="sm" onClick={handleBackToSetup} className="flex items-center gap-1.5 transition-all">
             <ArrowLeft className="size-4" /> Exit Portal
@@ -604,7 +572,6 @@ export default function AIQuizzesPage() {
         )}
       </PageHeader>
 
-      {/* Overview stats visible on selection or review screens */}
       {!activeQuizId && (
         <section>
           <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -624,12 +591,19 @@ export default function AIQuizzesPage() {
         </section>
       )}
 
-      {/* QUIZ PORTAL WORKSPACE */}
       {activeQuizId ? (
-        // Quiz interactive execution
         <div className="mx-auto w-full max-w-3xl">
+          {fallbackNotice && (
+            <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-800 dark:text-amber-200">
+              <Info className="size-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+              <div>
+                <span className="font-bold">Automatic Safety Net Activated: </span>
+                {fallbackNotice}
+              </div>
+            </div>
+          )}
+
           {!isFinished ? (
-            // Quiz taking mode
             <Card className="shadow-xl border-primary/25 overflow-hidden transition-all duration-300">
               <CardHeader className="border-b bg-muted/40 pb-4">
                 <div className="flex items-center justify-between">
@@ -651,12 +625,8 @@ export default function AIQuizzesPage() {
               </CardHeader>
 
               <CardContent className="pt-6 flex flex-col gap-4">
-                {/* ----------------------------------------------------------------- */}
-                {/* STEEPLECHASE STATION WORKSPACE */}
-                {/* ----------------------------------------------------------------- */}
                 {isSteeplechaseStation ? (
                   <div className="flex flex-col gap-6">
-                    {/* Station Specimen Image Card (if image attached) */}
                     {currentQ.quiz_image_bank?.image_url && (
                       <div className="border rounded-xl p-4 bg-muted/20 space-y-3">
                         <div className="flex items-center justify-between">
@@ -680,7 +650,6 @@ export default function AIQuizzesPage() {
                       </div>
                     )}
 
-                    {/* Sub-Questions Self-Grading Workspace */}
                     <div className="space-y-6">
                       <p className="text-xs font-bold text-foreground uppercase tracking-wider border-b pb-1">
                         Station Sub-Questions ({currentStationSubQs.length} items)
@@ -719,13 +688,11 @@ export default function AIQuizzesPage() {
                               </div>
                             ) : (
                               <div className="space-y-3 animate-in fade-in duration-200">
-                                {/* Student Response */}
                                 <div className="rounded-lg border bg-muted/30 p-3 text-xs">
                                   <p className="font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Your Response:</p>
                                   <p className="font-medium text-foreground italic">&quot;{userText || "[No response]"}&quot;</p>
                                 </div>
 
-                                {/* Ground-Truth Expected Answer */}
                                 <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs">
                                   <p className="font-bold text-emerald-500 uppercase tracking-wider mb-0.5">Model Answer (Ground Truth)</p>
                                   <p className="font-semibold text-foreground leading-relaxed">{subQ.expected_answer}</p>
@@ -738,7 +705,6 @@ export default function AIQuizzesPage() {
                                   </div>
                                 )}
 
-                                {/* Self-Grading buttons */}
                                 <div className="flex items-center justify-between pt-1">
                                   <span className="text-xs text-muted-foreground font-medium">Self-Grade this sub-question:</span>
                                   <div className="flex gap-2">
@@ -774,7 +740,6 @@ export default function AIQuizzesPage() {
                     </div>
                   </div>
                 ) : selectedFormat === "MCQ" && currentQ?.tf_options ? (
-                  // REAL MCQ MODE (True/False per statement with negative marking)
                   <div className="flex flex-col gap-5">
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                       Mark EACH statement True or False (+1 correct, −1 incorrect, 0 unanswered):
@@ -850,7 +815,6 @@ export default function AIQuizzesPage() {
                               </div>
                             </div>
 
-                            {/* Post-submission statement feedback */}
                             {isAnswerSubmitted && (
                               <div className="mt-3 border-t border-border/50 pt-2.5 flex items-center justify-between text-xs">
                                 <span className="font-semibold text-muted-foreground">
@@ -875,7 +839,6 @@ export default function AIQuizzesPage() {
                       })}
                     </div>
 
-                    {/* Explanations block */}
                     {isAnswerSubmitted && (
                       <div className="mt-2 rounded-xl border border-primary/10 bg-primary/5 p-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
                         <div className="flex items-center gap-2 mb-2">
@@ -889,7 +852,6 @@ export default function AIQuizzesPage() {
                     )}
                   </div>
                 ) : selectedFormat === "Short Answer" ? (
-                  // SHORT ANSWER MODE
                   <div className="flex flex-col gap-4">
                     {!isAnswerSubmitted ? (
                       <div className="flex flex-col gap-2">
@@ -901,13 +863,12 @@ export default function AIQuizzesPage() {
                           rows={4}
                           value={typedShortAnswer}
                           onChange={(e) => setTypedShortAnswer(e.target.value)}
-                          placeholder="Formulate your diagnostic theory, visual findings, key keywords, or treatment plans here..."
+                          placeholder="Formulate your diagnostic theory, key keywords, or treatment plans here..."
                           className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                         />
                       </div>
                     ) : (
                       <div className="flex flex-col gap-4 animate-in fade-in duration-300">
-                        {/* Student Response Display */}
                         <div className="rounded-xl border bg-muted/30 p-4">
                           <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Your Diagnostic Response:</p>
                           <p className="text-sm font-medium text-foreground italic leading-relaxed">
@@ -915,7 +876,6 @@ export default function AIQuizzesPage() {
                           </p>
                         </div>
 
-                        {/* Official Correct Answer / Rubric */}
                         <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
                           <p className="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-1">Model Answer & Key Terms</p>
                           <p className="text-sm font-semibold text-foreground leading-relaxed">
@@ -923,7 +883,6 @@ export default function AIQuizzesPage() {
                           </p>
                         </div>
 
-                        {/* Grading Explanation */}
                         <div className="rounded-xl border border-primary/10 bg-primary/5 p-4">
                           <p className="text-xs font-bold text-primary uppercase tracking-wider mb-1">Clinical Evaluation Rubric</p>
                           <p className="text-sm text-foreground leading-relaxed">
@@ -931,7 +890,6 @@ export default function AIQuizzesPage() {
                           </p>
                         </div>
 
-                        {/* Interactive Self-Evaluation controls */}
                         <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 flex flex-col items-center gap-2.5 text-center">
                           <p className="text-xs font-bold text-amber-500 uppercase tracking-wider">Self-Grading Check</p>
                           <p className="text-xs text-muted-foreground max-w-md">
@@ -980,7 +938,6 @@ export default function AIQuizzesPage() {
                     )}
                   </div>
                 ) : (
-                  // MULTIPLE CHOICE / SBA / PICTURE MODES
                   <div className="flex flex-col gap-4">
                     <div className="flex flex-col gap-3">
                       {currentQ.options.map((option, idx) => {
@@ -1027,7 +984,6 @@ export default function AIQuizzesPage() {
                       })}
                     </div>
 
-                    {/* Explanations block */}
                     {isAnswerSubmitted ? (
                       <div className="mt-4 rounded-xl border border-primary/10 bg-primary/5 p-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
                         <div className="flex items-center gap-2 mb-2">
@@ -1042,7 +998,6 @@ export default function AIQuizzesPage() {
                   </div>
                 )}
 
-                {/* Lower Action buttons */}
                 <div className="flex items-center justify-between border-t border-border pt-4 mt-4">
                   <Button variant="ghost" size="sm" onClick={handleBackToSetup} className="text-muted-foreground">
                     Exit Quiz
@@ -1109,7 +1064,6 @@ export default function AIQuizzesPage() {
               </CardContent>
             </Card>
           ) : (
-            // Quiz completed review mode
             <Card className="shadow-xl border-emerald-500/20 overflow-hidden">
               <div className="h-2 bg-emerald-500" />
               <CardHeader className="text-center pb-2 pt-6">
@@ -1224,7 +1178,7 @@ export default function AIQuizzesPage() {
                       </>
                     )
                   })()
-                ) : (selectedFormat as string) === "Steeplechase" || isSteeplechaseStation ? (
+                ) : selectedFormat === "OSCE" || isSteeplechaseStation ? (
                   (() => {
                     let totalSub = 0
                     let correctSub = 0
@@ -1340,9 +1294,7 @@ export default function AIQuizzesPage() {
           )}
         </div>
       ) : (
-        // Quiz generation Setup UI
         <div className="grid gap-6 lg:grid-cols-12">
-          {/* Custom generation panel */}
           <div className="lg:col-span-8 flex flex-col gap-6">
             <Card className="border-primary/10 shadow-sm overflow-hidden">
               <div className="h-1 bg-primary" />
@@ -1352,13 +1304,52 @@ export default function AIQuizzesPage() {
                     <Sparkles className="size-4.5 animate-pulse" />
                   </span>
                   <div>
-                    <CardTitle className="text-base">Premium AI Quiz Generator</CardTitle>
-                    <CardDescription>Configure and generate customized high-yield questions instantly.</CardDescription>
+                    <CardTitle className="text-base">Hybrid Question Bank Portal</CardTitle>
+                    <CardDescription>Select practice bank or fresh AI quiz generation with guaranteed reliability safety net.</CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleGenerateQuiz} className="flex flex-col gap-6">
+
+                  {/* SELECT QUIZ MODE CARDS */}
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-xs font-semibold text-muted-foreground">Select Quiz Mode</span>
+                    <MotionStaggerGroup className="grid gap-3 sm:grid-cols-3">
+                      {quizModes.map((m) => {
+                        const Icon = m.icon
+                        const selected = selectedMode === m.id
+                        return (
+                          <MotionStaggerItem key={m.id}>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedMode(m.id as any)}
+                              className={`group text-left border rounded-xl p-3.5 transition-all cursor-pointer flex flex-col gap-2 justify-between w-full h-full ${
+                                selected
+                                  ? `${m.border} ${m.bg} ring-1 ring-primary`
+                                  : "border-border bg-card hover:border-primary/40"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className={`flex size-8 items-center justify-center rounded-lg bg-background border ${m.color}`}>
+                                  <Icon className="size-4" />
+                                </span>
+                                <Badge variant="outline" className="text-[10px] font-semibold">
+                                  {m.badge}
+                                </Badge>
+                              </div>
+                              <span className="text-xs font-bold text-foreground group-hover:text-primary transition-colors">
+                                {m.title}
+                              </span>
+                              <p className="text-[11px] text-muted-foreground leading-relaxed font-medium">
+                                {m.desc}
+                              </p>
+                            </button>
+                          </MotionStaggerItem>
+                        )
+                      })}
+                    </MotionStaggerGroup>
+                  </div>
 
                   {/* SELECT FORMAT CARDS */}
                   <div className="flex flex-col gap-1.5">
@@ -1366,8 +1357,7 @@ export default function AIQuizzesPage() {
                       <span className="text-xs font-semibold text-muted-foreground">Select Format</span>
                       <span className="text-xs font-semibold text-primary">MCQ · SBA · OSCE · Short Answer</span>
                     </div>
-                    <p className="text-[11px] text-muted-foreground">Multiple high-yield formats available for practice: MCQ · SBA · OSCE · Short Answer</p>
-                    <MotionStaggerGroup className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <MotionStaggerGroup className="grid gap-3 sm:grid-cols-2 lg:grid-cols-2">
                       {formats.map((fmt) => {
                         const Icon = fmt.icon
                         const selected = selectedFormat === fmt.id
@@ -1376,7 +1366,7 @@ export default function AIQuizzesPage() {
                             <button
                               type="button"
                               onClick={() => setSelectedFormat(fmt.id as any)}
-                              className={`group text-left border rounded-xl p-3.5 transition-all hover:-translate-y-0.5 hover:shadow-sm cursor-pointer flex flex-col gap-2.5 justify-between w-full ${
+                              className={`group text-left border rounded-xl p-3.5 transition-all cursor-pointer flex flex-col gap-2.5 justify-between w-full ${
                                 selected
                                   ? "border-primary bg-primary/5 ring-1 ring-primary"
                                   : "border-border bg-card hover:border-primary/40"
@@ -1400,18 +1390,18 @@ export default function AIQuizzesPage() {
                     </MotionStaggerGroup>
                   </div>
 
-                  {/* SELECT QUESTION COUNT */}
+                  {/* SELECT QUESTION COUNT: STRICTLY 5 OR 10 */}
                   <div className="flex flex-col gap-2">
                     <span className="text-xs font-semibold text-muted-foreground">Number of Questions</span>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {[5, 10, 15, 20, 25, 30].map((val) => {
+                    <div className="flex items-center gap-3">
+                      {[5, 10].map((val) => {
                         const active = questionCount === val
                         return (
                           <button
                             key={val}
                             type="button"
                             onClick={() => setQuestionCount(val)}
-                            className={`px-4 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                            className={`flex-1 py-2 text-xs font-bold rounded-lg border transition-all cursor-pointer text-center ${
                               active
                                 ? "bg-primary text-primary-foreground border-primary shadow-sm"
                                 : "bg-background text-muted-foreground border-input hover:text-foreground hover:border-primary/40"
@@ -1433,7 +1423,7 @@ export default function AIQuizzesPage() {
                       id="course-select"
                       value={selectedCourseId}
                       onChange={(e) => setSelectedCourseId(e.target.value)}
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {courses.length === 0 ? (
                         <option value="">No courses found</option>
@@ -1453,18 +1443,17 @@ export default function AIQuizzesPage() {
                   {/* Input Custom Topic */}
                   <div className="flex flex-col gap-1.5">
                     <label htmlFor="topic-input" className="text-xs font-semibold text-muted-foreground">
-                      Custom Topic (Optional)
+                      Topic or Clinical Concept (Optional)
                     </label>
                     <Input
                       id="topic-input"
                       type="text"
-                      placeholder="e.g. G-protein receptors, Lobar pneumonia (leave blank for general high-yield review)"
+                      placeholder="e.g. Acute appendicitis, Drug Metabolism (leave blank for general course review)"
                       value={customTopic}
                       onChange={(e) => setCustomTopic(e.target.value)}
                     />
                   </div>
 
-                  {/* Display suggestions */}
                   <div className="flex flex-col gap-2">
                     <span className="text-xs font-semibold text-muted-foreground">High-Yield Suggestions:</span>
                     <div className="flex flex-wrap gap-1.5">
@@ -1473,7 +1462,7 @@ export default function AIQuizzesPage() {
                           key={topic}
                           type="button"
                           onClick={() => setCustomTopic(topic)}
-                          className="text-xs border px-2.5 py-1 rounded-full bg-muted/30 text-foreground hover:bg-primary/5 hover:border-primary/40 transition-colors"
+                          className="text-xs border px-2.5 py-1 rounded-full bg-muted/30 text-foreground hover:bg-primary/5 hover:border-primary/40 transition-colors cursor-pointer"
                         >
                           {topic}
                         </button>
@@ -1481,12 +1470,18 @@ export default function AIQuizzesPage() {
                     </div>
                   </div>
 
-                  {/* Error display */}
+                  {noQuestionsNotice && (
+                    <div className="flex items-start gap-2 bg-amber-500/10 text-amber-900 dark:text-amber-100 text-xs p-3.5 rounded-xl border border-amber-500/20 font-medium">
+                      <Info className="size-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                      <div>{noQuestionsNotice}</div>
+                    </div>
+                  )}
+
                   {generationError && (
-                    <div className="flex items-start gap-2 bg-destructive/10 text-destructive text-xs p-3 rounded-lg border border-destructive/20 font-medium">
+                    <div className="flex items-start gap-2 bg-destructive/10 text-destructive text-xs p-3.5 rounded-xl border border-destructive/20 font-medium">
                       <AlertCircle className="size-4 shrink-0 mt-0.5" />
                       <div>
-                        <span className="font-bold">Generation Failed: </span>
+                        <span className="font-bold">Error: </span>
                         {generationError}
                       </div>
                     </div>
@@ -1497,7 +1492,7 @@ export default function AIQuizzesPage() {
                       <Loader2 className="size-8 animate-spin text-primary" />
                       <p className="text-sm font-semibold text-foreground">{loaderMessages[loaderMessageIndex]}</p>
                       <p className="text-xs text-muted-foreground max-w-sm">
-                        Generating premium {selectedFormat} questions. This may take up to 30 seconds for non-cached topics.
+                        Loading {questionCount} {selectedFormat} questions. Automatic safety net will fall back to question bank if needed.
                       </p>
                     </div>
                   ) : (
@@ -1506,34 +1501,32 @@ export default function AIQuizzesPage() {
                       className="w-full mt-2 font-semibold flex items-center justify-center gap-2 py-5"
                       disabled={courses.length === 0}
                     >
-                      Build {selectedFormat} Quiz with AI <Sparkles className="size-4.5" />
+                      Start {selectedMode === "practice" ? "Practice Bank" : selectedMode === "mixed" ? "Mixed" : "AI"} Quiz ({questionCount} Qs) <ChevronRight className="size-4.5" />
                     </Button>
                   )}
                 </form>
               </CardContent>
             </Card>
 
-            {/* Explanatory notes of the system */}
             <Card className="border-border/60 bg-muted/20">
               <CardContent className="pt-5 flex flex-col gap-3 text-xs leading-relaxed text-muted-foreground">
                 <div className="flex items-center gap-2 font-bold text-foreground text-sm mb-1">
                   <BookOpen className="size-4 text-primary" />
-                  Premium Medical Quiz Options:
+                  Hybrid Reliability Principles:
                 </div>
                 <p>
-                  1. <strong>Clinical Alignment</strong>: Quizzes are generated using openai/gpt-oss-20b models tuned specifically for national medical board structures.
+                  1. <strong>Practice Bank First</strong>: Fast, deterministic practice directly against 692+ validated clinical questions.
                 </p>
                 <p>
-                  2. <strong>Adaptive Format Constraints</strong>: Selection dynamically reformulates the LLM's prompt parameters to construct clinical vignettes, OSCE stations, or short-answer rubrics.
+                  2. <strong>Bounded AI Generation</strong>: Fresh questions bounded to small batches (5 or 10 Qs) for zero timeout risks.
                 </p>
                 <p>
-                  3. <strong>Level-Aware Caching</strong>: Default course quizzes are cached and shared across everyone in your student level instantly to minimize API latency.
+                  3. <strong>Automatic Safety Net</strong>: If AI generation fails, the system automatically falls back to validated database questions. You will never see a generic failure error.
                 </p>
               </CardContent>
             </Card>
           </div>
 
-          {/* Past History attempt list column */}
           <div className="lg:col-span-4 flex flex-col gap-6">
             <Card className="h-full border-border">
               <CardHeader className="pb-3">
@@ -1549,7 +1542,7 @@ export default function AIQuizzesPage() {
                     <ListChecks className="size-8 text-muted-foreground/40 mb-2" />
                     <p className="text-xs font-semibold text-foreground">No recent attempts logged</p>
                     <p className="text-[10px] max-w-[200px] mt-1 leading-normal">
-                      Complete your first AI-generated quiz to view progress tracking and accuracy logs here.
+                      Complete your first quiz to view progress tracking and accuracy logs here.
                     </p>
                   </div>
                 ) : (
