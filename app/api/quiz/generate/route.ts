@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 6. Topic-enrichment fallback if past questions are absent/insufficient
-    const groqModel = process.env.GROQ_MODEL || "llama-3.3-70b-versatile"
+    const groqModel = process.env.GROQ_MODEL || "openai/gpt-oss-20b"
     let enrichedTopicsContext = ""
     if (!groundingContext) {
       try {
