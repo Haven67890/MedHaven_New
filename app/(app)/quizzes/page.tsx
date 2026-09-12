@@ -60,6 +60,7 @@ interface TFStatement {
 
 interface QuizQuestion {
   id: string
+  question_bank_id?: string | null
   question: string
   options: string[]
   correct_answer: string
@@ -158,12 +159,11 @@ export default function AIQuizzesPage() {
   // Loader message rotations
   const [loaderMessageIndex, setLoaderMessageIndex] = useState(0)
   const loaderMessages = [
-    "Analyzing course syllabus...",
-    "Querying local database cache...",
-    "Contacting MedHaven Groq AI...",
-    "Formulating clinical vignettes...",
-    "Polishing distractors and correct keys...",
-    "Injecting detailed rationales..."
+    "Querying MedHaven Question Bank...",
+    "Applying course blueprint weighting...",
+    "Filtering previously attempted questions...",
+    "Formulating format structures...",
+    "Readying answer rationales..."
   ]
 
   // Active quiz states
@@ -271,6 +271,7 @@ export default function AIQuizzesPage() {
           if (!quizError && quizData) {
             const formattedQs = (quizData.quiz_questions || []).map((q: any) => ({
               id: q.id,
+              question_bank_id: q.question_bank_id || q.id,
               question: q.question_text,
               options: q.options || [],
               correct_answer: q.correct_answer,
@@ -539,6 +540,61 @@ export default function AIQuizzesPage() {
 
       if (newAttempt) {
         setAttempts((prev) => [newAttempt as unknown as AttemptWithDetails, ...prev].slice(0, 5))
+
+        // Log individual question attempts in user_question_history
+        try {
+          const historyToInsert = questions.map((q, qIdx) => {
+            let isCorrect = false
+            let userAns = ""
+
+            if (selectedFormat === "Short Answer") {
+              const ansObj = answersState[qIdx]
+              isCorrect = Boolean(ansObj?.correct)
+              userAns = ansObj?.selected || ""
+            } else if (selectedFormat === "MCQ" && q.tf_options) {
+              let correctCount = 0
+              q.tf_options.forEach((tf, tfIdx) => {
+                if (tfAnswers[`${qIdx}_${tfIdx}`] === tf.answer) correctCount++
+              })
+              isCorrect = correctCount === q.tf_options.length
+              userAns = JSON.stringify(tfAnswers)
+            } else if (selectedFormat === "OSCE" || isSteeplechaseStation) {
+              let subCorrect = 0
+              const subTotal = q.sub_questions?.length || 0
+              q.sub_questions?.forEach((_, subIdx) => {
+                if (gradedSubAnswers[`${qIdx}_${subIdx}`] === true) subCorrect++
+              })
+              isCorrect = subTotal > 0 && subCorrect === subTotal
+              userAns = JSON.stringify(typedSubAnswers)
+            } else {
+              const ansObj = answersState[qIdx]
+              isCorrect = Boolean(ansObj?.correct)
+              userAns = ansObj?.selected || ""
+            }
+
+            const targetQuestionId = q.question_bank_id || q.id
+            // Only attempt insertion if valid UUID format (not newly generated quiz_question temporary ID if missing)
+            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetQuestionId)
+
+            if (!isUuid) return null
+
+            return {
+              user_id: userSession.user.id,
+              question_id: targetQuestionId,
+              quiz_attempt_id: newAttempt.id,
+              is_correct: isCorrect,
+              user_answer: userAns,
+            }
+          }).filter(Boolean)
+
+          if (historyToInsert.length > 0) {
+            await supabase.from("user_question_history").insert(historyToInsert).catch((hErr: any) => {
+              console.warn("Could not insert user_question_history:", hErr)
+            })
+          }
+        } catch (hErr) {
+          console.warn("Error recording user question history:", hErr)
+        }
       }
     } catch (err) {
       console.error("Failed to save quiz attempt:", err)
@@ -596,7 +652,7 @@ export default function AIQuizzesPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title="Question Bank" description="Redesigned interactive revision system with multiple high-yield clinical formats, powered by Groq.">
+      <PageHeader title="Question Bank" description="Database-backed interactive revision system with multiple high-yield clinical formats and exam blueprints.">
         {activeQuizId && (
           <Button variant="outline" size="sm" onClick={handleBackToSetup} className="flex items-center gap-1.5 transition-all">
             <ArrowLeft className="size-4" /> Exit Portal
@@ -1352,8 +1408,8 @@ export default function AIQuizzesPage() {
                     <Sparkles className="size-4.5 animate-pulse" />
                   </span>
                   <div>
-                    <CardTitle className="text-base">Premium AI Quiz Generator</CardTitle>
-                    <CardDescription>Configure and generate customized high-yield questions instantly.</CardDescription>
+                    <CardTitle className="text-base">MedHaven Question Bank & Exam Blueprint Engine</CardTitle>
+                    <CardDescription>Select high-yield questions instantly from curated medical question banks.</CardDescription>
                   </div>
                 </div>
               </CardHeader>
@@ -1506,7 +1562,7 @@ export default function AIQuizzesPage() {
                       className="w-full mt-2 font-semibold flex items-center justify-center gap-2 py-5"
                       disabled={courses.length === 0}
                     >
-                      Build {selectedFormat} Quiz with AI <Sparkles className="size-4.5" />
+                      Build {selectedFormat} Quiz <Sparkles className="size-4.5" />
                     </Button>
                   )}
                 </form>
@@ -1518,16 +1574,16 @@ export default function AIQuizzesPage() {
               <CardContent className="pt-5 flex flex-col gap-3 text-xs leading-relaxed text-muted-foreground">
                 <div className="flex items-center gap-2 font-bold text-foreground text-sm mb-1">
                   <BookOpen className="size-4 text-primary" />
-                  Premium Medical Quiz Options:
+                  MedHaven Question Bank Architecture:
                 </div>
                 <p>
-                  1. <strong>Clinical Alignment</strong>: Quizzes are generated using openai/gpt-oss-20b models tuned specifically for national medical board structures.
+                  1. <strong>Curated Question Bank</strong>: Quizzes draw directly from verified question banks mapped to Nigerian medical school past questions and board blueprints.
                 </p>
                 <p>
-                  2. <strong>Adaptive Format Constraints</strong>: Selection dynamically reformulates the LLM's prompt parameters to construct clinical vignettes, OSCE stations, or short-answer rubrics.
+                  2. <strong>Adaptive Blueprint Weighting</strong>: Question selection prioritizes high-yield concepts, exam emphasis, and unseen items tailored to your target course and format.
                 </p>
                 <p>
-                  3. <strong>Level-Aware Caching</strong>: Default course quizzes are cached and shared across everyone in your student level instantly to minimize API latency.
+                  3. <strong>Zero Latency & Instant Delivery</strong>: Quizzes are selected directly from the database in sub-100ms without waiting for runtime AI generation or PDF parsing.
                 </p>
               </CardContent>
             </Card>
