@@ -10,7 +10,6 @@ export async function middleware(request: NextRequest) {
   // Allow public assets and Next.js internals through
   if (
     pathname.startsWith("/_next") ||
-    pathname.startsWith("/api") ||
     pathname.includes(".") ||
     pathname === "/favicon.ico"
   ) {
