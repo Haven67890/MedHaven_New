@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { createClient } from "@/lib/supabase/client"
 import type { Course, Material } from "@/components/dashboard/material-card"
 import { AdminTableSkeleton } from "@/components/feedback/loading-skeletons"
+import { QuizIntelligenceAdminSection } from "@/components/dashboard/quiz-intelligence-admin"
 
 type Profile = {
   id: string
@@ -49,7 +50,7 @@ export default function AdminDashboard() {
   const supabase = createClient()
 
   // Tabs: 'overview' | 'users' | 'materials' | 'quiz_bank' | 'staff' | 'guides' | 'tutorials' | 'curriculum'
-  const [activeTab, setActiveTab] = useState<"overview" | "users" | "materials" | "quiz_bank" | "staff" | "guides" | "tutorials" | "curriculum">("overview")
+  const [activeTab, setActiveTab] = useState<"overview" | "users" | "materials" | "quiz_bank" | "quiz_intelligence" | "staff" | "guides" | "tutorials" | "curriculum">("overview")
 
   // Caller authorization info
   const [caller, setCaller] = useState<{
@@ -2540,6 +2541,13 @@ export default function AdminDashboard() {
             </Button>
           )}
           <Button
+            variant={activeTab === "quiz_intelligence" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setActiveTab("quiz_intelligence")}
+          >
+            Quiz Intelligence
+          </Button>
+          <Button
             variant={activeTab === "staff" ? "default" : "ghost"}
             size="sm"
             onClick={() => setActiveTab("staff")}
@@ -4214,6 +4222,10 @@ export default function AdminDashboard() {
       </Sheet>
 
       {/* --- STAFF MANAGEMENT TAB --- */}
+      {activeTab === "quiz_intelligence" && (
+        <QuizIntelligenceAdminSection courses={courses} />
+      )}
+
       {activeTab === "staff" && (
         <div className="flex flex-col gap-6 animate-in fade-in duration-300">
           {/* SEARCH & FILTERS PANEL */}
