@@ -1,5 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createServiceClient } from "@/lib/supabase/server"
+
+function getDbClient(userClient: any) {
+  try {
+    if (process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) {
+      return createServiceClient()
+    }
+  } catch (err) {
+    console.warn("Service role client unavailable, falling back to authenticated user client:", err)
+  }
+  return userClient
+}
 
 async function extractTextFromPdfBuffer(buffer: ArrayBuffer): Promise<string> {
   try {
@@ -30,8 +41,11 @@ export async function POST(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
+      console.error("Quiz generation authentication error:", authError)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    const dbClient = getDbClient(supabase)
 
     // 2. Parse request body
     const body = await request.json().catch(() => ({}))
@@ -106,16 +120,19 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // 4. Fetch Course details to provide better prompt context
-    const { data: courseData } = await supabase
+    // 4. Fetch and validate Course details to provide prompt context and verify existence
+    const { data: courseData, error: courseError } = await supabase
       .from("courses")
-      .select("code, title")
+      .select("id, code, title")
       .eq("id", course_id)
       .maybeSingle()
 
-    const courseContext = courseData
-      ? `${courseData.code || ""} ${courseData.title || ""}`.trim()
-      : "Medical Course"
+    if (courseError || !courseData) {
+      console.error("Invalid or non-existent course_id provided:", course_id, courseError)
+      return NextResponse.json({ error: "Invalid or non-existent course selected" }, { status: 400 })
+    }
+
+    const courseContext = `${courseData.code || ""} ${courseData.title || ""}`.trim() || "Medical Course"
 
     const apiKey = process.env.GROQ_API_KEY
     if (!apiKey) {
@@ -285,6 +302,7 @@ Number of Questions: ${countToGenerate}`
         ],
         response_format: { type: "json_object" },
         temperature: 0.6,
+        max_tokens: 8192,
       }),
     })
 
@@ -295,17 +313,20 @@ Number of Questions: ${countToGenerate}`
     }
 
     const groqData = await groqResponse.json()
-    const rawContent = groqData.choices?.[0]?.message?.content
+    let rawContent = groqData.choices?.[0]?.message?.content
 
     if (!rawContent) {
       return NextResponse.json({ error: "AI service returned an empty response" }, { status: 502 })
     }
 
+    // Strip markdown code block backticks if present
+    rawContent = rawContent.replace(/```json/gi, "").replace(/```/g, "").trim()
+
     let parsed: any
     try {
       parsed = JSON.parse(rawContent)
     } catch (parseErr) {
-      console.error("Failed to parse Groq response content as JSON. Raw content:", rawContent)
+      console.error("Failed to parse Groq response content as JSON. Raw content preview:", rawContent.slice(0, 500))
       return NextResponse.json({ error: "AI generated an invalid JSON response structure" }, { status: 502 })
     }
 
@@ -439,23 +460,33 @@ Number of Questions: ${countToGenerate}`
       return NextResponse.json({ error: "AI failed to produce any valid questions" }, { status: 502 })
     }
 
-    const { data: newQuiz, error: insertQuizError } = await supabase
-      .from("quizzes")
-      .insert({
-        course_id,
-        topic: trimmedTopic,
-        format: chosenFormat,
-      })
-      .select("id")
-      .single()
+    let targetQuizId: string
 
-    if (insertQuizError || !newQuiz) {
-      console.error("Failed to insert new quiz:", insertQuizError)
-      return NextResponse.json({ error: "Failed to save generated quiz record to the database" }, { status: 500 })
+    if (existingQuiz && existingQuiz.id) {
+      targetQuizId = existingQuiz.id
+      // Clear old incomplete/insufficient questions for this cached quiz ID
+      await dbClient.from("quiz_questions").delete().eq("quiz_id", targetQuizId)
+    } else {
+      const { data: newQuiz, error: insertQuizError } = await dbClient
+        .from("quizzes")
+        .insert({
+          course_id,
+          topic: trimmedTopic,
+          format: chosenFormat,
+          created_by: user.id,
+        })
+        .select("id")
+        .single()
+
+      if (insertQuizError || !newQuiz) {
+        console.error("Failed to insert new quiz record:", insertQuizError)
+        return NextResponse.json({ error: "Failed to save generated quiz record to the database" }, { status: 500 })
+      }
+      targetQuizId = newQuiz.id
     }
 
     const questionsToInsert = validatedQuestions.map((q) => ({
-      quiz_id: newQuiz.id,
+      quiz_id: targetQuizId,
       question_text: q.question,
       options: q.options,
       correct_answer: q.correct_answer,
@@ -464,14 +495,16 @@ Number of Questions: ${countToGenerate}`
       sub_questions: q.sub_questions || null,
     }))
 
-    const { data: insertedQuestions, error: insertQuestionsError } = await supabase
+    const { data: insertedQuestions, error: insertQuestionsError } = await dbClient
       .from("quiz_questions")
       .insert(questionsToInsert)
       .select("id, question_text, options, correct_answer, explanation, tf_options, sub_questions")
 
     if (insertQuestionsError || !insertedQuestions || insertedQuestions.length === 0) {
       console.error("Failed to insert quiz questions:", insertQuestionsError)
-      await supabase.from("quizzes").delete().eq("id", newQuiz.id)
+      if (!existingQuiz) {
+        await dbClient.from("quizzes").delete().eq("id", targetQuizId)
+      }
       return NextResponse.json({ error: "Failed to save generated quiz questions to the database" }, { status: 500 })
     }
 
@@ -486,7 +519,7 @@ Number of Questions: ${countToGenerate}`
     })).slice(0, limitCount)
 
     return NextResponse.json({
-      quiz_id: newQuiz.id,
+      quiz_id: targetQuizId,
       questions: formattedQuestions,
       cached: false,
     })
