@@ -47,8 +47,65 @@ export async function POST(request: NextRequest) {
     const limitCount = count ? parseInt(count, 10) : 10
     const trimmedTopic = topic && String(topic).trim() !== "" ? String(topic).trim() : "General Course Review"
 
-    // 3. Query existing quizzes & questions in Supabase
-    // Caching matches course_id, topic (case insensitive), and format
+    // 3. PRIORITIZED LOCAL SELECTION: Check `question_bank` for active questions matching course_id, topic, and format
+    // This allows instantaneous student quiz delivery with zero Groq/PDF/Cloudflare dependencies
+    try {
+      let bankQuery = supabase
+        .from("question_bank")
+        .select(`
+          id,
+          question_text,
+          options,
+          correct_answer,
+          explanation,
+          tf_options,
+          sub_questions,
+          image_bank_id,
+          quiz_image_bank (
+            id,
+            title,
+            category,
+            image_url,
+            correct_findings,
+            differential_diagnosis
+          )
+        `)
+        .eq("course_id", course_id)
+        .eq("format", chosenFormat)
+        .eq("status", "active")
+        .limit(limitCount)
+
+      if (trimmedTopic !== "General Course Review") {
+        bankQuery = bankQuery.ilike("topic", trimmedTopic)
+      }
+
+      const { data: activeBankQuestions } = await bankQuery
+
+      if (activeBankQuestions && activeBankQuestions.length >= limitCount) {
+        const formattedQuestions = activeBankQuestions.map((q: any) => ({
+          id: q.id,
+          question: q.question_text,
+          options: q.options || [],
+          correct_answer: q.correct_answer,
+          explanation: q.explanation || "No explanation provided.",
+          tf_options: q.tf_options || null,
+          image_bank_id: q.image_bank_id || null,
+          sub_questions: q.sub_questions || null,
+          quiz_image_bank: q.quiz_image_bank || null,
+        })).slice(0, limitCount)
+
+        return NextResponse.json({
+          quiz_id: `bank-${course_id}-${Date.now()}`,
+          questions: formattedQuestions,
+          cached: true,
+          source: "question_bank",
+        })
+      }
+    } catch (bankErr) {
+      console.warn("Error selecting from question_bank, falling back to cached quizzes:", bankErr)
+    }
+
+    // 4. SECONDARY CACHE: Query existing quizzes & questions in Supabase `quizzes` table
     const { data: existingQuiz, error: fetchError } = await supabase
       .from("quizzes")
       .select(`
@@ -86,7 +143,6 @@ export async function POST(request: NextRequest) {
     }
 
     if (existingQuiz && existingQuiz.quiz_questions && existingQuiz.quiz_questions.length >= limitCount) {
-      // Map questions to standard response format, sliced to requested count
       const formattedQuestions = existingQuiz.quiz_questions.map((q: any) => ({
         id: q.id,
         question: q.question_text,
@@ -103,10 +159,11 @@ export async function POST(request: NextRequest) {
         quiz_id: existingQuiz.id,
         questions: formattedQuestions,
         cached: true,
+        source: "cached_quiz",
       })
     }
 
-    // 4. Fetch Course details to provide better prompt context
+    // 5. RUNTIME FALLBACK: Fetch Course details to provide better prompt context for on-demand generation
     const { data: courseData } = await supabase
       .from("courses")
       .select("code, title")
@@ -122,7 +179,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Groq API configuration missing on the server" }, { status: 500 })
     }
 
-    // 5. Query local past question materials first for grounding context
+    // 6. Query local past question materials first for grounding context
     let groundingContext = ""
     try {
       const { data: pqMaterials } = await supabase
@@ -166,7 +223,7 @@ export async function POST(request: NextRequest) {
       console.warn("Error querying local past questions:", pqErr)
     }
 
-    // 6. Topic-enrichment fallback if past questions are absent/insufficient
+    // 7. Topic-enrichment fallback if past questions are absent/insufficient
     const groqModel = process.env.GROQ_MODEL || "llama-3.3-70b-versatile"
     let enrichedTopicsContext = ""
     if (!groundingContext) {
@@ -489,6 +546,7 @@ Number of Questions: ${countToGenerate}`
       quiz_id: newQuiz.id,
       questions: formattedQuestions,
       cached: false,
+      source: "groq_runtime",
     })
   } catch (err: any) {
     console.error("Unexpected error generating quiz:", err)
