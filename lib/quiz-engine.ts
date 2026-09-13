@@ -372,13 +372,25 @@ export async function generateAIQuestionsBatch(
 
   let formatInstruction = ""
   if (options.format === "SBA") {
-    formatInstruction = `Generate SBA questions in Nigerian MBBS/USMLE finals style: a clinical vignette of 3-5 sentences describing a real patient presentation, followed by 4 options where ONLY ONE is the single best answer. Options MUST be distinct and plausible.
-Return a JSON object with a "questions" key containing an array of objects.
-Each object MUST have:
-- "question": string (the clinical vignette stem)
-- "options": array of EXACTLY 4 strings
-- "correct_answer": string (MUST match one of the strings inside "options" EXACTLY)
-- "explanation": string (rationale why this is the single best answer and why others are inferior)`
+    formatInstruction = `Generate SBA questions in professional medical school and examination style (MBBS finals / USMLE format) with a natural, balanced spectrum across the requested question set:
+
+1. TARGET SBA STYLE DISTRIBUTION:
+   - 50–60% Concise Knowledge & Concept SBAs: Direct, high-yield questions testing core principles, mechanisms, definitions, classifications, indications, contraindications, complications, first-line/next-best investigations, drug selection/pharmacology, anatomy, physiology, pathology, radiological findings, and key distinctions between similar conditions. Stems should be concise and direct (e.g., "Regarding...", "Which of the following is the most appropriate...", "Which of the following mechanisms best explains...", "Which of the following is a contraindication to...").
+   - 25–35% Short Clinical-Application SBAs: Focused clinical scenarios that test conceptual application using 1-2 sentences of key clinical details.
+   - 10–20% Detailed Clinical Vignette SBAs: Full clinical cases (3-4 sentences) where detailed clinical context genuinely drives clinical reasoning.
+
+2. CLINICAL REASONING & DETAIL GUIDELINES:
+   - Include patient details (age, sex, BMI, pregnancy status, comorbidities, vitals, labs, examination/imaging findings) whenever those details meaningfully affect diagnosis, risk stratification, drug selection, investigation, management, or prognosis.
+   - Avoid artificial clinical padding (do not add irrelevant social/family history or random lab values merely to make a question appear long).
+   - Ensure difficulty comes from testing high-yield medical concepts and subtle distinctions, not from artificial verbosity.
+
+3. STRUCTURE REQUIREMENTS:
+   Return a JSON object with a "questions" key containing an array of objects.
+   Each object MUST have:
+   - "question": string (the question stem, formatted according to the style distribution above)
+   - "options": array of EXACTLY 4 distinct, plausible strings
+   - "correct_answer": string (MUST match one of the strings inside "options" EXACTLY)
+   - "explanation": string (clear rationale explaining why the correct choice is the single best answer and why key alternative choices are inferior)`
   } else if (options.format === "MCQ") {
     formatInstruction = `Generate MCQ questions in Nigerian MBBS finals style: a clinical stem followed by 4 to 5 independent True/False statements.
 Return a JSON object with a "questions" key containing an array of objects.
