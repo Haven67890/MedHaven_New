@@ -203,6 +203,7 @@ export interface BankSelectionParams {
   count: number
   user_id?: string
   exclude_ids?: string[]
+  exclude_fingerprints?: Set<string>
 }
 
 export interface BankSelectionResult {
@@ -219,23 +220,25 @@ export async function selectBankQuestions(
   supabase: any,
   params: BankSelectionParams
 ): Promise<BankSelectionResult> {
-  const { course_id, topic, subtopic, format, count, user_id, exclude_ids = [] } = params
-  const targetCount = Math.min(Math.max(count, 1), 10)
+  const { course_id, topic, subtopic, format, count, user_id, exclude_ids = [], exclude_fingerprints } = params
+  const targetCount = Math.min(Math.max(count, 1), 30)
 
-  // Fetch excluded question IDs from user_question_history if user_id is supplied
+  // Fetch excluded question IDs & fingerprints from user_question_history if user_id is supplied
   const historyExcludedSet = new Set<string>(exclude_ids)
+  const historyFingerprintsSet = new Set<string>()
   if (user_id) {
     try {
       const { data: history } = await supabase
         .from("user_question_history")
-        .select("question_id")
+        .select("question_id, question_bank:question_bank(question_fingerprint)")
         .eq("user_id", user_id)
-        .order("attempted_at", { ascending: false })
-        .limit(100)
 
       if (history && history.length > 0) {
         history.forEach((h: any) => {
           if (h.question_id) historyExcludedSet.add(h.question_id)
+          if (h.question_bank?.question_fingerprint) {
+            historyFingerprintsSet.add(h.question_bank.question_fingerprint)
+          }
         })
       }
     } catch (err) {
@@ -267,6 +270,10 @@ export async function selectBankQuestions(
     const validList: ValidatedQuestion[] = []
     for (const item of data) {
       if (historyExcludedSet.has(item.id)) continue
+      if (item.question_fingerprint) {
+        if (historyFingerprintsSet.has(item.question_fingerprint)) continue
+        if (exclude_fingerprints?.has(item.question_fingerprint)) continue
+      }
       const vq = validateQuestion(item, format)
       if (vq) validList.push(vq)
     }
@@ -367,7 +374,7 @@ export async function generateAIQuestionsBatch(
   }
 
   const model = process.env.GROQ_MODEL || "openai/gpt-oss-20b"
-  const countToGenerate = Math.min(Math.max(options.count, 1), 10)
+  const countToGenerate = Math.min(Math.max(options.count, 1), 5)
   const existingFingerprints = options.existingFingerprints || new Set<string>()
 
   let formatInstruction = ""
