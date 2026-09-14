@@ -50,7 +50,11 @@ export async function POST(request: NextRequest) {
       high_yield_concepts: ["Pathophysiology", "Clinical Vignettes", "First-line Pharmacology", "Diagnostic Criteria"],
       topic_weighting: { "Clinical Presentation": 0.4, "Therapeutics": 0.3, "Pathology": 0.3 },
       exam_emphasis: `Finals level exam focus grounded in: ${materialTitles || topic}`,
-      question_style_patterns: { "vignette_length": "3-5 sentences", "distractor_style": "highly plausible clinical alternatives" },
+      question_style_patterns: {
+        "stem_distribution": "60-70% concise knowledge/concept/application, 20-25% short clinical, 10-15% longer vignette",
+        "distractor_style": "highly plausible clinical alternatives",
+        "discipline_style": "course-aware examination constructions"
+      },
       version: 1,
       updated_at: new Date().toISOString()
     }
