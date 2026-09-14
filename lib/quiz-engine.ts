@@ -372,25 +372,44 @@ export async function generateAIQuestionsBatch(
 
   let formatInstruction = ""
   if (options.format === "SBA") {
-    formatInstruction = `Generate SBA questions in professional medical school and examination style (MBBS finals / USMLE format) with a natural, balanced spectrum across the requested question set:
+    formatInstruction = `Generate Single Best Answer (SBA) questions in professional medical school examination style (MBBS finals / University exam format) with a course-aware, balanced spectrum across the requested question set:
 
 1. TARGET SBA STYLE DISTRIBUTION:
-   - 50–60% Concise Knowledge & Concept SBAs: Direct, high-yield questions testing core principles, mechanisms, definitions, classifications, indications, contraindications, complications, first-line/next-best investigations, drug selection/pharmacology, anatomy, physiology, pathology, radiological findings, and key distinctions between similar conditions. Stems should be concise and direct (e.g., "Regarding...", "Which of the following is the most appropriate...", "Which of the following mechanisms best explains...", "Which of the following is a contraindication to...").
-   - 25–35% Short Clinical-Application SBAs: Focused clinical scenarios that test conceptual application using 1-2 sentences of key clinical details.
-   - 10–20% Detailed Clinical Vignette SBAs: Full clinical cases (3-4 sentences) where detailed clinical context genuinely drives clinical reasoning.
+   - 60–70% Concise Knowledge, Concept & Direct Application SBAs: Direct, high-yield questions testing core principles, mechanisms, definitions, classifications, anatomy, physiology, pathology, pharmacology, drug selection, indications, contraindications, complications, first-line/next-best investigations, diagnosis, management, radiological findings, clinical distinctions, important exceptions, comparisons, and common examination traps.
+     Use natural medical-school examination constructions where appropriate, such as:
+     * "Concerning..."
+     * "Regarding..."
+     * "The following are true concerning..."
+     * "The following are false concerning..."
+     * "Which of the following is true?"
+     * "Which of the following is incorrect?"
+     * "Which of the following is NOT..."
+     * "...except"
+     * "All of the following..."
+     * "Which of the following is the most appropriate..."
+     * "Which of the following best explains..."
+     Note: Difficulty must stem from challenging medical concepts, subtle clinical distinctions, and highly plausible distractors—NOT from making the stem artificially long.
+   - 20–25% Short Clinical-Application SBAs: Focused clinical scenarios (1–2 sentences) that test conceptual application using concise, decision-relevant clinical context.
+   - 10–15% Longer Clinical Vignettes: Full clinical cases (3–4 sentences) reserved for when detailed clinical context genuinely drives clinical decision-making (e.g. multi-step diagnosis, differential diagnosis, risk stratification, prognosis, or complex treatment choice).
 
-2. CLINICAL REASONING & DETAIL GUIDELINES:
-   - Include patient details (age, sex, BMI, pregnancy status, comorbidities, vitals, labs, examination/imaging findings) whenever those details meaningfully affect diagnosis, risk stratification, drug selection, investigation, management, or prognosis.
-   - Avoid artificial clinical padding (do not add irrelevant social/family history or random lab values merely to make a question appear long).
-   - Ensure difficulty comes from testing high-yield medical concepts and subtle distinctions, not from artificial verbosity.
+2. COURSE-AWARE & DISCIPLINE-SENSITIVE STYLE:
+   - Adapt the SBA wording and style to the specific specialty and course (${options.courseCodeTitle}).
+   - Where course-specific past question patterns or grounding references are available, use them as the primary reference for wording, stem structure, topic emphasis, and distractor style.
+   - Respect specialty-specific examination conventions (e.g. Anaesthesiology emphasizing concise conceptual, physiological, and pharmacological principles; Radiology emphasizing modality selection, imaging findings, anatomical relationships; Ophthalmology emphasizing pathology, clinical signs, investigations, concise management; Surgery/Medicine emphasizing focused diagnostic and management steps).
+   - Preserve the general principle across ALL specialties: test medical knowledge and reasoning efficiently rather than turning every question into a long clinical story.
 
-3. STRUCTURE REQUIREMENTS:
+3. CLINICAL VIGNETTES & BIODATA GUIDELINES:
+   - Do NOT convert a straightforward knowledge question into a long patient story merely to make it look "more clinical". (e.g., if asking which intravenous agent is a barbiturate, ask directly about thiopentone rather than inventing an entire operating theatre story).
+   - For clinical vignettes, retain clinically meaningful biodata (age, sex, pregnancy status, gestational age, BMI, relevant medical history, examination findings, vital signs, laboratory results, imaging findings, medication history, duration/severity) WHEN those details meaningfully affect diagnosis, risk stratification, drug selection, investigation, management, or prognosis.
+   - RELEVANT CLINICAL DETAIL = KEEP IT. IRRELEVANT CLINICAL PADDING = REMOVE IT.
+
+4. STRUCTURE REQUIREMENTS:
    Return a JSON object with a "questions" key containing an array of objects.
    Each object MUST have:
-   - "question": string (the question stem, formatted according to the style distribution above)
+   - "question": string (the question stem, formatted according to the style guidelines above)
    - "options": array of EXACTLY 4 distinct, plausible strings
    - "correct_answer": string (MUST match one of the strings inside "options" EXACTLY)
-   - "explanation": string (clear rationale explaining why the correct choice is the single best answer and why key alternative choices are inferior)`
+   - "explanation": string (clear, thorough rationale explaining why the correct choice is the single best answer and why key alternative choices are inferior)`
   } else if (options.format === "MCQ") {
     formatInstruction = `Generate MCQ questions in Nigerian MBBS finals style: a clinical stem followed by 4 to 5 independent True/False statements.
 Return a JSON object with a "questions" key containing an array of objects.
