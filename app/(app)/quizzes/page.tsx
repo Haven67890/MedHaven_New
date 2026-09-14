@@ -59,6 +59,7 @@ interface TFStatement {
 
 interface QuizQuestion {
   id: string
+  question_bank_id?: string | null
   question: string
   options: string[]
   correct_answer: string
@@ -150,9 +151,9 @@ const quizModes = [
   },
   {
     id: "ai",
-    title: "AI Quiz",
-    badge: "Fresh & Adaptive",
-    desc: "Freshly generated questions grounded in course materials & blueprints with automatic bank safety net.",
+    title: "MedHaven AI Quiz",
+    badge: "Test & Exam Simulation",
+    desc: "Freshly generated questions grounded in course materials & blueprints. Previously answered questions are automatically excluded.",
     icon: Sparkles,
     color: "text-primary",
     border: "border-primary/30",
@@ -508,6 +509,41 @@ export default function QuestionBankPage() {
 
       if (newAttempt) {
         setAttempts((prev) => [newAttempt as unknown as AttemptWithDetails, ...prev].slice(0, 5))
+      }
+
+      // Record questions seen into user_question_history
+      try {
+        const historyRecords = questions
+          .filter((q) => Boolean(q.question_bank_id))
+          .map((q, idx) => {
+            let isCorrect: boolean | null = null
+            if (selectedFormat === "SBA" || selectedFormat === "Short Answer") {
+              isCorrect = answersState[idx]?.correct ?? null
+            }
+
+            return {
+              user_id: userSession.user.id,
+              question_id: q.question_bank_id,
+              quiz_id: activeQuizId,
+              is_correct: isCorrect,
+              attempted_at: new Date().toISOString()
+            }
+          })
+
+        if (historyRecords.length > 0) {
+          const { error: historyErr } = await supabase
+            .from("user_question_history")
+            .insert(historyRecords)
+
+          if (historyErr) {
+            // Unique violation e.g. code 23505 if user re-submits exact same quiz/question history is expected and safe to ignore
+            if (!historyErr.message?.includes("duplicate key") && historyErr.code !== "23505") {
+              console.warn("Non-fatal: user_question_history write error:", historyErr.message)
+            }
+          }
+        }
+      } catch (histErr) {
+        console.warn("Non-fatal: could not log user question history:", histErr)
       }
     } catch (err) {
       console.error("Failed to save quiz attempt:", err)
@@ -1390,24 +1426,27 @@ export default function QuestionBankPage() {
                     </MotionStaggerGroup>
                   </div>
 
-                  {/* SELECT QUESTION COUNT: STRICTLY 5 OR 10 */}
+                  {/* SELECT QUESTION COUNT: 5 | 10 | 15 | 20 | 25 | 30 */}
                   <div className="flex flex-col gap-2">
-                    <span className="text-xs font-semibold text-muted-foreground">Number of Questions</span>
-                    <div className="flex items-center gap-3">
-                      {[5, 10].map((val) => {
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-muted-foreground">Number of Questions</span>
+                      <span className="text-[11px] text-muted-foreground">Max 30 Qs</span>
+                    </div>
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                      {[5, 10, 15, 20, 25, 30].map((val) => {
                         const active = questionCount === val
                         return (
                           <button
                             key={val}
                             type="button"
                             onClick={() => setQuestionCount(val)}
-                            className={`flex-1 py-2 text-xs font-bold rounded-lg border transition-all cursor-pointer text-center ${
+                            className={`py-2 px-1 text-xs font-bold rounded-lg border transition-all cursor-pointer text-center ${
                               active
-                                ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                                ? "bg-primary text-primary-foreground border-primary shadow-sm ring-1 ring-primary"
                                 : "bg-background text-muted-foreground border-input hover:text-foreground hover:border-primary/40"
                             }`}
                           >
-                            {val} Questions
+                            {val} Qs
                           </button>
                         )
                       })}
