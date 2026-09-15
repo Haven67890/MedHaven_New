@@ -174,7 +174,7 @@ export default function FlashcardsPage() {
   const debouncedSearchQuery = useDebounce(searchQuery, 300)
 
   // Tab state: "ai_generated" | "user_created" | "specimen_bank"
-  const [activeTab, setActiveTab] = useState<"ai_generated" | "user_created" | "specimen_bank">("ai_generated")
+  const [activeTab, setActiveTab] = useState<"pictures_tests" | "steeplechase" | "osce" | "ai_generated" | "user_created">("pictures_tests")
 
   // Active recall review states
   const [isReviewActive, setIsReviewActive] = useState(false)
@@ -1029,7 +1029,7 @@ export default function FlashcardsPage() {
   return (
     <div className="flex flex-col gap-8">
       <MotionReveal>
-        <PageHeader title="Smart Recall" description="Active recall flashcard decks powered by premium Groq AI.">
+        <PageHeader title="Practical Exams & Active Recall" description="Master medical specimens, diagnostic imaging, pathology spotters, steeplechase, and structured OSCE stations for MBBS examinations.">
           <Button
             variant={showGenerator ? "outline" : "default"}
             onClick={() => setShowGenerator(!showGenerator)}
@@ -1221,6 +1221,51 @@ export default function FlashcardsPage() {
         <MotionReveal>
           <div className="flex overflow-x-auto border-b border-border gap-2 sm:gap-6 pb-px scrollbar-none">
             <button
+              onClick={() => setActiveTab("pictures_tests")}
+              className={`pb-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                activeTab === "pictures_tests"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <ImageIcon className="size-4" />
+              <span>Pictures Tests</span>
+              <Badge variant={activeTab === "pictures_tests" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0.5">
+                {specimenDecks.length}
+              </Badge>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("steeplechase")}
+              className={`pb-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                activeTab === "steeplechase"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Layers className="size-4" />
+              <span>Steeplechase</span>
+              <Badge variant={activeTab === "steeplechase" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0.5">
+                {specimenDecks.length}
+              </Badge>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("osce")}
+              className={`pb-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                activeTab === "osce"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Award className="size-4" />
+              <span>OSCE Stations</span>
+              <Badge variant={activeTab === "osce" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0.5">
+                600L Final MB
+              </Badge>
+            </button>
+
+            <button
               onClick={() => setActiveTab("ai_generated")}
               className={`pb-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
                 activeTab === "ai_generated"
@@ -1229,7 +1274,7 @@ export default function FlashcardsPage() {
               }`}
             >
               <Sparkles className="size-4" />
-              <span>AI-Generated</span>
+              <span>AI Decks</span>
               <Badge variant={activeTab === "ai_generated" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0.5">
                 {aiDecks.length}
               </Badge>
@@ -1247,21 +1292,6 @@ export default function FlashcardsPage() {
               <span>My Decks</span>
               <Badge variant={activeTab === "user_created" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0.5">
                 {myDecks.length}
-              </Badge>
-            </button>
-
-            <button
-              onClick={() => setActiveTab("specimen_bank")}
-              className={`pb-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-                activeTab === "specimen_bank"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <ImageIcon className="size-4" />
-              <span>Specimen Bank — Steeplechase & Picture Recall</span>
-              <Badge variant={activeTab === "specimen_bank" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0.5">
-                {specimenDecks.length}
               </Badge>
             </button>
           </div>
@@ -1333,15 +1363,15 @@ export default function FlashcardsPage() {
           </div>
         )}
 
-        {/* TAB CONTENT: SPECIMEN BANK — STEEPLECHASE & PICTURE RECALL (GROUPED BY COURSE) */}
-        {activeTab === "specimen_bank" && (
+        {/* TAB CONTENT: PICTURES TESTS */}
+        {activeTab === "pictures_tests" && (
           <div className="flex flex-col gap-8">
             {specimenDecks.length === 0 ? (
               <EmptyState
                 imageSrc="/logo.png"
                 imageAlt="Medical study environment"
-                title="No Specimen Decks Available"
-                description={searchQuery ? "No specimen bank decks match your active search filter." : "Active specimen bank landmark images will appear here grouped by course."}
+                title="No Pictures Tests Available"
+                description={searchQuery ? "No picture test decks match your active search filter." : "Active specimen bank landmark images will appear here grouped by course."}
               />
             ) : (
               specimenDeckGroups.map((group) => (
@@ -1353,7 +1383,7 @@ export default function FlashcardsPage() {
                       </span>
                       <h3 className="text-base font-bold text-foreground">{group.courseTitle}</h3>
                       <Badge variant="outline" className="text-[10px] font-mono ml-auto">
-                        {group.decks.length} {group.decks.length === 1 ? "specimen deck" : "specimen decks"}
+                        {group.decks.length} {group.decks.length === 1 ? "picture test deck" : "picture test decks"}
                       </Badge>
                     </div>
 
@@ -1364,6 +1394,101 @@ export default function FlashcardsPage() {
                 </MotionReveal>
               ))
             )}
+          </div>
+        )}
+
+        {/* TAB CONTENT: STEEPLECHASE */}
+        {activeTab === "steeplechase" && (
+          <div className="flex flex-col gap-6">
+            <Card className="border-primary/20 bg-primary/5">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <Layers className="size-5 text-primary" />
+                  Steeplechase Spotter Identification
+                </CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
+                  Practice timed spotter identification on high-yield clinical specimens, histology slides, instruments, and radiology images.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+
+            {specimenDecks.length === 0 ? (
+              <EmptyState
+                imageSrc="/logo.png"
+                imageAlt="Medical study environment"
+                title="No Steeplechase Decks Available"
+                description="Landmark specimen decks for steeplechase spotters will appear here."
+              />
+            ) : (
+              specimenDeckGroups.map((group) => (
+                <MotionReveal key={group.courseId}>
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center gap-2.5 pb-2 border-b border-border/60">
+                      <span className="flex size-7 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500 text-xs font-bold">
+                        {group.courseCode}
+                      </span>
+                      <h3 className="text-base font-bold text-foreground">{group.courseTitle}</h3>
+                    </div>
+
+                    <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {group.decks.map((deck) => renderDeckCard(deck))}
+                    </MotionStaggerGroup>
+                  </div>
+                </MotionReveal>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* TAB CONTENT: OSCE STATIONS */}
+        {activeTab === "osce" && (
+          <div className="flex flex-col gap-6">
+            <Card className="border-primary/30 bg-gradient-to-r from-primary/10 via-background to-primary/5 shadow-sm">
+              <CardHeader className="pb-4">
+                <div className="flex items-center gap-2 text-primary">
+                  <Award className="size-5" />
+                  <span className="text-xs font-bold uppercase tracking-wider">600L Final MB Examination Blueprint</span>
+                </div>
+                <CardTitle className="text-xl font-extrabold text-foreground">
+                  Objective Structured Clinical Examination (OSCE)
+                </CardTitle>
+                <CardDescription className="text-sm max-w-2xl">
+                  Simulate real 60-second station practical exams featuring verified clinical radiology, surgical instruments, pathology specimens, and structured subquestion marking points.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <Link href="/osce">
+                  <Button className="gap-2 font-bold shadow-md">
+                    <span>Launch Interactive OSCE Station Exam</span>
+                    <ArrowRight className="size-4" />
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+
+            {specimenDeckGroups.map((group) => (
+              <MotionReveal key={group.courseId}>
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between pb-2 border-b border-border/60">
+                    <div className="flex items-center gap-2.5">
+                      <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
+                        {group.courseCode}
+                      </span>
+                      <h3 className="text-base font-bold text-foreground">{group.courseTitle}</h3>
+                    </div>
+                    <Link href={`/osce?course_id=${group.courseId}`}>
+                      <Button variant="outline" size="sm" className="gap-1 text-xs">
+                        Start OSCE <ChevronRight className="size-3.5" />
+                      </Button>
+                    </Link>
+                  </div>
+
+                  <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {group.decks.map((deck) => renderDeckCard(deck))}
+                  </MotionStaggerGroup>
+                </div>
+              </MotionReveal>
+            ))}
           </div>
         )}
       </section>
