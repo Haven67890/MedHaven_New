@@ -633,6 +633,11 @@ export default function StudyMaterialsPage() {
     <div className="flex flex-col gap-8">
       <PageHeader title="Study Materials" description="Curated notes, handouts, and references shared by lecturers and peers.">
         <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" asChild className="h-9 text-xs">
+            <a href="/library">
+              <Library className="size-3.5 mr-1" /> Open Study Library
+            </a>
+          </Button>
           {/* Sort Control */}
           <select
             id="sort-filter"
