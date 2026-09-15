@@ -15,7 +15,7 @@ export const primaryNav: NavItem[] = [
   { label: "Past Questions", href: "/past-questions", icon: FileQuestion, description: "Practice with past papers" },
   { label: "Study Materials", href: "/materials", icon: FileText, description: "Notes and handouts" },
   { label: "Lecture Videos", href: "/lectures", icon: Clapperboard, description: "Recorded lectures" },
-  { label: "Smart Recall", href: "/flashcards", icon: BrainCircuit, description: "Active recall decks" },
+  { label: "Practical Exams", href: "/flashcards", icon: BrainCircuit, description: "Pictures Tests, Steeplechase & OSCE" },
   { label: "Question Bank", href: "/quizzes", icon: ListChecks, description: "Adaptive practice" },
   { label: "Timetable", href: "/timetable", icon: CalendarDays, description: "Your weekly schedule" },
   { label: "Progress Tracker", href: "/progress", icon: TrendingUp, description: "Track your goals" },
