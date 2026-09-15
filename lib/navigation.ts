@@ -1,6 +1,26 @@
 import type { LucideIcon } from "lucide-react"
 
-import { LayoutDashboard, Library, FileQuestionMark as FileQuestion, FileText, Clapperboard, BrainCircuit, ListChecks, CalendarDays, TrendingUp, Store, Stethoscope, GraduationCap, Users, Bell, CircleUser as UserCircle, Settings, ShieldCheck, Heart } from "lucide-react"
+import {
+  LayoutDashboard,
+  Library,
+  FileQuestionMark as FileQuestion,
+  FileText,
+  Clapperboard,
+  BrainCircuit,
+  ListChecks,
+  CalendarDays,
+  TrendingUp,
+  Store,
+  Stethoscope,
+  GraduationCap,
+  Users,
+  Bell,
+  CircleUser as UserCircle,
+  Settings,
+  ShieldCheck,
+  Heart,
+  Eye
+} from "lucide-react"
 
 export type NavItem = {
   label: string
@@ -11,6 +31,7 @@ export type NavItem = {
 
 export const primaryNav: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, description: "Your study overview" },
+  { label: "OSCE Stations", href: "/osce", icon: Eye, description: "Timed image & specimen stations" },
   { label: "Study Library", href: "/library", icon: Library, description: "Browse the digital library" },
   { label: "Past Questions", href: "/past-questions", icon: FileQuestion, description: "Practice with past papers" },
   { label: "Study Materials", href: "/materials", icon: FileText, description: "Notes and handouts" },
