@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import crypto from "crypto"
 import { createClient as createServerClient } from "@/lib/supabase/server"
-import { createServiceClient } from "@/lib/supabase/config"
+import { createServiceClient } from "@/lib/supabase/server"
 import { generateOSCEStationsBatch, type OSCESpecimenImage, type OSCEStation } from "@/lib/osce-engine"
 
 function generateQuestionFingerprint(questionText: string, imageBankId: string): string {
@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     const {
       data: { user },
       error: userError
-    } = await userClient.getUser()
+    } = await userClient.auth.getUser()
 
     if (userError || !user) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })

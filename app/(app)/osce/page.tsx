@@ -122,7 +122,7 @@ export default function OSCEAssessmentPage() {
         if (data && data.length > 0) {
           setCourses(data)
           // Default to Medicine & Surgery / Senior MBBS course or first 600L course
-          const mbbs600L = data.find(c => c.level === "600L" || c.code?.includes("MED") || c.code?.includes("SUR"))
+          const mbbs600L = data.find((c: Course) => c.level === "600L" || c.code?.includes("MED") || c.code?.includes("SUR"))
           setSelectedCourseId(mbbs600L?.id || data[0].id)
         }
       } catch (err: any) {
@@ -328,9 +328,9 @@ export default function OSCEAssessmentPage() {
       <PageHeader
         title="OSCE Stations"
         description="Timed, image-first clinical assessment stations for senior medical students."
-        icon={Eye}
-        badge="Medicine & Surgery 600L"
-      />
+      >
+        <Badge variant="outline" className="text-xs font-mono">Medicine & Surgery 600L</Badge>
+      </PageHeader>
 
       {/* SETUP VIEW */}
       {!sessionActive && !sessionCompleted && (
