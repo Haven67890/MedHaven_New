@@ -10,14 +10,15 @@ interface PptxViewerProps {
 
 export function PptxViewer({ storagePath }: PptxViewerProps) {
   const [presignedUrl, setPresignedUrl] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loadingUrl, setLoadingUrl] = useState(true)
+  const [iframeLoading, setIframeLoading] = useState(true)
   const [error, setError] = useState<boolean>(false)
 
   useEffect(() => {
     let active = true
 
     async function fetchPresignedUrl() {
-      setLoading(true)
+      setLoadingUrl(true)
       setError(false)
 
       try {
@@ -35,7 +36,7 @@ export function PptxViewer({ storagePath }: PptxViewerProps) {
         console.error("PptxViewer error fetching preview-url:", err)
         if (active) setError(true)
       } finally {
-        if (active) setLoading(false)
+        if (active) setLoadingUrl(false)
       }
     }
 
@@ -48,11 +49,11 @@ export function PptxViewer({ storagePath }: PptxViewerProps) {
 
   const downloadUrl = `/api/materials/signed-url?path=${encodeURIComponent(storagePath)}`
 
-  if (loading) {
+  if (loadingUrl) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-950 text-zinc-400 gap-3">
         <Loader2 className="size-8 animate-spin text-primary" />
-        <p className="text-sm font-medium">Generating presentation preview...</p>
+        <p className="text-sm font-medium">Preparing document preview...</p>
       </div>
     )
   }
@@ -63,13 +64,13 @@ export function PptxViewer({ storagePath }: PptxViewerProps) {
         <div className="flex size-16 items-center justify-center rounded-2xl bg-orange-500/10 text-orange-500 mb-4 border border-orange-500/20">
           <Presentation className="size-8" />
         </div>
-        <h4 className="text-base font-semibold text-foreground mb-1">Presentation Preview Unavailable</h4>
+        <h4 className="text-base font-semibold text-foreground mb-1">Document Preview Unavailable</h4>
         <p className="text-sm text-zinc-400 max-w-md mb-6 leading-relaxed">
-          Preview unavailable — click Download to open this file in PowerPoint.
+          Preview unavailable — click Download to open this file.
         </p>
         <Button asChild variant="default" size="default" className="bg-orange-600 hover:bg-orange-700 text-white font-medium">
           <a href={downloadUrl} download className="flex items-center gap-2">
-            <Download className="size-4" /> Download PowerPoint File
+            <Download className="size-4" /> Download Document File
           </a>
         </Button>
       </div>
@@ -80,11 +81,21 @@ export function PptxViewer({ storagePath }: PptxViewerProps) {
 
   return (
     <div className="relative w-full h-full bg-zinc-950 overflow-hidden">
+      {iframeLoading && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-zinc-950/90 text-zinc-400 gap-3">
+          <Loader2 className="size-8 animate-spin text-primary" />
+          <p className="text-xs text-zinc-400 font-medium">Connecting to Office Viewer...</p>
+        </div>
+      )}
       <iframe
         src={officeOnlineSrc}
         className="w-full h-full border-0 bg-zinc-950"
-        title="PowerPoint Presentation Preview"
-        onError={() => setError(true)}
+        title="Office Document Preview"
+        onLoad={() => setIframeLoading(false)}
+        onError={() => {
+          setIframeLoading(false)
+          setError(true)
+        }}
       />
     </div>
   )
