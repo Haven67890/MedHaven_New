@@ -1,12 +1,13 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback, Suspense } from "react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import {
   Award,
   Clock,
   ArrowRight,
+  ArrowLeft,
   RotateCcw,
   ZoomIn,
   X,
@@ -19,7 +20,12 @@ import {
   AlertCircle,
   BrainCircuit,
   Eye,
-  FileText
+  FileText,
+  Stethoscope,
+  Activity,
+  Heart,
+  Brain,
+  Zap
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -30,20 +36,44 @@ import { PageHeader } from "@/components/dashboard/page-header"
 import { Progress } from "@/components/ui/progress"
 import { createClient } from "@/lib/supabase/client"
 import { evaluateOSCEAnswer, type OSCEStation, type OSCEAnswerEvaluation } from "@/lib/osce-engine"
-import { MotionReveal } from "@/components/ui/motion"
+import { MotionReveal, MotionStaggerGroup, MotionStaggerItem } from "@/components/ui/motion"
 
 const STATION_TIME_SECONDS = 60
 
+// Expected 600L OSCE Course Codes
+const REQUIRED_600L_CODES = [
+  "MED600",
+  "SUR600",
+  "RAD600",
+  "OPH600",
+  "PSY600",
+  "ENT600",
+  "ANE600"
+]
+
+interface CourseOption {
+  id: string
+  code: string
+  title: string
+  description?: string | null
+}
+
 function OSCEContent() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const courseIdParam = searchParams.get("course_id")
   const supabase = createClient()
 
+  // Launcher state (for fetching 600L courses if no course_id selected)
+  const [eligibleCourses, setEligibleCourses] = useState<CourseOption[]>([])
+  const [loadingLauncher, setLoadingLauncher] = useState(true)
+
   // Exam configuration & state
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [stations, setStations] = useState<OSCEStation[]>([])
   const [quizId, setQuizId] = useState<string | null>(null)
+  const [activeCourse, setActiveCourse] = useState<CourseOption | null>(null)
 
   // Current station active view state
   const [currentStationIndex, setCurrentStationIndex] = useState(0)
@@ -67,8 +97,51 @@ function OSCEContent() {
     >
   >({})
 
-  // Fetch or generate OSCE stations on mount
+  // 1. Fetch eligible 600L courses on mount
+  useEffect(() => {
+    let active = true
+
+    async function load600LCourses() {
+      try {
+        setLoadingLauncher(true)
+        const { data, error } = await supabase
+          .from("courses")
+          .select("id, code, title, description")
+          .eq("level", "600L")
+          .in("code", REQUIRED_600L_CODES)
+
+        if (error) {
+          console.error("Error fetching 600L OSCE courses:", error)
+          return
+        }
+
+        if (active && data) {
+          // Sort explicitly by REQUIRED_600L_CODES order
+          const sorted = [...data].sort((a, b) => {
+            const idxA = REQUIRED_600L_CODES.indexOf(a.code)
+            const idxB = REQUIRED_600L_CODES.indexOf(b.code)
+            return (idxA !== -1 ? idxA : 99) - (idxB !== -1 ? idxB : 99)
+          }) as CourseOption[]
+
+          setEligibleCourses(sorted)
+        }
+      } catch (err) {
+        console.error("Failed to load OSCE course launcher:", err)
+      } finally {
+        if (active) setLoadingLauncher(false)
+      }
+    }
+
+    load600LCourses()
+    return () => {
+      active = false
+    }
+  }, [supabase])
+
+  // 2. Fetch or generate OSCE stations when course_id exists
   const fetchOSCEStations = useCallback(async () => {
+    if (!courseIdParam) return
+
     setLoading(true)
     setError(null)
     setSessionCompleted(false)
@@ -78,11 +151,22 @@ function OSCEContent() {
     setTimeLeft(STATION_TIME_SECONDS)
 
     try {
+      // Find course details
+      const { data: courseData } = await supabase
+        .from("courses")
+        .select("id, code, title")
+        .eq("id", courseIdParam)
+        .single()
+
+      if (courseData) {
+        setActiveCourse(courseData as CourseOption)
+      }
+
       const res = await fetch("/api/osce/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          course_id: courseIdParam || undefined,
+          course_id: courseIdParam,
           limit: 5
         })
       })
@@ -93,7 +177,7 @@ function OSCEContent() {
       }
 
       if (!data.stations || data.stations.length === 0) {
-        throw new Error("No active OSCE stations found")
+        throw new Error("No active OSCE stations found for this course")
       }
 
       setStations(data.stations)
@@ -104,11 +188,13 @@ function OSCEContent() {
     } finally {
       setLoading(false)
     }
-  }, [courseIdParam])
+  }, [courseIdParam, supabase])
 
   useEffect(() => {
-    fetchOSCEStations()
-  }, [fetchOSCEStations])
+    if (courseIdParam) {
+      fetchOSCEStations()
+    }
+  }, [courseIdParam, fetchOSCEStations])
 
   // Current active station reference
   const currentStation = stations[currentStationIndex]
@@ -178,7 +264,7 @@ function OSCEContent() {
 
   // 60-second station countdown timer
   useEffect(() => {
-    if (loading || sessionCompleted || stations.length === 0) return
+    if (!courseIdParam || loading || sessionCompleted || stations.length === 0) return
 
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
@@ -192,7 +278,7 @@ function OSCEContent() {
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [loading, sessionCompleted, stations.length, currentStationIndex, handleNextStation])
+  }, [courseIdParam, loading, sessionCompleted, stations.length, currentStationIndex, handleNextStation])
 
   const handleSubAnswerChange = (subIdx: number, val: string) => {
     setCurrentSubAnswers((prev) => ({
@@ -220,20 +306,128 @@ function OSCEContent() {
     return { earnedSubQuestions, totalSubQuestions, percentage }
   }
 
+  // Handle course selection from launcher
+  const handleSelectCourse = (courseId: string) => {
+    router.push(`/osce?course_id=${courseId}`)
+  }
+
+  // Helper icon mapper for 600L specialties
+  const getSpecialtyIcon = (code: string) => {
+    switch (code) {
+      case "MED600": return Stethoscope
+      case "SUR600": return Activity
+      case "RAD600": return Zap
+      case "OPH600": return Eye
+      case "PSY600": return Brain
+      case "ENT600": return Heart
+      case "ANE600": return Activity
+      default: return Award
+    }
+  }
+
+  // SCENARIO 1: NO COURSE SELECTED — SHOW 600L COURSE LAUNCHER
+  if (!courseIdParam) {
+    return (
+      <div className="flex flex-col gap-6 max-w-5xl mx-auto pb-12">
+        <MotionReveal>
+          <PageHeader
+            title="Objective Structured Clinical Exam (OSCE)"
+            description="Select a 600L clinical specialty to launch your structured OSCE practical exam station session."
+          >
+            <Link href="/flashcards">
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <ArrowLeft className="size-4" />
+                <span>Back to Practical Exams</span>
+              </Button>
+            </Link>
+          </PageHeader>
+        </MotionReveal>
+
+        <MotionReveal>
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <Badge variant="outline" className="text-xs font-mono font-bold bg-primary/5 text-primary border-primary/20">
+                  600L MBBS Clinical Specialties
+                </Badge>
+                <h2 className="text-lg sm:text-xl font-bold text-foreground mt-1">Select OSCE Exam Specialty</h2>
+              </div>
+            </div>
+
+            {loadingLauncher ? (
+              <div className="flex flex-col items-center justify-center p-12 gap-3">
+                <Loader2 className="size-8 animate-spin text-primary" />
+                <p className="text-xs text-muted-foreground">Loading 600L OSCE specialties...</p>
+              </div>
+            ) : eligibleCourses.length === 0 ? (
+              <Card className="p-8 text-center">
+                <AlertCircle className="size-8 text-muted-foreground mx-auto mb-2" />
+                <h3 className="text-base font-bold text-foreground">No 600L OSCE Courses Found</h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Ensure 600L course records exist in the database.
+                </p>
+              </Card>
+            ) : (
+              <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {eligibleCourses.map((course) => {
+                  const IconComp = getSpecialtyIcon(course.code)
+                  return (
+                    <MotionStaggerItem key={course.id}>
+                      <Card
+                        className="p-5 flex flex-col justify-between border-border/60 hover:border-primary/40 hover:shadow-md transition-all cursor-pointer h-full"
+                        onClick={() => handleSelectCourse(course.id)}
+                      >
+                        <div className="flex flex-col gap-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex size-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                              <IconComp className="size-5" />
+                            </div>
+                            <Badge variant="outline" className="text-[10px] font-mono">
+                              {course.code}
+                            </Badge>
+                          </div>
+                          <div>
+                            <h3 className="text-base font-bold text-foreground">{course.title}</h3>
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                              {course.description || `Practical OSCE stations covering clinical examination, diagnosis, and management in ${course.title}.`}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 pt-3 border-t border-border/40">
+                          <Button className="w-full justify-between font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white">
+                            <span>Start {course.code} OSCE</span>
+                            <ArrowRight className="size-4" />
+                          </Button>
+                        </div>
+                      </Card>
+                    </MotionStaggerItem>
+                  )
+                })}
+              </MotionStaggerGroup>
+            )}
+          </div>
+        </MotionReveal>
+      </div>
+    )
+  }
+
+  // SCENARIO 2: LOADING STATIONS
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4 text-center">
         <Loader2 className="size-10 animate-spin text-primary" />
         <div className="flex flex-col gap-1">
-          <h3 className="text-lg font-bold text-foreground">Preparing OSCE Practical Exam</h3>
+          <h3 className="text-lg font-bold text-foreground">Preparing OSCE Station Session</h3>
           <p className="text-xs text-muted-foreground max-w-md">
-            Fetching verified medical specimens and generating senior 600L MBBS station marking keys...
+            {activeCourse ? `Loading verified ${activeCourse.code} (${activeCourse.title}) medical specimens...` : "Generating OSCE stations..."}
           </p>
         </div>
       </div>
     )
   }
 
+  // SCENARIO 3: ERROR STATE
   if (error || stations.length === 0) {
     return (
       <div className="flex flex-col gap-6 max-w-2xl mx-auto my-8">
@@ -243,15 +437,18 @@ function OSCEContent() {
               <AlertCircle className="size-5" />
               <CardTitle className="text-base">OSCE Station Error</CardTitle>
             </div>
-            <CardDescription className="text-sm mt-1">{error || "Unable to load OSCE stations."}</CardDescription>
+            <CardDescription className="text-sm mt-1">{error || "Unable to load OSCE stations for this course."}</CardDescription>
           </CardHeader>
           <CardFooter className="flex gap-3">
             <Button onClick={fetchOSCEStations} className="gap-2">
               <RotateCcw className="size-4" />
               <span>Try Again</span>
             </Button>
+            <Link href="/osce">
+              <Button variant="outline">Select Different Course</Button>
+            </Link>
             <Link href="/flashcards">
-              <Button variant="outline">Return to Practical Exams</Button>
+              <Button variant="ghost">Back to Practical Exams</Button>
             </Link>
           </CardFooter>
         </Card>
@@ -263,14 +460,22 @@ function OSCEContent() {
     <div className="flex flex-col gap-6 max-w-5xl mx-auto pb-12">
       <MotionReveal>
         <PageHeader
-          title="Practical Exams — Objective Structured Clinical Exam"
+          title={`OSCE — ${activeCourse?.code ? `${activeCourse.code}: ${activeCourse.title}` : "Clinical Specialty"}`}
           description="Senior 600L MBBS station-based practical assessment with 60-second timers and structured marking rubrics."
         >
-          <Link href="/flashcards">
-            <Button variant="outline" size="sm" className="gap-1.5">
-              Exit Exam
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/osce">
+              <Button variant="outline" size="sm" className="gap-1.5">
+                Change Specialty
+              </Button>
+            </Link>
+            <Link href="/flashcards">
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <ArrowLeft className="size-4" />
+                <span>Back to Practical Exams</span>
+              </Button>
+            </Link>
+          </div>
         </PageHeader>
       </MotionReveal>
 
@@ -289,7 +494,9 @@ function OSCEContent() {
                     <Badge variant="outline" className="text-[10px] uppercase font-mono">
                       Station {currentStationIndex + 1}
                     </Badge>
-                    <span className="text-xs font-semibold text-muted-foreground">{currentStation.topic}</span>
+                    <Badge variant="secondary" className="text-[10px]">
+                      {activeCourse?.code || currentStation.topic}
+                    </Badge>
                   </div>
                   <h3 className="text-sm sm:text-base font-bold text-foreground line-clamp-1">
                     {currentStation.image_bank?.title || "Clinical Specimen Station"}
@@ -409,7 +616,7 @@ function OSCEContent() {
               </div>
               <CardTitle className="text-2xl font-bold">OSCE Assessment Completed</CardTitle>
               <CardDescription>
-                Station-by-station evaluation and structured marking rubric breakdown.
+                Station-by-station evaluation and structured marking rubric breakdown for {activeCourse?.title || "Clinical Specialty"}.
               </CardDescription>
 
               {(() => {
@@ -429,11 +636,14 @@ function OSCEContent() {
             <CardFooter className="p-4 flex flex-wrap justify-between items-center gap-3 bg-card">
               <Button variant="outline" onClick={fetchOSCEStations} className="gap-2">
                 <RotateCcw className="size-4" />
-                <span>Start New OSCE Station Set</span>
+                <span>Start New Station Set</span>
               </Button>
+              <Link href="/osce">
+                <Button variant="outline">Select Different Specialty</Button>
+              </Link>
               <Link href="/flashcards">
                 <Button className="gap-2">
-                  <span>Return to Practical Exams</span>
+                  <span>Back to Practical Exams</span>
                 </Button>
               </Link>
             </CardFooter>
