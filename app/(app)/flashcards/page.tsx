@@ -24,7 +24,10 @@ import {
   Award,
   User,
   Layers,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Stethoscope,
+  Clock,
+  Sparkle
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -173,8 +176,36 @@ export default function FlashcardsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const debouncedSearchQuery = useDebounce(searchQuery, 300)
 
-  // Tab state: "ai_generated" | "user_created" | "specimen_bank"
-  const [activeTab, setActiveTab] = useState<"pictures_tests" | "steeplechase" | "osce" | "ai_generated" | "user_created">("pictures_tests")
+  // Primary practical mode selection: "pictures_tests" | "steeplechase" | "osce"
+  const [activePracticalMode, setActivePracticalMode] = useState<"pictures_tests" | "steeplechase" | "osce">("pictures_tests")
+
+  const handleToggleGenerator = () => {
+    const nextState = !showGenerator
+    setShowGenerator(nextState)
+    if (nextState && typeof window !== "undefined") {
+      setTimeout(() => {
+        const el = document.getElementById("ai-generator-form")
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" })
+        }
+      }, 50)
+    }
+  }
+
+  const handleModeSelect = (mode: "pictures_tests" | "steeplechase" | "osce") => {
+    setActivePracticalMode(mode)
+    if (typeof window !== "undefined") {
+      setTimeout(() => {
+        const el = document.getElementById("practical-mode-content")
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" })
+        }
+      }, 50)
+    }
+  }
+
+  // Secondary study decks tab filter: "ai_generated" | "user_created" | "all"
+  const [deckTab, setDeckTab] = useState<"ai_generated" | "user_created" | "all">("ai_generated")
 
   // Active recall review states
   const [isReviewActive, setIsReviewActive] = useState(false)
@@ -603,7 +634,7 @@ export default function FlashcardsPage() {
       })
 
       setSelectedDeckId(freshDeck.id)
-      setActiveTab("ai_generated")
+      setDeckTab("ai_generated")
       setCustomTopic("")
       setShowGenerator(false)
     } catch (err: any) {
@@ -691,7 +722,7 @@ export default function FlashcardsPage() {
     })
   }, [decks, debouncedSearchQuery])
 
-  // Split filtered decks into three sections
+  // Split filtered decks into sections
   const aiDecks = useMemo(() => filteredDecks.filter((d) => d.source === "ai_generated"), [filteredDecks])
   const myDecks = useMemo(() => filteredDecks.filter((d) => d.source === "user_created"), [filteredDecks])
   const specimenDecks = useMemo(() => filteredDecks.filter((d) => d.source === "specimen_bank"), [filteredDecks])
@@ -733,7 +764,19 @@ export default function FlashcardsPage() {
   if (loadingInitial) {
     return (
       <div className="flex flex-col gap-8">
-        <PageHeader title="Smart Recall" description="Active recall flashcard decks powered by premium Groq AI." />
+        <PageHeader title="Practical Exams" description="Test your clinical recognition and practical skills." />
+
+        {/* Primary Modes Skeleton */}
+        <div className="grid gap-4 sm:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Card key={i} className="p-5 flex flex-col gap-3 border-border/60">
+              <Skeleton className="size-10 rounded-xl" />
+              <Skeleton className="h-5 w-3/4 mt-1" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-9 w-full rounded-md mt-2" />
+            </Card>
+          ))}
+        </div>
 
         {/* Stats Skeleton */}
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -747,16 +790,6 @@ export default function FlashcardsPage() {
             </Card>
           ))}
         </section>
-
-        {/* Search Input Skeleton */}
-        <Skeleton className="h-10 w-full rounded-md" />
-
-        {/* Tabs Skeleton */}
-        <div className="flex gap-4 border-b border-border pb-2">
-          <Skeleton className="h-8 w-32 rounded-md" />
-          <Skeleton className="h-8 w-32 rounded-md" />
-          <Skeleton className="h-8 w-48 rounded-md" />
-        </div>
 
         {/* Deck Cards Grid Skeleton */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -790,8 +823,8 @@ export default function FlashcardsPage() {
     return (
       <div className="flex flex-col gap-8">
         <PageHeader
-          title="Flashcards"
-          description="Active recall flashcard decks powered by premium Groq AI."
+          title="Practical Exams — Active Recall"
+          description="Test your clinical recognition and practical skills."
         >
           <Button
             variant="outline"
@@ -818,7 +851,7 @@ export default function FlashcardsPage() {
                 <RotateCcw className="size-4" /> Restart Session
               </Button>
               <Button onClick={() => setIsReviewActive(false)} size="sm">
-                Back to Decks
+                Back to Practical Exams
               </Button>
             </div>
           </div>
@@ -1028,344 +1061,308 @@ export default function FlashcardsPage() {
 
   return (
     <div className="flex flex-col gap-8">
+      {/* PAGE HEADER */}
       <MotionReveal>
-        <PageHeader title="Practical Exams & Active Recall" description="Master medical specimens, diagnostic imaging, pathology spotters, steeplechase, and structured OSCE stations for MBBS examinations.">
+        <PageHeader title="Practical Exams" description="Test your clinical recognition and practical skills.">
           <Button
             variant={showGenerator ? "outline" : "default"}
-            onClick={() => setShowGenerator(!showGenerator)}
+            onClick={handleToggleGenerator}
             className="flex items-center gap-1.5 transition-all"
           >
             {showGenerator ? (
               <>Close Generator <X className="size-4" /></>
             ) : (
-              <>Generate with AI <Sparkles className="size-4" /></>
+              <>Generate AI Deck <Sparkles className="size-4" /></>
             )}
           </Button>
         </PageHeader>
       </MotionReveal>
 
-      {/* STAT CARDS - REAL DECK VALUES */}
-      <section>
-        <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <MotionStaggerItem>
-            <StatCard label="Total decks" value={String(decks.length)} icon={BrainCircuit} accent="primary" />
-          </MotionStaggerItem>
-          <MotionStaggerItem>
-            <StatCard label="Cards reviewed" value={String(totalReviewedCount)} icon={RotateCcw} accent="secondary" />
-          </MotionStaggerItem>
-          <MotionStaggerItem>
-            <StatCard label="Mastery rate" value={totalReviewedCount > 0 ? `${globalMasteryRate}%` : "0%"} icon={Star} accent="accent" />
-          </MotionStaggerItem>
-          <MotionStaggerItem>
-            <StatCard label="Due today" value={String(totalDueCount)} icon={BrainCircuit} accent="warning" />
-          </MotionStaggerItem>
-        </MotionStaggerGroup>
-      </section>
-
       {/* AI GENERATOR SETUP UI */}
       {showGenerator && (
-        <Card className="border-primary/25 shadow-md overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
-          <div className="h-1 bg-primary" />
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <Sparkles className="size-4.5 animate-pulse" />
-                </span>
-                <div>
-                  <CardTitle className="text-base">AI Flashcards Generator</CardTitle>
-                  <CardDescription>Generate customized active recall decks directly mapped to your courses.</CardDescription>
-                </div>
-              </div>
-              <Button variant="ghost" size="icon" onClick={() => setShowGenerator(false)}>
-                <X className="size-4" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleGenerateDeck} className="flex flex-col gap-6 max-w-3xl">
-              {/* SELECT CARD COUNT */}
-              <div className="flex flex-col gap-2">
-                <span className="text-xs font-semibold text-muted-foreground">Number of Cards</span>
+        <MotionReveal id="ai-generator-form" className="scroll-mt-6">
+          <Card className="border-primary/25 shadow-md overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
+            <div className="h-1 bg-primary" />
+            <CardHeader>
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  {[5, 10, 20].map((val) => {
-                    const active = cardCount === val
-                    return (
-                      <button
-                        key={val}
-                        type="button"
-                        onClick={() => setCardCount(val)}
-                        className={`px-4 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
-                          active
-                            ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                            : "bg-background text-muted-foreground border-input hover:text-foreground hover:border-primary/40"
-                        }`}
-                      >
-                        {val} Cards
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              {/* SELECT COURSE */}
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="course-select" className="text-xs font-semibold text-muted-foreground">
-                  Target Course {userLevel && `(Matching level ${userLevel} sorted first)`}
-                </label>
-                <select
-                  id="course-select"
-                  value={selectedCourseId}
-                  onChange={(e) => setSelectedCourseId(e.target.value)}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {courses.length === 0 ? (
-                    <option value="">No courses found</option>
-                  ) : (
-                    courses.map((course) => {
-                      const isMatch = course.level && userLevel && String(course.level) === String(userLevel)
-                      return (
-                        <option key={course.id} value={course.id}>
-                          {course.code ? `${course.code}: ` : ""}{course.title || "Unknown Subject"} {isMatch ? "⭐" : ""}
-                        </option>
-                      )
-                    })
-                  )}
-                </select>
-              </div>
-
-              {/* INPUT CUSTOM TOPIC */}
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="topic-input" className="text-xs font-semibold text-muted-foreground">
-                  Custom Topic (Optional)
-                </label>
-                <Input
-                  id="topic-input"
-                  type="text"
-                  placeholder="e.g. G-protein receptors, Lobar pneumonia (leave blank for general high-yield review)"
-                  value={customTopic}
-                  onChange={(e) => setCustomTopic(e.target.value)}
-                />
-              </div>
-
-              {/* SUGGESTED TOPICS CHIPS */}
-              <div className="flex flex-col gap-2">
-                <span className="text-xs font-semibold text-muted-foreground">High-Yield Suggestions:</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {suggestedTopics.map((topic) => (
-                    <button
-                      key={topic}
-                      type="button"
-                      onClick={() => setCustomTopic(topic)}
-                      className="text-xs border px-2.5 py-1 rounded-full bg-muted/30 text-foreground hover:bg-primary/5 hover:border-primary/40 transition-colors"
-                    >
-                      {topic}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* ERROR BLOCK */}
-              {generationError && (
-                <div className="flex items-start gap-2 bg-destructive/10 text-destructive text-xs p-3 rounded-lg border border-destructive/20 font-medium">
-                  <AlertCircle className="size-4 shrink-0 mt-0.5" />
+                  <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Sparkles className="size-4.5 animate-pulse" />
+                  </span>
                   <div>
-                    <span className="font-bold">Generation Failed: </span>
-                    {generationError}
+                    <CardTitle className="text-base">AI Flashcards Generator</CardTitle>
+                    <CardDescription>Generate customized active recall decks directly mapped to your courses.</CardDescription>
                   </div>
                 </div>
-              )}
-
-              {/* GENERATION STATE OR SUBMIT */}
-              {generating ? (
-                <div className="flex flex-col items-center justify-center p-4 border rounded-xl bg-primary/5 border-primary/10 gap-3 text-center">
-                  <Loader2 className="size-8 animate-spin text-primary" />
-                  <p className="text-sm font-semibold text-foreground">{loaderMessages[loaderMessageIndex]}</p>
-                  <p className="text-xs text-muted-foreground max-w-sm">
-                    Leveraging syllabus files and pdf context where available. This might take up to 30 seconds.
-                  </p>
-                </div>
-              ) : (
-                <Button
-                  type="submit"
-                  className="w-full sm:w-auto font-semibold flex items-center justify-center gap-2"
-                  disabled={courses.length === 0}
-                >
-                  Generate Deck with AI <Sparkles className="size-4" />
+                <Button variant="ghost" size="icon" onClick={() => setShowGenerator(false)}>
+                  <X className="size-4" />
                 </Button>
-              )}
-            </form>
-          </CardContent>
-        </Card>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleGenerateDeck} className="flex flex-col gap-6 max-w-3xl">
+                {/* SELECT CARD COUNT */}
+                <div className="flex flex-col gap-2">
+                  <span className="text-xs font-semibold text-muted-foreground">Number of Cards</span>
+                  <div className="flex items-center gap-2">
+                    {[5, 10, 20].map((val) => {
+                      const active = cardCount === val
+                      return (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setCardCount(val)}
+                          className={`px-4 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                            active
+                              ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                              : "bg-background text-muted-foreground border-input hover:text-foreground hover:border-primary/40"
+                          }`}
+                        >
+                          {val} Cards
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* SELECT COURSE */}
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="course-select" className="text-xs font-semibold text-muted-foreground">
+                    Target Course {userLevel && `(Matching level ${userLevel} sorted first)`}
+                  </label>
+                  <select
+                    id="course-select"
+                    value={selectedCourseId}
+                    onChange={(e) => setSelectedCourseId(e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {courses.length === 0 ? (
+                      <option value="">No courses found</option>
+                    ) : (
+                      courses.map((course) => {
+                        const isMatch = course.level && userLevel && String(course.level) === String(userLevel)
+                        return (
+                          <option key={course.id} value={course.id}>
+                            {course.code ? `${course.code}: ` : ""}{course.title || "Unknown Subject"} {isMatch ? "⭐" : ""}
+                          </option>
+                        )
+                      })
+                    )}
+                  </select>
+                </div>
+
+                {/* INPUT CUSTOM TOPIC */}
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="topic-input" className="text-xs font-semibold text-muted-foreground">
+                    Custom Topic (Optional)
+                  </label>
+                  <Input
+                    id="topic-input"
+                    type="text"
+                    placeholder="e.g. G-protein receptors, Lobar pneumonia (leave blank for general high-yield review)"
+                    value={customTopic}
+                    onChange={(e) => setCustomTopic(e.target.value)}
+                  />
+                </div>
+
+                {/* SUGGESTED TOPICS CHIPS */}
+                <div className="flex flex-col gap-2">
+                  <span className="text-xs font-semibold text-muted-foreground">High-Yield Suggestions:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {suggestedTopics.map((topic) => (
+                      <button
+                        key={topic}
+                        type="button"
+                        onClick={() => setCustomTopic(topic)}
+                        className="text-xs border px-2.5 py-1 rounded-full bg-muted/30 text-foreground hover:bg-primary/5 hover:border-primary/40 transition-colors"
+                      >
+                        {topic}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ERROR BLOCK */}
+                {generationError && (
+                  <div className="flex items-start gap-2 bg-destructive/10 text-destructive text-xs p-3 rounded-lg border border-destructive/20 font-medium">
+                    <AlertCircle className="size-4 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold">Generation Failed: </span>
+                      {generationError}
+                    </div>
+                  </div>
+                )}
+
+                {/* GENERATION STATE OR SUBMIT */}
+                {generating ? (
+                  <div className="flex flex-col items-center justify-center p-4 border rounded-xl bg-primary/5 border-primary/10 gap-3 text-center">
+                    <Loader2 className="size-8 animate-spin text-primary" />
+                    <p className="text-sm font-semibold text-foreground">{loaderMessages[loaderMessageIndex]}</p>
+                    <p className="text-xs text-muted-foreground max-w-sm">
+                      Leveraging syllabus files and pdf context where available. This might take up to 30 seconds.
+                    </p>
+                  </div>
+                ) : (
+                  <Button
+                    type="submit"
+                    className="w-full sm:w-auto font-semibold flex items-center justify-center gap-2"
+                    disabled={courses.length === 0}
+                  >
+                    Generate Deck with AI <Sparkles className="size-4" />
+                  </Button>
+                )}
+              </form>
+            </CardContent>
+          </Card>
+        </MotionReveal>
       )}
 
-      {/* SEARCH FIELD */}
+
+
+      {/* PRIMARY ASSESSMENT MODES - PROMINENT 3 CARDS HIERARCHY */}
       <MotionReveal>
-        <section>
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-            <Input
-              type="search"
-              placeholder="Search decks by title or subject…"
-              className="pl-9"
-              aria-label="Search flashcard decks"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+        <section className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight">Practical Assessment Modes</h2>
+              <p className="text-xs sm:text-sm text-muted-foreground">Choose a practical examination mode to test your clinical skills and spotter identification.</p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            {/* 1. PICTURES TESTS */}
+            <Card
+              onClick={() => handleModeSelect("pictures_tests")}
+              className={`flex flex-col justify-between p-5 transition-all cursor-pointer border-2 hover:shadow-md ${
+                activePracticalMode === "pictures_tests"
+                  ? "border-primary ring-2 ring-primary/20 bg-primary/[0.02]"
+                  : "border-border/80 hover:border-primary/40 bg-card"
+              }`}
+            >
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex size-11 items-center justify-center rounded-xl bg-purple-500/10 text-purple-500">
+                    <ImageIcon className="size-5" />
+                  </div>
+                  <Badge variant={activePracticalMode === "pictures_tests" ? "default" : "secondary"} className="text-[10px] font-semibold">
+                    {specimenDecks.length} Decks
+                  </Badge>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">Pictures Tests</h3>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                    Visual identification and image-based diagnostic questions across clinical subjects.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 pt-3 border-t border-border/40 flex items-center justify-between text-xs font-semibold">
+                <span className={activePracticalMode === "pictures_tests" ? "text-primary" : "text-muted-foreground"}>
+                  {activePracticalMode === "pictures_tests" ? "Active Mode" : "Select Mode"}
+                </span>
+                <ChevronRight className={`size-4 transition-transform ${activePracticalMode === "pictures_tests" ? "translate-x-0.5 text-primary" : "text-muted-foreground"}`} />
+              </div>
+            </Card>
+
+            {/* 2. STEEPLECHASE TESTS */}
+            <Card
+              onClick={() => handleModeSelect("steeplechase")}
+              className={`flex flex-col justify-between p-5 transition-all cursor-pointer border-2 hover:shadow-md ${
+                activePracticalMode === "steeplechase"
+                  ? "border-primary ring-2 ring-primary/20 bg-primary/[0.02]"
+                  : "border-border/80 hover:border-primary/40 bg-card"
+              }`}
+            >
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex size-11 items-center justify-center rounded-xl bg-blue-500/10 text-blue-500">
+                    <Layers className="size-5" />
+                  </div>
+                  <Badge variant={activePracticalMode === "steeplechase" ? "default" : "secondary"} className="text-[10px] font-semibold">
+                    Spotter Stations
+                  </Badge>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">Steeplechase Tests</h3>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                    Sequential practical clinical stations for spotter identification and pathology slide review.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 pt-3 border-t border-border/40 flex items-center justify-between text-xs font-semibold">
+                <span className={activePracticalMode === "steeplechase" ? "text-primary" : "text-muted-foreground"}>
+                  {activePracticalMode === "steeplechase" ? "Active Mode" : "Select Mode"}
+                </span>
+                <ChevronRight className={`size-4 transition-transform ${activePracticalMode === "steeplechase" ? "translate-x-0.5 text-primary" : "text-muted-foreground"}`} />
+              </div>
+            </Card>
+
+            {/* 3. OSCE */}
+            <Card
+              onClick={() => handleModeSelect("osce")}
+              className={`flex flex-col justify-between p-5 transition-all cursor-pointer border-2 hover:shadow-md ${
+                activePracticalMode === "osce"
+                  ? "border-primary ring-2 ring-primary/20 bg-primary/[0.02]"
+                  : "border-border/80 hover:border-primary/40 bg-card"
+              }`}
+            >
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex size-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                    <Award className="size-5" />
+                  </div>
+                  <Badge variant="outline" className="text-[10px] font-semibold border-emerald-500/20 text-emerald-600 dark:text-emerald-400 bg-emerald-500/5">
+                    Timed 60s
+                  </Badge>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">OSCE</h3>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                    Timed clinical examination stations with verified image specimens and structured subquestion rubrics.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 pt-3 border-t border-border/40 flex items-center justify-between text-xs font-semibold">
+                <span className={activePracticalMode === "osce" ? "text-primary" : "text-muted-foreground"}>
+                  {activePracticalMode === "osce" ? "Active Mode" : "Launch OSCE"}
+                </span>
+                <ChevronRight className={`size-4 transition-transform ${activePracticalMode === "osce" ? "translate-x-0.5 text-primary" : "text-muted-foreground"}`} />
+              </div>
+            </Card>
           </div>
         </section>
       </MotionReveal>
 
-      {/* CATEGORY TABS & SECTIONS */}
-      <section className="flex flex-col gap-6">
-        <MotionReveal>
-          <div className="flex overflow-x-auto border-b border-border gap-2 sm:gap-6 pb-px scrollbar-none">
-            <button
-              onClick={() => setActiveTab("pictures_tests")}
-              className={`pb-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-                activeTab === "pictures_tests"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <ImageIcon className="size-4" />
-              <span>Pictures Tests</span>
-              <Badge variant={activeTab === "pictures_tests" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0.5">
-                {specimenDecks.length}
-              </Badge>
-            </button>
+      {/* STAT CARDS - SUMMARY */}
+      <section>
+        <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <MotionStaggerItem>
+            <StatCard label="Total Decks" value={String(decks.length)} icon={BrainCircuit} accent="primary" />
+          </MotionStaggerItem>
+          <MotionStaggerItem>
+            <StatCard label="Cards Reviewed" value={String(totalReviewedCount)} icon={RotateCcw} accent="secondary" />
+          </MotionStaggerItem>
+          <MotionStaggerItem>
+            <StatCard label="Mastery Rate" value={totalReviewedCount > 0 ? `${globalMasteryRate}%` : "0%"} icon={Star} accent="accent" />
+          </MotionStaggerItem>
+          <MotionStaggerItem>
+            <StatCard label="Due Today" value={String(totalDueCount)} icon={BrainCircuit} accent="warning" />
+          </MotionStaggerItem>
+        </MotionStaggerGroup>
+      </section>
 
-            <button
-              onClick={() => setActiveTab("steeplechase")}
-              className={`pb-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-                activeTab === "steeplechase"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Layers className="size-4" />
-              <span>Steeplechase</span>
-              <Badge variant={activeTab === "steeplechase" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0.5">
-                {specimenDecks.length}
-              </Badge>
-            </button>
+      {/* SELECTED PRACTICAL MODE CONTENT CONTAINER */}
+      <section id="practical-mode-content" className="flex flex-col gap-6 scroll-mt-6">
+        {/* PICTURES TESTS VIEW */}
+        {activePracticalMode === "pictures_tests" && (
+          <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <div className="flex flex-col gap-1 pb-2 border-b border-border/60">
+              <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                <ImageIcon className="size-4 text-purple-500" />
+                Pictures Tests & Visual Identification Decks
+              </h3>
+              <p className="text-xs text-muted-foreground">Select a picture test deck below to begin active recall on pathology, radiology, and specimen landmarks.</p>
+            </div>
 
-            <button
-              onClick={() => setActiveTab("osce")}
-              className={`pb-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-                activeTab === "osce"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Award className="size-4" />
-              <span>OSCE Stations</span>
-              <Badge variant={activeTab === "osce" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0.5">
-                600L Final MB
-              </Badge>
-            </button>
-
-            <button
-              onClick={() => setActiveTab("ai_generated")}
-              className={`pb-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-                activeTab === "ai_generated"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Sparkles className="size-4" />
-              <span>AI Decks</span>
-              <Badge variant={activeTab === "ai_generated" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0.5">
-                {aiDecks.length}
-              </Badge>
-            </button>
-
-            <button
-              onClick={() => setActiveTab("user_created")}
-              className={`pb-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-                activeTab === "user_created"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <User className="size-4" />
-              <span>My Decks</span>
-              <Badge variant={activeTab === "user_created" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0.5">
-                {myDecks.length}
-              </Badge>
-            </button>
-          </div>
-        </MotionReveal>
-
-        {/* TAB CONTENT: AI-GENERATED (GROUPED BY COURSE) */}
-        {activeTab === "ai_generated" && (
-          <div className="flex flex-col gap-8">
-            {aiDecks.length === 0 ? (
-              <EmptyState
-                imageSrc="/logo.png"
-                imageAlt="Medical study environment"
-                title="No AI-Generated Decks"
-                description={searchQuery ? "No AI-generated decks match your active search filter." : "Get started by generating your first high-yield medical flashcard deck using AI."}
-                action={
-                  !showGenerator ? (
-                    <Button onClick={() => setShowGenerator(true)} className="gap-1.5" size="sm">
-                      <Sparkles className="size-4" /> Generate AI Deck
-                    </Button>
-                  ) : null
-                }
-              />
-            ) : (
-              aiDeckGroups.map((group) => (
-                <MotionReveal key={group.courseId}>
-                  <div className="flex flex-col gap-4">
-                    <div className="flex items-center gap-2.5 pb-2 border-b border-border/60">
-                      <span className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">
-                        {group.courseCode}
-                      </span>
-                      <h3 className="text-base font-bold text-foreground">{group.courseTitle}</h3>
-                      <Badge variant="outline" className="text-[10px] font-mono ml-auto">
-                        {group.decks.length} {group.decks.length === 1 ? "deck" : "decks"}
-                      </Badge>
-                    </div>
-
-                    <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                      {group.decks.map((deck) => renderDeckCard(deck))}
-                    </MotionStaggerGroup>
-                  </div>
-                </MotionReveal>
-              ))
-            )}
-          </div>
-        )}
-
-        {/* TAB CONTENT: MY DECKS (USER CREATED) */}
-        {activeTab === "user_created" && (
-          <div className="flex flex-col gap-8">
-            {myDecks.length === 0 ? (
-              <EmptyState
-                imageSrc="/logo.png"
-                imageAlt="Medical study environment"
-                title="No Custom Decks Yet"
-                description={searchQuery ? "No custom decks match your active search filter." : "Decks created directly by you will appear here."}
-                action={
-                  !showGenerator ? (
-                    <Button onClick={() => setShowGenerator(true)} className="gap-1.5" size="sm">
-                      <PlusCircle className="size-4" /> Create or Generate Deck
-                    </Button>
-                  ) : null
-                }
-              />
-            ) : (
-              <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {myDecks.map((deck) => renderDeckCard(deck))}
-              </MotionStaggerGroup>
-            )}
-          </div>
-        )}
-
-        {/* TAB CONTENT: PICTURES TESTS */}
-        {activeTab === "pictures_tests" && (
-          <div className="flex flex-col gap-8">
             {specimenDecks.length === 0 ? (
               <EmptyState
                 imageSrc="/logo.png"
@@ -1375,35 +1372,33 @@ export default function FlashcardsPage() {
               />
             ) : (
               specimenDeckGroups.map((group) => (
-                <MotionReveal key={group.courseId}>
-                  <div className="flex flex-col gap-4">
-                    <div className="flex items-center gap-2.5 pb-2 border-b border-border/60">
-                      <span className="flex size-7 items-center justify-center rounded-lg bg-purple-500/10 text-purple-400 text-xs font-bold">
-                        {group.courseCode}
-                      </span>
-                      <h3 className="text-base font-bold text-foreground">{group.courseTitle}</h3>
-                      <Badge variant="outline" className="text-[10px] font-mono ml-auto">
-                        {group.decks.length} {group.decks.length === 1 ? "picture test deck" : "picture test decks"}
-                      </Badge>
-                    </div>
-
-                    <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                      {group.decks.map((deck) => renderDeckCard(deck))}
-                    </MotionStaggerGroup>
+                <div key={group.courseId} className="flex flex-col gap-4">
+                  <div className="flex items-center gap-2.5 pb-2 border-b border-border/60">
+                    <span className="flex size-7 items-center justify-center rounded-lg bg-purple-500/10 text-purple-400 text-xs font-bold">
+                      {group.courseCode}
+                    </span>
+                    <h4 className="text-sm font-bold text-foreground">{group.courseTitle}</h4>
+                    <Badge variant="outline" className="text-[10px] font-mono ml-auto">
+                      {group.decks.length} {group.decks.length === 1 ? "deck" : "decks"}
+                    </Badge>
                   </div>
-                </MotionReveal>
+
+                  <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {group.decks.map((deck) => renderDeckCard(deck))}
+                  </MotionStaggerGroup>
+                </div>
               ))
             )}
           </div>
         )}
 
-        {/* TAB CONTENT: STEEPLECHASE */}
-        {activeTab === "steeplechase" && (
-          <div className="flex flex-col gap-6">
-            <Card className="border-primary/20 bg-primary/5">
+        {/* STEEPLECHASE TESTS VIEW */}
+        {activePracticalMode === "steeplechase" && (
+          <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <Card className="border-blue-500/20 bg-blue-500/5 shadow-sm">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <Layers className="size-5 text-primary" />
+                <CardTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+                  <Layers className="size-5 text-blue-500" />
                   Steeplechase Spotter Identification
                 </CardTitle>
                 <CardDescription className="text-xs sm:text-sm">
@@ -1421,31 +1416,29 @@ export default function FlashcardsPage() {
               />
             ) : (
               specimenDeckGroups.map((group) => (
-                <MotionReveal key={group.courseId}>
-                  <div className="flex flex-col gap-4">
-                    <div className="flex items-center gap-2.5 pb-2 border-b border-border/60">
-                      <span className="flex size-7 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500 text-xs font-bold">
-                        {group.courseCode}
-                      </span>
-                      <h3 className="text-base font-bold text-foreground">{group.courseTitle}</h3>
-                    </div>
-
-                    <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                      {group.decks.map((deck) => renderDeckCard(deck))}
-                    </MotionStaggerGroup>
+                <div key={group.courseId} className="flex flex-col gap-4">
+                  <div className="flex items-center gap-2.5 pb-2 border-b border-border/60">
+                    <span className="flex size-7 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500 text-xs font-bold">
+                      {group.courseCode}
+                    </span>
+                    <h4 className="text-sm font-bold text-foreground">{group.courseTitle}</h4>
                   </div>
-                </MotionReveal>
+
+                  <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {group.decks.map((deck) => renderDeckCard(deck))}
+                  </MotionStaggerGroup>
+                </div>
               ))
             )}
           </div>
         )}
 
-        {/* TAB CONTENT: OSCE STATIONS */}
-        {activeTab === "osce" && (
-          <div className="flex flex-col gap-6">
-            <Card className="border-primary/30 bg-gradient-to-r from-primary/10 via-background to-primary/5 shadow-sm">
+        {/* OSCE VIEW */}
+        {activePracticalMode === "osce" && (
+          <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <Card className="border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 via-background to-emerald-500/5 shadow-sm">
               <CardHeader className="pb-4">
-                <div className="flex items-center gap-2 text-primary">
+                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
                   <Award className="size-5" />
                   <span className="text-xs font-bold uppercase tracking-wider">600L Final MB Examination Blueprint</span>
                 </div>
@@ -1458,7 +1451,7 @@ export default function FlashcardsPage() {
               </CardHeader>
               <CardContent className="pt-0">
                 <Link href="/osce">
-                  <Button className="gap-2 font-bold shadow-md">
+                  <Button className="gap-2 font-bold shadow-md bg-emerald-600 hover:bg-emerald-700 text-white">
                     <span>Launch Interactive OSCE Station Exam</span>
                     <ArrowRight className="size-4" />
                   </Button>
@@ -1467,35 +1460,189 @@ export default function FlashcardsPage() {
             </Card>
 
             {specimenDeckGroups.map((group) => (
-              <MotionReveal key={group.courseId}>
-                <div className="flex flex-col gap-4">
-                  <div className="flex items-center justify-between pb-2 border-b border-border/60">
-                    <div className="flex items-center gap-2.5">
-                      <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
-                        {group.courseCode}
-                      </span>
-                      <h3 className="text-base font-bold text-foreground">{group.courseTitle}</h3>
-                    </div>
-                    <Link href={`/osce?course_id=${group.courseId}`}>
-                      <Button variant="outline" size="sm" className="gap-1 text-xs">
-                        Start OSCE <ChevronRight className="size-3.5" />
-                      </Button>
-                    </Link>
+              <div key={group.courseId} className="flex flex-col gap-4">
+                <div className="flex items-center justify-between pb-2 border-b border-border/60">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
+                      {group.courseCode}
+                    </span>
+                    <h4 className="text-sm font-bold text-foreground">{group.courseTitle}</h4>
                   </div>
-
-                  <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {group.decks.map((deck) => renderDeckCard(deck))}
-                  </MotionStaggerGroup>
+                  <Link href={`/osce?course_id=${group.courseId}`}>
+                    <Button variant="outline" size="sm" className="gap-1 text-xs border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10">
+                      Start OSCE <ChevronRight className="size-3.5" />
+                    </Button>
+                  </Link>
                 </div>
-              </MotionReveal>
+
+                <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {group.decks.map((deck) => renderDeckCard(deck))}
+                </MotionStaggerGroup>
+              </div>
             ))}
           </div>
         )}
       </section>
 
+      {/* SECONDARY SECTION: STUDY DECKS & FLASHCARDS */}
+      <MotionReveal>
+        <section className="flex flex-col gap-6 pt-6 border-t border-border/80">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-bold text-foreground">Study Decks & Flashcards</h2>
+              <p className="text-xs sm:text-sm text-muted-foreground">Course-aligned active recall flashcard decks powered by SM-2 spaced repetition.</p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 sm:w-64">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <Input
+                  type="search"
+                  placeholder="Search decks…"
+                  className="pl-9 h-9 text-xs"
+                  aria-label="Search flashcard decks"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* SEGMENTED TAB SELECTOR FOR DECKS */}
+          <div className="flex items-center gap-2 border-b border-border/60 pb-2">
+            <button
+              onClick={() => setDeckTab("ai_generated")}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                deckTab === "ai_generated"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-muted/40 text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Sparkles className="size-3.5" />
+              <span>AI Decks</span>
+              <Badge variant={deckTab === "ai_generated" ? "secondary" : "outline"} className="text-[10px] px-1.5 py-0">
+                {aiDecks.length}
+              </Badge>
+            </button>
+
+            <button
+              onClick={() => setDeckTab("user_created")}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                deckTab === "user_created"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-muted/40 text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <User className="size-3.5" />
+              <span>My Decks</span>
+              <Badge variant={deckTab === "user_created" ? "secondary" : "outline"} className="text-[10px] px-1.5 py-0">
+                {myDecks.length}
+              </Badge>
+            </button>
+
+            <button
+              onClick={() => setDeckTab("all")}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                deckTab === "all"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-muted/40 text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <BrainCircuit className="size-3.5" />
+              <span>All Decks</span>
+              <Badge variant={deckTab === "all" ? "secondary" : "outline"} className="text-[10px] px-1.5 py-0">
+                {aiDecks.length + myDecks.length}
+              </Badge>
+            </button>
+          </div>
+
+          {/* AI DECKS DISPLAY */}
+          {deckTab === "ai_generated" && (
+            <div className="flex flex-col gap-6">
+              {aiDecks.length === 0 ? (
+                <EmptyState
+                  imageSrc="/logo.png"
+                  imageAlt="Medical study environment"
+                  title="No AI-Generated Decks"
+                  description={searchQuery ? "No AI-generated decks match your active search filter." : "Get started by generating your first high-yield medical flashcard deck using AI."}
+                  action={
+                    !showGenerator ? (
+                      <Button onClick={() => setShowGenerator(true)} className="gap-1.5" size="sm">
+                        <Sparkles className="size-4" /> Generate AI Deck
+                      </Button>
+                    ) : null
+                  }
+                />
+              ) : (
+                aiDeckGroups.map((group) => (
+                  <div key={group.courseId} className="flex flex-col gap-3">
+                    <div className="flex items-center gap-2 pb-1.5 border-b border-border/40">
+                      <span className="flex size-6 items-center justify-center rounded bg-primary/10 text-primary text-[11px] font-bold">
+                        {group.courseCode}
+                      </span>
+                      <h4 className="text-xs font-bold text-foreground">{group.courseTitle}</h4>
+                      <Badge variant="outline" className="text-[10px] font-mono ml-auto">
+                        {group.decks.length} {group.decks.length === 1 ? "deck" : "decks"}
+                      </Badge>
+                    </div>
+
+                    <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {group.decks.map((deck) => renderDeckCard(deck))}
+                    </MotionStaggerGroup>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* MY DECKS DISPLAY */}
+          {deckTab === "user_created" && (
+            <div className="flex flex-col gap-6">
+              {myDecks.length === 0 ? (
+                <EmptyState
+                  imageSrc="/logo.png"
+                  imageAlt="Medical study environment"
+                  title="No Custom Decks Yet"
+                  description={searchQuery ? "No custom decks match your active search filter." : "Decks created directly by you will appear here."}
+                  action={
+                    !showGenerator ? (
+                      <Button onClick={() => setShowGenerator(true)} className="gap-1.5" size="sm">
+                        <PlusCircle className="size-4" /> Create or Generate Deck
+                      </Button>
+                    ) : null
+                  }
+                />
+              ) : (
+                <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {myDecks.map((deck) => renderDeckCard(deck))}
+                </MotionStaggerGroup>
+              )}
+            </div>
+          )}
+
+          {/* ALL DECKS DISPLAY */}
+          {deckTab === "all" && (
+            <div className="flex flex-col gap-6">
+              {aiDecks.length === 0 && myDecks.length === 0 ? (
+                <EmptyState
+                  imageSrc="/logo.png"
+                  imageAlt="Medical study environment"
+                  title="No Decks Found"
+                  description="No flashcard study decks found."
+                />
+              ) : (
+                <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {[...aiDecks, ...myDecks].map((deck) => renderDeckCard(deck))}
+                </MotionStaggerGroup>
+              )}
+            </div>
+          )}
+        </section>
+      </MotionReveal>
+
       {/* SELECTED DECK CARDS PREVIEW */}
       <MotionReveal>
-        <section className="mt-4">
+        <section className="mt-2">
           <SectionHeading
             title={selectedDeck ? `Cards inside: ${selectedDeck.topic}` : "Deck Preview"}
             description={selectedDeck ? `Explore all ${displayCards.length} high-yield questions in this deck.` : "Select a deck above to view and study its cards."}
