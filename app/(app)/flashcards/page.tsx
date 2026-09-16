@@ -7,27 +7,20 @@ import {
   ArrowRight,
   ArrowLeft,
   BrainCircuit,
-  Plus,
   RotateCcw,
   Search,
   Star,
   Sparkles,
   Loader2,
   AlertCircle,
-  BookOpen,
   ChevronRight,
-  Eye,
   X,
   PlusCircle,
   HelpCircle,
-  Check,
   Award,
   User,
   Layers,
-  Image as ImageIcon,
-  Stethoscope,
-  Clock,
-  Sparkle
+  Image as ImageIcon
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -176,27 +169,12 @@ export default function FlashcardsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const debouncedSearchQuery = useDebounce(searchQuery, 300)
 
-  // Primary practical mode selection: "pictures_tests" | "steeplechase" | "osce"
-  const [activePracticalMode, setActivePracticalMode] = useState<"pictures_tests" | "steeplechase" | "osce">("pictures_tests")
-
   const handleToggleGenerator = () => {
     const nextState = !showGenerator
     setShowGenerator(nextState)
     if (nextState && typeof window !== "undefined") {
       setTimeout(() => {
         const el = document.getElementById("ai-generator-form")
-        if (el) {
-          el.scrollIntoView({ behavior: "smooth", block: "start" })
-        }
-      }, 50)
-    }
-  }
-
-  const handleModeSelect = (mode: "pictures_tests" | "steeplechase" | "osce") => {
-    setActivePracticalMode(mode)
-    if (typeof window !== "undefined") {
-      setTimeout(() => {
-        const el = document.getElementById("practical-mode-content")
         if (el) {
           el.scrollIntoView({ behavior: "smooth", block: "start" })
         }
@@ -725,9 +703,8 @@ export default function FlashcardsPage() {
   // Split filtered decks into sections
   const aiDecks = useMemo(() => filteredDecks.filter((d) => d.source === "ai_generated"), [filteredDecks])
   const myDecks = useMemo(() => filteredDecks.filter((d) => d.source === "user_created"), [filteredDecks])
-  const specimenDecks = useMemo(() => filteredDecks.filter((d) => d.source === "specimen_bank"), [filteredDecks])
 
-  // Group decks by course for "ai_generated" and "specimen_bank"
+  // Group decks by course for "ai_generated"
   const groupDecksByCourse = (deckList: FlashcardDeck[]) => {
     const map = new Map<string, { courseCode: string; courseTitle: string; decks: FlashcardDeck[] }>()
 
@@ -755,7 +732,6 @@ export default function FlashcardsPage() {
   }
 
   const aiDeckGroups = useMemo(() => groupDecksByCourse(aiDecks), [aiDecks])
-  const specimenDeckGroups = useMemo(() => groupDecksByCourse(specimenDecks), [specimenDecks])
 
   const selectedDeck = decks.find((d) => d.id === selectedDeckId)
   const displayCards = selectedDeck?.flashcards || []
@@ -874,8 +850,8 @@ export default function FlashcardsPage() {
               onClick={() => !isCardFlipped && setIsCardFlipped(true)}
               className={`min-h-[260px] flex flex-col items-center justify-center p-6 border rounded-2xl cursor-pointer text-center select-none transition-all shadow-sm ${
                 isCardFlipped
-                  ? "border-emerald-500/20 bg-emerald-500/[0.01] hover:bg-emerald-500/[0.02]"
-                  : "border-primary/20 hover:border-primary/40 bg-primary/[0.01] hover:bg-primary/[0.02]"
+                  ? "border-emerald-500/20 bg-emerald-500/[0.01]"
+                  : "border-primary/20 hover:border-primary/40 bg-primary/[0.01]"
               }`}
             >
               {isCardFlipped ? (
@@ -1063,7 +1039,7 @@ export default function FlashcardsPage() {
     <div className="flex flex-col gap-8">
       {/* PAGE HEADER */}
       <MotionReveal>
-        <PageHeader title="Practical Exams" description="Test your clinical recognition and practical skills.">
+        <PageHeader title="Practical Exams" description="Practice clinical and image-based examinations.">
           <Button
             variant={showGenerator ? "outline" : "default"}
             onClick={handleToggleGenerator}
@@ -1217,115 +1193,96 @@ export default function FlashcardsPage() {
         </MotionReveal>
       )}
 
-
-
-      {/* PRIMARY ASSESSMENT MODES - PROMINENT 3 CARDS HIERARCHY */}
+      {/* PRIMARY ASSESSMENT LAUNCHER CARDS */}
       <MotionReveal>
         <section className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight">Practical Assessment Modes</h2>
-              <p className="text-xs sm:text-sm text-muted-foreground">Choose a practical examination mode to test your clinical skills and spotter identification.</p>
-            </div>
+          <div>
+            <h2 className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight">Choose an Assessment</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground">Select a clinical examination format to select a course and start practicing.</p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
             {/* 1. PICTURES TESTS */}
-            <Card
-              onClick={() => handleModeSelect("pictures_tests")}
-              className={`flex flex-col justify-between p-5 transition-all cursor-pointer border-2 hover:shadow-md ${
-                activePracticalMode === "pictures_tests"
-                  ? "border-primary ring-2 ring-primary/20 bg-primary/[0.02]"
-                  : "border-border/80 hover:border-primary/40 bg-card"
-              }`}
-            >
+            <Card className="flex flex-col justify-between p-5 border-2 border-border/80 hover:border-primary/40 bg-card hover:shadow-md transition-all">
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <div className="flex size-11 items-center justify-center rounded-xl bg-purple-500/10 text-purple-500">
                     <ImageIcon className="size-5" />
                   </div>
-                  <Badge variant={activePracticalMode === "pictures_tests" ? "default" : "secondary"} className="text-[10px] font-semibold">
-                    {specimenDecks.length} Decks
+                  <Badge variant="secondary" className="text-[10px] font-semibold">
+                    Visual Spotters
                   </Badge>
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-foreground">Pictures Tests</h3>
                   <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                    Visual identification and image-based diagnostic questions across clinical subjects.
+                    Identify and interpret medical images, radiology films, histology slides, and gross pathology specimens.
                   </p>
                 </div>
               </div>
-              <div className="mt-4 pt-3 border-t border-border/40 flex items-center justify-between text-xs font-semibold">
-                <span className={activePracticalMode === "pictures_tests" ? "text-primary" : "text-muted-foreground"}>
-                  {activePracticalMode === "pictures_tests" ? "Active Mode" : "Select Mode"}
-                </span>
-                <ChevronRight className={`size-4 transition-transform ${activePracticalMode === "pictures_tests" ? "translate-x-0.5 text-primary" : "text-muted-foreground"}`} />
+              <div className="mt-4 pt-3 border-t border-border/40">
+                <Link href="/practical/pictures" className="w-full">
+                  <Button className="w-full justify-between font-bold text-xs" variant="default">
+                    <span>Practice Pictures</span>
+                    <ArrowRight className="size-4" />
+                  </Button>
+                </Link>
               </div>
             </Card>
 
             {/* 2. STEEPLECHASE TESTS */}
-            <Card
-              onClick={() => handleModeSelect("steeplechase")}
-              className={`flex flex-col justify-between p-5 transition-all cursor-pointer border-2 hover:shadow-md ${
-                activePracticalMode === "steeplechase"
-                  ? "border-primary ring-2 ring-primary/20 bg-primary/[0.02]"
-                  : "border-border/80 hover:border-primary/40 bg-card"
-              }`}
-            >
+            <Card className="flex flex-col justify-between p-5 border-2 border-border/80 hover:border-primary/40 bg-card hover:shadow-md transition-all">
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <div className="flex size-11 items-center justify-center rounded-xl bg-blue-500/10 text-blue-500">
                     <Layers className="size-5" />
                   </div>
-                  <Badge variant={activePracticalMode === "steeplechase" ? "default" : "secondary"} className="text-[10px] font-semibold">
-                    Spotter Stations
+                  <Badge variant="secondary" className="text-[10px] font-semibold">
+                    Practical Stations
                   </Badge>
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-foreground">Steeplechase Tests</h3>
                   <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                    Sequential practical clinical stations for spotter identification and pathology slide review.
+                    Practise practical spotter identification and clinical station tasks across pre-clinical and clinical subjects.
                   </p>
                 </div>
               </div>
-              <div className="mt-4 pt-3 border-t border-border/40 flex items-center justify-between text-xs font-semibold">
-                <span className={activePracticalMode === "steeplechase" ? "text-primary" : "text-muted-foreground"}>
-                  {activePracticalMode === "steeplechase" ? "Active Mode" : "Select Mode"}
-                </span>
-                <ChevronRight className={`size-4 transition-transform ${activePracticalMode === "steeplechase" ? "translate-x-0.5 text-primary" : "text-muted-foreground"}`} />
+              <div className="mt-4 pt-3 border-t border-border/40">
+                <Link href="/practical/steeplechase" className="w-full">
+                  <Button className="w-full justify-between font-bold text-xs" variant="default">
+                    <span>Practice Steeplechase</span>
+                    <ArrowRight className="size-4" />
+                  </Button>
+                </Link>
               </div>
             </Card>
 
             {/* 3. OSCE */}
-            <Card
-              onClick={() => handleModeSelect("osce")}
-              className={`flex flex-col justify-between p-5 transition-all cursor-pointer border-2 hover:shadow-md ${
-                activePracticalMode === "osce"
-                  ? "border-primary ring-2 ring-primary/20 bg-primary/[0.02]"
-                  : "border-border/80 hover:border-primary/40 bg-card"
-              }`}
-            >
+            <Card className="flex flex-col justify-between p-5 border-2 border-border/80 hover:border-primary/40 bg-card hover:shadow-md transition-all">
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <div className="flex size-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                     <Award className="size-5" />
                   </div>
                   <Badge variant="outline" className="text-[10px] font-semibold border-emerald-500/20 text-emerald-600 dark:text-emerald-400 bg-emerald-500/5">
-                    Timed 60s
+                    600L Medicine & Surgery
                   </Badge>
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-foreground">OSCE</h3>
                   <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                    Timed clinical examination stations with verified image specimens and structured subquestion rubrics.
+                    Structured clinical and practical examination with 60-second timers, medical image specimens, and marking point rubrics.
                   </p>
                 </div>
               </div>
-              <div className="mt-4 pt-3 border-t border-border/40 flex items-center justify-between text-xs font-semibold">
-                <span className={activePracticalMode === "osce" ? "text-primary" : "text-muted-foreground"}>
-                  {activePracticalMode === "osce" ? "Active Mode" : "Launch OSCE"}
-                </span>
-                <ChevronRight className={`size-4 transition-transform ${activePracticalMode === "osce" ? "translate-x-0.5 text-primary" : "text-muted-foreground"}`} />
+              <div className="mt-4 pt-3 border-t border-border/40">
+                <Link href="/osce" className="w-full">
+                  <Button className="w-full justify-between font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white">
+                    <span>Practice OSCE</span>
+                    <ArrowRight className="size-4" />
+                  </Button>
+                </Link>
               </div>
             </Card>
           </div>
@@ -1350,147 +1307,13 @@ export default function FlashcardsPage() {
         </MotionStaggerGroup>
       </section>
 
-      {/* SELECTED PRACTICAL MODE CONTENT CONTAINER */}
-      <section id="practical-mode-content" className="flex flex-col gap-6 scroll-mt-6">
-        {/* PICTURES TESTS VIEW */}
-        {activePracticalMode === "pictures_tests" && (
-          <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-200">
-            <div className="flex flex-col gap-1 pb-2 border-b border-border/60">
-              <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-                <ImageIcon className="size-4 text-purple-500" />
-                Pictures Tests & Visual Identification Decks
-              </h3>
-              <p className="text-xs text-muted-foreground">Select a picture test deck below to begin active recall on pathology, radiology, and specimen landmarks.</p>
-            </div>
-
-            {specimenDecks.length === 0 ? (
-              <EmptyState
-                imageSrc="/logo.png"
-                imageAlt="Medical study environment"
-                title="No Pictures Tests Available"
-                description={searchQuery ? "No picture test decks match your active search filter." : "Active specimen bank landmark images will appear here grouped by course."}
-              />
-            ) : (
-              specimenDeckGroups.map((group) => (
-                <div key={group.courseId} className="flex flex-col gap-4">
-                  <div className="flex items-center gap-2.5 pb-2 border-b border-border/60">
-                    <span className="flex size-7 items-center justify-center rounded-lg bg-purple-500/10 text-purple-400 text-xs font-bold">
-                      {group.courseCode}
-                    </span>
-                    <h4 className="text-sm font-bold text-foreground">{group.courseTitle}</h4>
-                    <Badge variant="outline" className="text-[10px] font-mono ml-auto">
-                      {group.decks.length} {group.decks.length === 1 ? "deck" : "decks"}
-                    </Badge>
-                  </div>
-
-                  <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {group.decks.map((deck) => renderDeckCard(deck))}
-                  </MotionStaggerGroup>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-
-        {/* STEEPLECHASE TESTS VIEW */}
-        {activePracticalMode === "steeplechase" && (
-          <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-200">
-            <Card className="border-blue-500/20 bg-blue-500/5 shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-bold flex items-center gap-2 text-foreground">
-                  <Layers className="size-5 text-blue-500" />
-                  Steeplechase Spotter Identification
-                </CardTitle>
-                <CardDescription className="text-xs sm:text-sm">
-                  Practice timed spotter identification on high-yield clinical specimens, histology slides, instruments, and radiology images.
-                </CardDescription>
-              </CardHeader>
-            </Card>
-
-            {specimenDecks.length === 0 ? (
-              <EmptyState
-                imageSrc="/logo.png"
-                imageAlt="Medical study environment"
-                title="No Steeplechase Decks Available"
-                description="Landmark specimen decks for steeplechase spotters will appear here."
-              />
-            ) : (
-              specimenDeckGroups.map((group) => (
-                <div key={group.courseId} className="flex flex-col gap-4">
-                  <div className="flex items-center gap-2.5 pb-2 border-b border-border/60">
-                    <span className="flex size-7 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500 text-xs font-bold">
-                      {group.courseCode}
-                    </span>
-                    <h4 className="text-sm font-bold text-foreground">{group.courseTitle}</h4>
-                  </div>
-
-                  <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {group.decks.map((deck) => renderDeckCard(deck))}
-                  </MotionStaggerGroup>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-
-        {/* OSCE VIEW */}
-        {activePracticalMode === "osce" && (
-          <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-200">
-            <Card className="border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 via-background to-emerald-500/5 shadow-sm">
-              <CardHeader className="pb-4">
-                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
-                  <Award className="size-5" />
-                  <span className="text-xs font-bold uppercase tracking-wider">600L Final MB Examination Blueprint</span>
-                </div>
-                <CardTitle className="text-xl font-extrabold text-foreground">
-                  Objective Structured Clinical Examination (OSCE)
-                </CardTitle>
-                <CardDescription className="text-sm max-w-2xl">
-                  Simulate real 60-second station practical exams featuring verified clinical radiology, surgical instruments, pathology specimens, and structured subquestion marking points.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <Link href="/osce">
-                  <Button className="gap-2 font-bold shadow-md bg-emerald-600 hover:bg-emerald-700 text-white">
-                    <span>Launch Interactive OSCE Station Exam</span>
-                    <ArrowRight className="size-4" />
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-
-            {specimenDeckGroups.map((group) => (
-              <div key={group.courseId} className="flex flex-col gap-4">
-                <div className="flex items-center justify-between pb-2 border-b border-border/60">
-                  <div className="flex items-center gap-2.5">
-                    <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
-                      {group.courseCode}
-                    </span>
-                    <h4 className="text-sm font-bold text-foreground">{group.courseTitle}</h4>
-                  </div>
-                  <Link href={`/osce?course_id=${group.courseId}`}>
-                    <Button variant="outline" size="sm" className="gap-1 text-xs border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10">
-                      Start OSCE <ChevronRight className="size-3.5" />
-                    </Button>
-                  </Link>
-                </div>
-
-                <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {group.decks.map((deck) => renderDeckCard(deck))}
-                </MotionStaggerGroup>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* SECONDARY SECTION: STUDY DECKS & FLASHCARDS */}
+      {/* SECONDARY SECTION: OTHER STUDY TOOLS & FLASHCARDS */}
       <MotionReveal>
         <section className="flex flex-col gap-6 pt-6 border-t border-border/80">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-foreground">Study Decks & Flashcards</h2>
-              <p className="text-xs sm:text-sm text-muted-foreground">Course-aligned active recall flashcard decks powered by SM-2 spaced repetition.</p>
+              <h2 className="text-base sm:text-lg font-bold text-foreground text-muted-foreground/80 uppercase tracking-wider">Other Study Tools</h2>
+              <p className="text-xs text-muted-foreground">Course-aligned active recall flashcard decks powered by SM-2 spaced repetition.</p>
             </div>
 
             <div className="flex items-center gap-2">
