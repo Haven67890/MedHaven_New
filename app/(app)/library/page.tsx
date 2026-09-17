@@ -710,6 +710,11 @@ function SmartLibraryPageContent() {
     <div className="flex flex-col gap-8">
       <PageHeader title="Study Library" description="Search across thousands of textbooks, journals, and references curated for your curriculum.">
         <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" asChild className="h-9 text-xs">
+            <a href="/materials">
+              <BookOpen className="size-3.5 mr-1" /> View Study Materials
+            </a>
+          </Button>
           {/* Sort Control */}
           <select
             id="sort-filter"
