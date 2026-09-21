@@ -78,7 +78,7 @@ const featureList = [
   },
   {
     icon: HelpCircle,
-    title: "Question Bank",
+    title: "Test",
     description: "Interactive practice tests with instant rationale, explanations, and time tracking.",
   },
   {

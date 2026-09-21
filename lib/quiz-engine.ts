@@ -376,6 +376,7 @@ export async function generateAIQuestionsBatch(
   const model = process.env.GROQ_MODEL || "openai/gpt-oss-20b"
   const countToGenerate = Math.min(Math.max(options.count, 1), 5)
   const existingFingerprints = options.existingFingerprints || new Set<string>()
+  const isOphthalmology = /OPH500|OPH\s*500|ophthalmology/i.test(options.courseCodeTitle || "") || /OPH500|ophthalmology/i.test(options.blueprintContext || "")
 
   let formatInstruction = ""
   if (options.format === "SBA") {
@@ -418,20 +419,70 @@ export async function generateAIQuestionsBatch(
    - "correct_answer": string (MUST match one of the strings inside "options" EXACTLY)
    - "explanation": string (clear, thorough rationale explaining why the correct choice is the single best answer and why key alternative choices are inferior)`
   } else if (options.format === "MCQ") {
-    formatInstruction = `Generate MCQ questions in Nigerian MBBS finals style: a clinical stem followed by 4 to 5 independent True/False statements.
+    if (isOphthalmology) {
+      formatInstruction = `SPECIAL INSTRUCTION FOR UNIVERSITY OF JOS OPHTHALMOLOGY (OPH500) MCQs:
+Generate 500L MBBS Ophthalmology MCQs strictly matching the historical University of Jos examination pattern:
+
+1. STEM CONCISE EXAMINATION STYLE:
+   - Use direct, concise, pathology-heavy academic stems without turning basic concepts into long patient vignettes.
+   - Prefer classic exam stem constructions such as:
+     * "Concerning [topic]:"
+     * "In [topic]:"
+     * "Causes of [topic] include:"
+     * "The following are common causes of [topic]:"
+     * "Risk factors for [topic] include:"
+     * "Clinical features of [topic] include:"
+     * "The anatomy of [topic]:"
+     * "Features of [topic] include:"
+     * "Ocular manifestations of [topic]:"
+   - Examples: "Concerning diabetic retinopathy:", "In myopia:", "Causes of corneal scarring include:", "Possible risk factors for glaucoma include:".
+
+2. INDEPENDENT TRUE/FALSE STATEMENTS:
+   - Provide EXACTLY 4 to 5 independently judgeable True/False statements per stem in "tf_options".
+   - Each statement must be a distinct, high-yield clinical, pathological, anatomical, pharmacological, or public-health assertion that is unambiguously True or False based on current verified medical knowledge.
+   - Do NOT create ambiguous or outdated statements.
+
+3. EXAM TOPIC EMPHASIS:
+   - Emphasize core University of Jos Ophthalmology exam topics: diabetic retinopathy, thyroid eye disease, cataract, refractive errors (myopia, hypermetropia, astigmatism, presbyopia), pterygium, trachoma, glaucoma (POAG, acute angle-closure, secondary), primary prevention, xerophthalmia, vitamin A deficiency, corneal scarring, corneal ulcer, chemical eye injuries, ocular trauma, sympathetic ophthalmia, ocular anaesthesia, retinoblastoma, lid swellings (hordeolum, chalazion), ophthalmia neonatorum, slit lamp, ocular anatomy and physiology, pupillary reactions, visual acuity, Snellen chart, tear film, hyphema, bacterial conjunctivitis, crystalline lens anatomy, acute iridocyclitis, hypertensive retinopathy, sickle cell retinopathy, strabismus, ptosis, HIV ocular manifestations, avoidable blindness, Vision 2020, congenital nasolacrimal duct obstruction, ocular laser, direct ophthalmoscopy, and ocular pharmacology.
+
+4. NO EXACT REPETITION / DUPLICATION:
+   - Generate fresh, original medical questions that test these concepts. Do NOT blindly copy historical past paper text.
+
+Return a JSON object with a "questions" key containing an array of objects.
+Each object MUST have:
+- "question": string (concise stem e.g., "Concerning diabetic retinopathy:")
+- "tf_options": array of 4 to 5 objects with {"statement": string, "answer": boolean}
+- "correct_answer": string summary (e.g. "A: True, B: False, C: True, D: False, E: True")
+- "explanation": string (thorough medical rationale for each statement classification)`
+    } else {
+      formatInstruction = `Generate MCQ questions in Nigerian MBBS finals style: a clinical stem followed by 4 to 5 independent True/False statements.
 Return a JSON object with a "questions" key containing an array of objects.
 Each object MUST have:
 - "question": string (the stem e.g., "Regarding acute appendicitis:")
 - "tf_options": array of 4 to 5 objects with {"statement": string, "answer": boolean}
 - "correct_answer": string summary (e.g. "A: True, B: False, C: True, D: False")
 - "explanation": string (rationale for each statement classification)`
+    }
   } else if (options.format === "Short Answer") {
-    formatInstruction = `Generate Short Answer questions requiring 1-3 sentence clinical responses.
+    if (isOphthalmology) {
+      formatInstruction = `SPECIAL INSTRUCTION FOR UNIVERSITY OF JOS OPHTHALMOLOGY (OPH500) SHORT ANSWER / ESSAY:
+Generate undergraduate Ophthalmology essay/short answer questions using the structured academic examination format of University of Jos past papers.
+Use concise, structured multi-part queries (e.g., "[Topic]: (a) definition, (b) clinical presentation/features, (c) principles of treatment and prevention").
+Examples: "Xerophthalmia: (a) definition, (b) clinical features, (c) treatment and prevention" or "Chronic Open Angle Glaucoma: (a) definition, (b) clinical presentation, (c) principles of treatment".
+
+Return a JSON object with a "questions" key containing an array of objects.
+Each object MUST have:
+- "question": string (the structured query prompt including mark allocation hint)
+- "correct_answer": string (ground-truth expected clinical answer key & key terms)
+- "explanation": string (structured clinical grading rubric and rationale)`
+    } else {
+      formatInstruction = `Generate Short Answer questions requiring 1-3 sentence clinical responses.
 Return a JSON object with a "questions" key containing an array of objects.
 Each object MUST have:
 - "question": string (the specific clinical query including mark allocation hint e.g., "(2 marks)")
 - "correct_answer": string (the ground-truth expected answer / key terms)
 - "explanation": string (clinical grading rubric and rationale)`
+    }
   } else if (options.format === "OSCE") {
     formatInstruction = `Generate a realistic OSCE clinical station with a scenario and 2 to 4 structured sub-questions.
 Return a JSON object with a "questions" key containing an array of objects.
@@ -521,7 +572,21 @@ Topic: ${options.topic}`
       if (vq) {
         if (!existingFingerprints.has(vq.question_fingerprint!)) {
           existingFingerprints.add(vq.question_fingerprint!)
-          vq.provenance = { source: "ai_generated", model, generated_at: new Date().toISOString() }
+          if (isOphthalmology) {
+            vq.provenance = {
+              source: "ai_generated",
+              reference_style: "University of Jos Ophthalmology past questions",
+              reference_course: "OPH500",
+              model,
+              generated_at: new Date().toISOString()
+            }
+          } else {
+            vq.provenance = {
+              source: "ai_generated",
+              model,
+              generated_at: new Date().toISOString()
+            }
+          }
           validatedBatch.push(vq)
         }
       }

@@ -184,10 +184,15 @@ export async function POST(request: NextRequest) {
           .maybeSingle()
 
         if (blueprint) {
-          blueprintContext = `Emphasis: ${blueprint.exam_emphasis || "Standard Finals"}. Patterns: ${JSON.stringify(blueprint.question_style_patterns || {})}`
+          blueprintContext = `Exam Emphasis: ${blueprint.exam_emphasis || "Standard Finals"}. High Yield Concepts: ${JSON.stringify(blueprint.high_yield_concepts || [])}. Patterns: ${JSON.stringify(blueprint.question_style_patterns || {})}`
         }
       } catch (bpErr) {
         console.warn("Could not load blueprint context:", bpErr)
+      }
+
+      const isOphthalmology = course_id === "bb19610e-ab70-4780-a0e9-a12aaeca21e4" || /OPH500|ophthalmology/i.test(courseCodeTitle)
+      if (isOphthalmology) {
+        blueprintContext += `\n\nOFFICIAL OPHTHALMOLOGY (OPH500) EXAMINATION DIRECTIVE: This is University of Jos undergraduate Ophthalmology. Use the historical University of Jos question-pattern reference supplied in the course blueprint. Prefer concise academic stems followed by 4–5 independently judgeable True/False statements for MCQ. Match the concise wording, high-yield topic emphasis and plausible distractor style of the historical papers, but generate NEW medically accurate questions rather than copying historical questions.`
       }
 
       const existingFingerprints = new Set<string>()
@@ -248,7 +253,7 @@ export async function POST(request: NextRequest) {
             }
           } catch (aiErr: any) {
             usedFallback = true
-            fallbackReason = "AI generation partially failed during mixed mode. Filled remaining slots from validated question bank."
+            fallbackReason = "AI generation partially failed during mixed mode. Filled remaining slots from validated test bank."
           }
 
           // Fall back to bank for any missing slots
@@ -295,7 +300,7 @@ export async function POST(request: NextRequest) {
           // If AI produced fewer than requested count, top up from Question Bank
           if (finalQuestions.length < limitCount) {
             usedFallback = true
-            fallbackReason = `AI produced ${finalQuestions.length} unique questions. Topped up remaining slots from validated Question Bank.`
+            fallbackReason = `AI produced ${finalQuestions.length} unique questions. Topped up remaining slots from validated Test Bank.`
             const topUp = await selectBankQuestions(serviceDb, {
               course_id,
               topic: trimmedTopic,
@@ -313,7 +318,7 @@ export async function POST(request: NextRequest) {
           // -----------------------------------------------------------
           console.warn("AI Quiz Generation failed. Triggering automatic Question Bank fallback:", aiError?.message || aiError)
           usedFallback = true
-          fallbackReason = "AI generation encountered a transient issue. Automatically loaded validated questions from MedHaven Question Bank."
+          fallbackReason = "AI generation encountered a transient issue. Automatically loaded validated questions from MedHaven Test Bank."
 
           const bankFallback = await selectBankQuestions(serviceDb, {
             course_id,
