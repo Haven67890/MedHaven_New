@@ -16,7 +16,7 @@ export const primaryNav: NavItem[] = [
   { label: "Study Materials", href: "/materials", icon: FileText, description: "Notes and handouts" },
   { label: "Lecture Videos", href: "/lectures", icon: Clapperboard, description: "Recorded lectures" },
   { label: "Practical Exams", href: "/flashcards", icon: BrainCircuit, description: "Pictures Tests, Steeplechase & OSCE" },
-  { label: "Question Bank", href: "/quizzes", icon: ListChecks, description: "Adaptive practice" },
+  { label: "Test", href: "/quizzes", icon: ListChecks, description: "Adaptive practice" },
   { label: "Timetable", href: "/timetable", icon: CalendarDays, description: "Your weekly schedule" },
   { label: "Progress Tracker", href: "/progress", icon: TrendingUp, description: "Track your goals" },
 ]

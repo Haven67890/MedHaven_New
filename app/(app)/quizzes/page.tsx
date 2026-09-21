@@ -143,7 +143,7 @@ const quizModes = [
     id: "practice",
     title: "Practice Bank",
     badge: "Fast & Deterministic",
-    desc: "Instant validated database questions from the MedHaven Question Bank. Zero AI delay.",
+    desc: "Instant validated database questions from the MedHaven Test Bank. Zero AI delay.",
     icon: Database,
     color: "text-emerald-500",
     border: "border-emerald-500/30",
@@ -195,7 +195,7 @@ export default function QuestionBankPage() {
   // Loader message rotations
   const [loaderMessageIndex, setLoaderMessageIndex] = useState(0)
   const loaderMessages = [
-    "Querying MedHaven Question Bank...",
+    "Querying MedHaven Test Bank...",
     "Formulating clinical vignettes...",
     "Validating single best answer keys...",
     "Checking exam blueprint alignment...",
@@ -585,7 +585,7 @@ export default function QuestionBankPage() {
     return (
       <div className="flex h-[50vh] flex-col items-center justify-center gap-4">
         <Loader2 className="size-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground font-medium">Initializing MedHaven Question Bank Portal...</p>
+        <p className="text-sm text-muted-foreground font-medium">Initializing MedHaven Test Portal...</p>
       </div>
     )
   }
@@ -600,7 +600,7 @@ export default function QuestionBankPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title="Question Bank" description="Hybrid Medical Practice System: Practice Bank + Grounded AI Generation.">
+      <PageHeader title="Test" description="Hybrid Medical Practice System: Practice Bank + Grounded AI Generation.">
         {activeQuizId && (
           <Button variant="outline" size="sm" onClick={handleBackToSetup} className="flex items-center gap-1.5 transition-all">
             <ArrowLeft className="size-4" /> Exit Portal
@@ -641,9 +641,9 @@ export default function QuestionBankPage() {
 
           {!isFinished ? (
             <Card className="shadow-xl border-primary/25 overflow-hidden transition-all duration-300">
-              <CardHeader className="border-b bg-muted/40 pb-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+              <CardHeader className="border-b bg-muted/40 p-4 sm:p-6 pb-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="outline" className="bg-primary/5 text-primary text-xs font-bold px-2 py-0.5">
                       {isSteeplechaseStation ? `Station ${currentQuestionIndex + 1} of ${questions.length}` : `Question ${currentQuestionIndex + 1} of ${questions.length}`}
                     </Badge>
@@ -655,12 +655,12 @@ export default function QuestionBankPage() {
                     Progress: {Math.round(((currentQuestionIndex) / questions.length) * 100)}%
                   </span>
                 </div>
-                <h3 className="pt-4 font-semibold text-base sm:text-lg text-foreground leading-snug">
+                <h3 className="pt-3 sm:pt-4 font-semibold text-base sm:text-lg text-foreground leading-snug break-words">
                   {currentQ?.question}
                 </h3>
               </CardHeader>
 
-              <CardContent className="pt-6 flex flex-col gap-4">
+              <CardContent className="p-4 sm:p-6 flex flex-col gap-4">
                 {isSteeplechaseStation ? (
                   <div className="flex flex-col gap-6">
                     {currentQ.quiz_image_bank?.image_url && (
@@ -698,8 +698,8 @@ export default function QuestionBankPage() {
                         const isSubGraded = gradedSubAnswers[subKey]
 
                         return (
-                          <div key={subQ.id || subIdx} className="p-4 rounded-xl border bg-card space-y-4 shadow-xs">
-                            <p className="text-sm font-semibold text-foreground">
+                          <div key={subQ.id || subIdx} className="p-3.5 sm:p-4 rounded-xl border bg-card space-y-3.5 shadow-xs">
+                            <p className="text-xs sm:text-sm font-semibold text-foreground break-words">
                               {subIdx + 1}. {subQ.question}
                             </p>
 
@@ -717,7 +717,7 @@ export default function QuestionBankPage() {
                                   size="sm"
                                   onClick={() => setSubmittedSubAnswers((prev) => ({ ...prev, [subKey]: true }))}
                                   disabled={!userText.trim()}
-                                  className="self-end px-4 h-8 text-xs font-semibold"
+                                  className="self-end w-full sm:w-auto px-4 h-8 text-xs font-semibold"
                                 >
                                   Submit Sub-Response
                                 </Button>
@@ -726,30 +726,30 @@ export default function QuestionBankPage() {
                               <div className="space-y-3 animate-in fade-in duration-200">
                                 <div className="rounded-lg border bg-muted/30 p-3 text-xs">
                                   <p className="font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Your Response:</p>
-                                  <p className="font-medium text-foreground italic">&quot;{userText || "[No response]"}&quot;</p>
+                                  <p className="font-medium text-foreground italic break-words">&quot;{userText || "[No response]"}&quot;</p>
                                 </div>
 
                                 <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs">
                                   <p className="font-bold text-emerald-500 uppercase tracking-wider mb-0.5">Model Answer (Ground Truth)</p>
-                                  <p className="font-semibold text-foreground leading-relaxed">{subQ.expected_answer}</p>
+                                  <p className="font-semibold text-foreground leading-relaxed break-words">{subQ.expected_answer}</p>
                                 </div>
 
                                 {subQ.explanation && (
                                   <div className="rounded-lg border border-primary/10 bg-primary/5 p-3 text-xs">
                                     <p className="font-bold text-primary uppercase tracking-wider mb-0.5">Clinical Rationale</p>
-                                    <p className="text-foreground">{subQ.explanation}</p>
+                                    <p className="text-foreground break-words">{subQ.explanation}</p>
                                   </div>
                                 )}
 
-                                <div className="flex items-center justify-between pt-1">
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-1">
                                   <span className="text-xs text-muted-foreground font-medium">Self-Grade this sub-question:</span>
-                                  <div className="flex gap-2">
+                                  <div className="flex gap-2 w-full sm:w-auto justify-end">
                                     <Button
                                       type="button"
                                       variant="outline"
                                       size="sm"
                                       onClick={() => setGradedSubAnswers((prev) => ({ ...prev, [subKey]: false }))}
-                                      className={`h-7 px-3 text-xs font-bold border-destructive text-destructive hover:bg-destructive/10 ${
+                                      className={`flex-1 sm:flex-initial h-7 px-3 text-xs font-bold border-destructive text-destructive hover:bg-destructive/10 ${
                                         isSubGraded === false ? "bg-destructive/20 ring-1 ring-destructive" : ""
                                       }`}
                                     >
@@ -760,7 +760,7 @@ export default function QuestionBankPage() {
                                       variant="outline"
                                       size="sm"
                                       onClick={() => setGradedSubAnswers((prev) => ({ ...prev, [subKey]: true }))}
-                                      className={`h-7 px-3 text-xs font-bold border-emerald-500 text-emerald-500 hover:bg-emerald-500/10 ${
+                                      className={`flex-1 sm:flex-initial h-7 px-3 text-xs font-bold border-emerald-500 text-emerald-500 hover:bg-emerald-500/10 ${
                                         isSubGraded === true ? "bg-emerald-500/20 ring-1 ring-emerald-500" : ""
                                       }`}
                                     >
@@ -791,7 +791,7 @@ export default function QuestionBankPage() {
                         return (
                           <div
                             key={tfIdx}
-                            className={`p-4 rounded-xl border transition-all ${
+                            className={`p-3.5 sm:p-4 rounded-xl border transition-all ${
                               isAnswerSubmitted
                                 ? !isAnswered
                                   ? "border-border bg-card/40 opacity-70"
@@ -804,16 +804,16 @@ export default function QuestionBankPage() {
                             }`}
                           >
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                              <div className="flex items-start gap-3 flex-1">
+                              <div className="flex items-start gap-2.5 sm:gap-3 flex-1 min-w-0">
                                 <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground mt-0.5">
                                   {String.fromCharCode(65 + tfIdx)}
                                 </span>
-                                <span className="text-sm font-medium text-foreground leading-relaxed">
+                                <span className="text-xs sm:text-sm font-medium text-foreground leading-relaxed break-words flex-1">
                                   {tf.statement}
                                 </span>
                               </div>
 
-                              <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                              <div className="flex items-center gap-2 self-start sm:self-center shrink-0 w-full sm:w-auto justify-end">
                                 <button
                                   type="button"
                                   disabled={isAnswerSubmitted}
@@ -823,7 +823,7 @@ export default function QuestionBankPage() {
                                       [statementKey]: true,
                                     }))
                                   }
-                                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
+                                  className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
                                     userChoice === true
                                       ? "bg-emerald-500 text-white border-emerald-500 shadow-xs"
                                       : "bg-background text-muted-foreground border-input hover:border-emerald-500/50 hover:text-emerald-500"
@@ -840,7 +840,7 @@ export default function QuestionBankPage() {
                                       [statementKey]: false,
                                     }))
                                   }
-                                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
+                                  className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
                                     userChoice === false
                                       ? "bg-rose-500 text-white border-rose-500 shadow-xs"
                                       : "bg-background text-muted-foreground border-input hover:border-rose-500/50 hover:text-rose-500"
@@ -1001,13 +1001,13 @@ export default function QuestionBankPage() {
                             key={idx}
                             onClick={() => handleSelectAnswer(option)}
                             disabled={isAnswerSubmitted}
-                            className={`rounded-xl text-sm leading-relaxed cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${buttonStyle}`}
+                            className={`rounded-xl text-xs sm:text-sm leading-relaxed cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${buttonStyle}`}
                           >
-                            <div className="flex items-start gap-3">
-                              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
+                            <div className="flex items-start gap-2.5 sm:gap-3">
+                              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground mt-0.5">
                                 {String.fromCharCode(65 + idx)}
                               </span>
-                              <span className="flex-1">{option}</span>
+                              <span className="flex-1 break-words">{option}</span>
                               {isAnswerSubmitted && isCorrectChoice && (
                                 <CheckCircle2 className="size-5 text-emerald-500 shrink-0 self-center" />
                               )}
@@ -1034,8 +1034,8 @@ export default function QuestionBankPage() {
                   </div>
                 )}
 
-                <div className="flex items-center justify-between border-t border-border pt-4 mt-4">
-                  <Button variant="ghost" size="sm" onClick={handleBackToSetup} className="text-muted-foreground">
+                <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between border-t border-border pt-4 mt-4 gap-3">
+                  <Button variant="ghost" size="sm" onClick={handleBackToSetup} className="text-muted-foreground w-full sm:w-auto">
                     Exit Quiz
                   </Button>
 
@@ -1043,7 +1043,7 @@ export default function QuestionBankPage() {
                     <Button
                       onClick={handleNextQuestion}
                       disabled={!allSubQsGradedForCurrentStation}
-                      className="px-6 py-2 flex items-center gap-1.5"
+                      className="px-6 py-2 flex items-center justify-center gap-1.5 w-full sm:w-auto"
                     >
                       {currentQuestionIndex < questions.length - 1 ? (
                         <>Next Station <ChevronRight className="size-4" /></>
@@ -1056,7 +1056,7 @@ export default function QuestionBankPage() {
                       <Button
                         onClick={handleSubmitAnswer}
                         disabled={!typedShortAnswer.trim()}
-                        className="px-6 py-2"
+                        className="px-6 py-2 w-full sm:w-auto"
                       >
                         Submit Response
                       </Button>
@@ -1064,7 +1064,7 @@ export default function QuestionBankPage() {
                       answersState[currentQuestionIndex] !== undefined && (
                         <Button
                           onClick={handleNextQuestion}
-                          className="px-6 py-2 flex items-center gap-1.5"
+                          className="px-6 py-2 flex items-center justify-center gap-1.5 w-full sm:w-auto"
                         >
                           {currentQuestionIndex < questions.length - 1 ? (
                             <>Next Question <ChevronRight className="size-4" /></>
@@ -1079,14 +1079,14 @@ export default function QuestionBankPage() {
                       <Button
                         onClick={handleSubmitAnswer}
                         disabled={selectedFormat !== "MCQ" && !selectedAnswer}
-                        className="px-6 py-2"
+                        className="px-6 py-2 w-full sm:w-auto"
                       >
                         Check Answer
                       </Button>
                     ) : (
                       <Button
                         onClick={handleNextQuestion}
-                        className="px-6 py-2 flex items-center gap-1.5"
+                        className="px-6 py-2 flex items-center justify-center gap-1.5 w-full sm:w-auto"
                       >
                         {currentQuestionIndex < questions.length - 1 ? (
                           <>Next Question <ChevronRight className="size-4" /></>
@@ -1185,11 +1185,11 @@ export default function QuestionBankPage() {
                                         }
 
                                         return (
-                                          <div key={tfIdx} className="flex items-center justify-between text-xs">
-                                            <span className="text-muted-foreground truncate pr-2">
+                                          <div key={tfIdx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs py-1">
+                                            <span className="text-muted-foreground leading-normal break-words flex-1 pr-2">
                                               {String.fromCharCode(65 + tfIdx)}. {tf.statement}
                                             </span>
-                                            <span className="shrink-0 font-mono font-bold">
+                                            <span className="shrink-0 font-mono font-bold self-start sm:self-auto">
                                               {choice === undefined ? (
                                                 <span className="text-muted-foreground">Unanswered (0)</span>
                                               ) : isCorr ? (
@@ -1340,7 +1340,7 @@ export default function QuestionBankPage() {
                     <Sparkles className="size-4.5 animate-pulse" />
                   </span>
                   <div>
-                    <CardTitle className="text-base">Hybrid Question Bank Portal</CardTitle>
+                    <CardTitle className="text-base">Hybrid Test Portal</CardTitle>
                     <CardDescription>Select practice bank or fresh AI quiz generation with guaranteed reliability safety net.</CardDescription>
                   </div>
                 </div>
@@ -1531,7 +1531,7 @@ export default function QuestionBankPage() {
                       <Loader2 className="size-8 animate-spin text-primary" />
                       <p className="text-sm font-semibold text-foreground">{loaderMessages[loaderMessageIndex]}</p>
                       <p className="text-xs text-muted-foreground max-w-sm">
-                        Loading {questionCount} {selectedFormat} questions. Automatic safety net will fall back to question bank if needed.
+                        Loading {questionCount} {selectedFormat} questions. Automatic safety net will fall back to test bank if needed.
                       </p>
                     </div>
                   ) : (
