@@ -599,8 +599,8 @@ export default function QuestionBankPage() {
     : false
 
   return (
-    <div className="flex flex-col gap-8">
-      <PageHeader title="Test" description="Hybrid Medical Practice System: Practice Bank + Grounded AI Generation.">
+    <div className="flex flex-col gap-8 w-full min-w-0">
+      <PageHeader title="Test" description="Hybrid Medical Practice System: Practice Bank + Grounded AI Generation." className="w-full min-w-0">
         {activeQuizId && (
           <Button variant="outline" size="sm" onClick={handleBackToSetup} className="flex items-center gap-1.5 transition-all">
             <ArrowLeft className="size-4" /> Exit Portal
@@ -609,26 +609,18 @@ export default function QuestionBankPage() {
       </PageHeader>
 
       {!activeQuizId && (
-        <section>
-          <MotionStaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <MotionStaggerItem>
-              <StatCard label="Quizzes Taken" value={String(totalAttemptsCount)} icon={ListChecks} accent="primary" />
-            </MotionStaggerItem>
-            <MotionStaggerItem>
-              <StatCard label="Avg. Accuracy" value={`${avgAccuracy}%`} icon={Target} accent="secondary" />
-            </MotionStaggerItem>
-            <MotionStaggerItem>
-              <StatCard label="Best Score" value={`${highestScore}%`} icon={Star} accent="accent" />
-            </MotionStaggerItem>
-            <MotionStaggerItem>
-              <StatCard label="Qs Answered" value={String(totalQuestionsAnswered)} icon={CircleCheck} accent="warning" />
-            </MotionStaggerItem>
-          </MotionStaggerGroup>
+        <section className="w-full min-w-0">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 w-full min-w-0">
+            <StatCard label="Quizzes Taken" value={String(totalAttemptsCount)} icon={ListChecks} accent="primary" />
+            <StatCard label="Avg. Accuracy" value={`${avgAccuracy}%`} icon={Target} accent="secondary" />
+            <StatCard label="Best Score" value={`${highestScore}%`} icon={Star} accent="accent" />
+            <StatCard label="Qs Answered" value={String(totalQuestionsAnswered)} icon={CircleCheck} accent="warning" />
+          </div>
         </section>
       )}
 
       {activeQuizId ? (
-        <div className="mx-auto w-full max-w-3xl">
+        <div className="mx-auto w-full max-w-3xl min-w-0">
           {fallbackNotice && (
             <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-800 dark:text-amber-200">
               <Info className="size-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
@@ -1330,100 +1322,98 @@ export default function QuestionBankPage() {
           )}
         </div>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-12">
-          <div className="lg:col-span-8 flex flex-col gap-6">
-            <Card className="border-primary/10 shadow-sm overflow-hidden">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 w-full min-w-0">
+          <div className="lg:col-span-8 flex flex-col gap-6 w-full min-w-0">
+            <Card className="border-primary/10 shadow-sm overflow-hidden w-full min-w-0">
               <div className="h-1 bg-primary" />
               <CardHeader>
                 <div className="flex items-center gap-2.5">
-                  <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
                     <Sparkles className="size-4.5 animate-pulse" />
                   </span>
-                  <div>
+                  <div className="min-w-0">
                     <CardTitle className="text-base">Hybrid Test Portal</CardTitle>
-                    <CardDescription>Select practice bank or fresh AI quiz generation with guaranteed reliability safety net.</CardDescription>
+                    <CardDescription className="text-xs sm:text-sm">Select practice bank or fresh AI quiz generation with guaranteed reliability safety net.</CardDescription>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
-                <form onSubmit={handleGenerateQuiz} className="flex flex-col gap-6">
+              <CardContent className="w-full min-w-0">
+                <form onSubmit={handleGenerateQuiz} className="flex flex-col gap-6 w-full min-w-0">
 
                   {/* SELECT QUIZ MODE CARDS */}
-                  <div className="flex flex-col gap-1.5">
+                  <div className="flex flex-col gap-1.5 w-full min-w-0">
                     <span className="text-xs font-semibold text-muted-foreground">Select Quiz Mode</span>
-                    <MotionStaggerGroup className="grid gap-3 sm:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 w-full min-w-0">
                       {quizModes.map((m) => {
                         const Icon = m.icon
                         const selected = selectedMode === m.id
                         return (
-                          <MotionStaggerItem key={m.id}>
-                            <button
-                              type="button"
-                              onClick={() => setSelectedMode(m.id as any)}
-                              className={`group text-left border rounded-xl p-3.5 transition-all cursor-pointer flex flex-col gap-2 justify-between w-full h-full ${
-                                selected
-                                  ? `${m.border} ${m.bg} ring-1 ring-primary`
-                                  : "border-border bg-card hover:border-primary/40"
-                              }`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <span className={`flex size-8 items-center justify-center rounded-lg bg-background border ${m.color}`}>
-                                  <Icon className="size-4" />
-                                </span>
-                                <Badge variant="outline" className="text-[10px] font-semibold">
-                                  {m.badge}
-                                </Badge>
-                              </div>
-                              <span className="text-xs font-bold text-foreground group-hover:text-primary transition-colors">
-                                {m.title}
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => setSelectedMode(m.id as any)}
+                            className={`group text-left border rounded-xl p-3.5 transition-all cursor-pointer flex flex-col gap-2 justify-between w-full h-full min-w-0 ${
+                              selected
+                                ? `${m.border} ${m.bg} ring-1 ring-primary`
+                                : "border-border bg-card hover:border-primary/40"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-1 w-full min-w-0">
+                              <span className={`flex size-8 shrink-0 items-center justify-center rounded-lg bg-background border ${m.color}`}>
+                                <Icon className="size-4" />
                               </span>
-                              <p className="text-[11px] text-muted-foreground leading-relaxed font-medium">
-                                {m.desc}
-                              </p>
-                            </button>
-                          </MotionStaggerItem>
+                              <Badge variant="outline" className="text-[10px] font-semibold truncate">
+                                {m.badge}
+                              </Badge>
+                            </div>
+                            <span className="text-xs font-bold text-foreground group-hover:text-primary transition-colors truncate">
+                              {m.title}
+                            </span>
+                            <p className="text-[11px] text-muted-foreground leading-relaxed font-medium">
+                              {m.desc}
+                            </p>
+                          </button>
                         )
                       })}
-                    </MotionStaggerGroup>
+                    </div>
                   </div>
 
                   {/* SELECT FORMAT CARDS */}
-                  <div className="flex flex-col gap-1.5">
-                    <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-1.5 w-full min-w-0">
+                    <div className="flex flex-wrap items-center justify-between gap-1 w-full min-w-0">
                       <span className="text-xs font-semibold text-muted-foreground">Select Format</span>
-                      <span className="text-xs font-semibold text-primary">MCQ · SBA · OSCE · Short Answer</span>
+                      <span className="text-[11px] font-semibold text-primary hidden sm:inline">MCQ · SBA · OSCE · Short Answer</span>
                     </div>
-                    <MotionStaggerGroup className="grid gap-3 sm:grid-cols-2 lg:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 w-full min-w-0">
                       {formats.map((fmt) => {
                         const Icon = fmt.icon
                         const selected = selectedFormat === fmt.id
                         return (
-                          <MotionStaggerItem key={fmt.id}>
-                            <button
-                              type="button"
-                              onClick={() => setSelectedFormat(fmt.id as any)}
-                              className={`group text-left border rounded-xl p-3.5 transition-all cursor-pointer flex flex-col gap-2.5 justify-between w-full ${
-                                selected
-                                  ? "border-primary bg-primary/5 ring-1 ring-primary"
-                                  : "border-border bg-card hover:border-primary/40"
-                              }`}
-                            >
-                              <div className="flex items-center gap-2.5">
-                                <span className={`flex size-8 items-center justify-center rounded-lg ${fmt.bg} ${fmt.color}`}>
-                                  <Icon className="size-4.5" />
-                                </span>
-                                <span className="text-xs font-bold text-foreground group-hover:text-primary transition-colors">
-                                  {fmt.id}
-                                </span>
-                              </div>
-                              <p className="text-[11px] text-muted-foreground leading-relaxed font-medium">
-                                {fmt.desc}
-                              </p>
-                            </button>
-                          </MotionStaggerItem>
+                          <button
+                            key={fmt.id}
+                            type="button"
+                            onClick={() => setSelectedFormat(fmt.id as any)}
+                            className={`group text-left border rounded-xl p-3.5 transition-all cursor-pointer flex flex-col gap-2.5 justify-between w-full min-w-0 ${
+                              selected
+                                ? "border-primary bg-primary/5 ring-1 ring-primary"
+                                : "border-border bg-card hover:border-primary/40"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 w-full min-w-0">
+                              <span className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${fmt.bg} ${fmt.color}`}>
+                                <Icon className="size-4.5" />
+                              </span>
+                              <span className="text-xs font-bold text-foreground group-hover:text-primary transition-colors truncate">
+                                {fmt.id}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground leading-relaxed font-medium">
+                              {fmt.desc}
+                            </p>
+                          </button>
                         )
                       })}
-                    </MotionStaggerGroup>
+                    </div>
                   </div>
 
                   {/* SELECT QUESTION COUNT: 5 | 10 | 15 | 20 | 25 | 30 */}
@@ -1566,8 +1556,8 @@ export default function QuestionBankPage() {
             </Card>
           </div>
 
-          <div className="lg:col-span-4 flex flex-col gap-6">
-            <Card className="h-full border-border">
+          <div className="lg:col-span-4 flex flex-col gap-6 w-full min-w-0">
+            <Card className="h-full border-border w-full min-w-0">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
                   <TrendingUp className="size-4 text-secondary" />
