@@ -31,8 +31,6 @@ export async function GET(request: NextRequest) {
     const { errorResponse } = await checkAdminAccess(supabase, serviceSupabase)
     if (errorResponse) return errorResponse
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://fexsfbdvewlmvzfnwqul.supabase.co"
-
     // Fetch all rows where image_url contains the broken signed-url pattern
     const { data: rows, error: fetchError } = await serviceSupabase
       .from("quiz_image_bank")
@@ -86,7 +84,7 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      const newPublicUrl = `${supabaseUrl}/storage/v1/object/public/quiz-bank/${confirmedPath}`
+      const newPublicUrl = `/api/materials/signed-url?path=${encodeURIComponent(confirmedPath)}&bucket=quiz-bank`
 
       const { error: updateError } = await serviceSupabase
         .from("quiz_image_bank")

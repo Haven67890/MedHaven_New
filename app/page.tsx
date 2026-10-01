@@ -1,374 +1,73 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import {
-  ArrowRight,
-  BookOpen,
-  Brain,
-  FileText,
-  Globe2,
-  Heart,
-  HelpCircle,
-  ImageIcon,
-  Sparkles,
-  UserCheck,
-} from "lucide-react"
+import { ArrowRight, BookOpen, GraduationCap, Landmark, ShieldCheck, Sparkles } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { MedHavenLogo } from "@/components/brand/medhaven-logo"
-import { SiteShell } from "@/components/layout/site-shell"
-import {
-  MotionReveal,
-  MotionStaggerGroup,
-  MotionStaggerItem,
-  MotionCard3DTilt,
-  MotionButton,
-} from "@/components/ui/motion"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { createClient } from "@/lib/supabase/server"
+import { getAvailableEcosystemApps } from "@/lib/jositex"
 
 export const metadata: Metadata = {
-  title: "MedHaven — The Digital Workspace for Nigerian Medical Scholars",
-  description:
-    "Free access to course-specific past questions, AI quizzes, flashcards, and verified lecturer slides tailored for MBBS excellence across Nigerian medical schools.",
-  alternates: {
-    canonical: "https://medhaven.onrender.com",
-  },
-  openGraph: {
-    title: "MedHaven — The Digital Workspace for Nigerian Medical Scholars",
-    description:
-      "Free access to course-specific past questions, AI quizzes, flashcards, and verified lecturer slides tailored for MBBS excellence across Nigerian medical schools.",
-    url: "https://medhaven.onrender.com",
-    siteName: "MedHaven",
-    images: [
-      {
-        url: "/logo.png",
-        width: 1200,
-        height: 630,
-        alt: "MedHaven Logo",
-      },
-    ],
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "MedHaven — The Digital Workspace for Nigerian Medical Scholars",
-    description:
-      "Free access to course-specific past questions, AI quizzes, flashcards, and verified lecturer slides tailored for MBBS excellence across Nigerian medical schools.",
-    images: [
-      "/logo.png",
-    ],
-  },
+  title: "JositeX — University of Jos Digital Academic Ecosystem",
+  description: "One university-level digital ecosystem for the academic communities of the University of Jos.",
 }
 
-const featureList = [
+const fallbackApps = [
   {
-    icon: FileText,
-    title: "Past Questions",
-    description: "Authentic, sorted exam papers with clear answer references from 100L to 600L.",
+    slug: "medhaven",
+    name: "MedHaven",
+    departmentName: "Medicine & Surgery",
+    description: "A focused academic workspace for medical students, from core courses to clinical preparation.",
+    icon: ShieldCheck,
+    className: "from-emerald-500/15 to-cyan-500/10",
   },
   {
-    icon: BookOpen,
-    title: "Study Library",
-    description: "Digital medical textbooks and clinical guides accessible anytime on phone or desktop.",
-  },
-  {
-    icon: HelpCircle,
-    title: "Test",
-    description: "Interactive practice tests with instant rationale, explanations, and time tracking.",
-  },
-  {
-    icon: ImageIcon,
-    title: "Picture Tests & Steeplechase",
-    description: "High-yield histology slides, gross anatomy photos, and spotters for OSPE exams.",
-  },
-  {
-    icon: UserCheck,
-    title: "Lecturers' Original Materials",
-    description: "Verified lecture slide decks and syllabi directly matched to your university modules.",
-  },
-  {
-    icon: Brain,
-    title: "Smart Recall",
-    description: "Spaced repetition flashcard generator built to help you retain heavy medical concepts.",
+    slug: "politeia",
+    name: "POLITEIA",
+    departmentName: "Political Science",
+    description: "A structured study environment for political theory, public affairs, research, and academic growth.",
+    icon: Landmark,
+    className: "from-indigo-500/15 to-violet-500/10",
   },
 ]
 
-const howItWorks = [
-  {
-    step: "01",
-    icon: BookOpen,
-    title: "Select Your Level",
-    description: "Filter study materials, past questions, and lecture slides customized specifically for your current MBBS year.",
-  },
-  {
-    step: "02",
-    icon: Brain,
-    title: "Practice & Test",
-    description: "Take timed MCQ/SBA quizzes, test yourself with spotter images, or review AI flashcards daily.",
-  },
-  {
-    step: "03",
-    icon: Sparkles,
-    title: "Master & Excel",
-    description: "Track your revision progress, pinpoint knowledge gaps early, and step into exams with full confidence.",
-  },
-]
+export default async function HomePage() {
+  const supabase = await createClient()
+  const apps = await getAvailableEcosystemApps(supabase)
+  const appCards = apps.length
+    ? apps.map((app) => ({ ...app, icon: app.slug === "politeia" ? Landmark : ShieldCheck, className: app.slug === "politeia" ? "from-indigo-500/15 to-violet-500/10" : "from-emerald-500/15 to-cyan-500/10" }))
+    : fallbackApps
 
-export default function Home() {
   return (
-    <SiteShell>
-      {/* Hero Section */}
-      <section className="relative overflow-hidden pt-12 pb-20 md:pt-20 md:pb-32 flex items-center justify-center min-h-[85vh]">
-        {/* Background Ambient Video */}
-        <div className="absolute inset-0 z-0 overflow-hidden">
-          <video
-            autoPlay
-            loop
-            muted
-            playsInline
-            aria-hidden="true"
-            className="h-full w-full object-cover object-center transition-opacity duration-1000 scale-105"
-            style={{
-              filter: "brightness(1.12) saturate(1.15) contrast(1.05)",
-            } as React.CSSProperties}
-          >
-            <source
-              src="/api/materials/signed-url?path=branding%2F401246b2e1a9c1dfe1d54b6e05cabbfa.mp4"
-              type="video/mp4"
-            />
-          </video>
-          {/* Semi-transparent dark gradient overlay ensuring crisp text readability */}
-          <div
-            className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/60 to-background/95 pointer-events-none"
-            aria-hidden="true"
-          />
-        </div>
+    <main className="min-h-svh overflow-hidden bg-slate-950 text-white">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(45,212,191,0.16),transparent_34%),radial-gradient(circle_at_bottom_left,rgba(99,102,241,0.18),transparent_38%)]" />
+      <div className="relative mx-auto flex min-h-svh w-full max-w-7xl flex-col px-5 py-6 sm:px-8 lg:px-12">
+        <header className="flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-3" aria-label="JositeX home">
+            <span className="flex size-10 items-center justify-center rounded-2xl bg-teal-300 text-slate-950 shadow-lg shadow-teal-300/20"><GraduationCap className="size-5" /></span>
+            <span><span className="block text-lg font-bold tracking-tight">JositeX</span><span className="block text-[10px] uppercase tracking-[0.24em] text-slate-400">University of Jos</span></span>
+          </Link>
+          <Button asChild variant="outline" className="border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"><Link href="/login">Sign in <ArrowRight className="size-4" /></Link></Button>
+        </header>
 
-        {/* Hero Content */}
-        <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center px-4 text-center sm:px-6">
-          <MotionReveal direction="down" distance={20} duration={0.6}>
-            <div className="mb-6 flex flex-col items-center">
-              <MedHavenLogo
-                className="h-auto w-auto"
-                imgClassName="h-20 sm:h-28 md:h-32 w-auto max-w-full drop-shadow-2xl"
-              />
-            </div>
-          </MotionReveal>
-
-          <MotionReveal delay={0.1} direction="up" distance={15}>
-            <Link
-              href="/about"
-              className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/20 px-4 py-1.5 text-xs font-semibold tracking-wide text-primary-foreground sm:text-primary uppercase shadow-sm backdrop-blur-sm hover:border-primary/50 transition-colors"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              <span>Built by Medical Students, for Medical Students — Read Our Story</span>
-              <ArrowRight className="h-3 w-3" />
-            </Link>
-          </MotionReveal>
-
-          <MotionReveal delay={0.2} direction="up" distance={20}>
-            <h1 className="max-w-4xl text-4xl font-extrabold tracking-tight text-white sm:text-5xl md:text-6xl drop-shadow-md">
-              The complete digital workspace for Nigerian medical scholars.
-            </h1>
-          </MotionReveal>
-
-          <MotionReveal delay={0.3} direction="up" distance={20}>
-            <p className="mt-6 max-w-2xl text-lg text-slate-200 sm:text-xl drop-shadow-sm">
-              MedHaven provides free access to course-specific past questions, AI quizzes, flashcards, and verified lecturer slides tailored for MBBS excellence.
-            </p>
-          </MotionReveal>
-
-          <MotionReveal delay={0.4} direction="up" distance={20}>
-            <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">
-              <MotionButton scaleHover={1.03} scaleDown={0.96}>
-                <Button asChild size="lg" className="gap-2 text-base font-semibold px-8 h-12 shadow-lg w-full sm:w-auto">
-                  <Link href="/register">
-                    Get Started Free <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </Button>
-              </MotionButton>
-              <MotionButton scaleHover={1.03} scaleDown={0.96}>
-                <Button asChild variant="outline" size="lg" className="text-base font-medium px-8 h-12 border-slate-600 bg-black/40 text-white hover:bg-black/60 hover:text-white backdrop-blur-sm w-full sm:w-auto">
-                  <Link href="/login">Sign In</Link>
-                </Button>
-              </MotionButton>
-            </div>
-          </MotionReveal>
-        </div>
-      </section>
-
-      {/* Social Proof Bar */}
-      <section className="border-b border-border bg-card/40 py-10">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <MotionStaggerGroup staggerChildren={0.15} amount={0.3} className="grid grid-cols-1 gap-8 sm:grid-cols-3 text-center">
-            <MotionStaggerItem className="flex flex-col items-center justify-center p-4">
-              <span className="text-4xl font-extrabold tracking-tight text-primary">300+</span>
-              <span className="mt-2 text-sm font-medium text-muted-foreground">Students Registered</span>
-            </MotionStaggerItem>
-            <MotionStaggerItem className="flex flex-col items-center justify-center p-4 border-y border-border/50 sm:border-y-0 sm:border-x">
-              <span className="text-4xl font-extrabold tracking-tight text-primary">500+</span>
-              <span className="mt-2 text-sm font-medium text-muted-foreground">Quiz Questions across all formats</span>
-            </MotionStaggerItem>
-            <MotionStaggerItem className="flex flex-col items-center justify-center p-4">
-              <span className="text-4xl font-extrabold tracking-tight text-primary">UNIJOS & Beyond</span>
-              <span className="mt-2 text-sm font-medium text-muted-foreground">University of Jos & Expanding nationwide</span>
-            </MotionStaggerItem>
-          </MotionStaggerGroup>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-24">
-        <MotionReveal direction="up" distance={20} className="text-center max-w-3xl mx-auto mb-16">
-          <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-            Everything you need to excel in MBBS examinations
-          </h2>
-          <p className="mt-4 text-muted-foreground text-lg">
-            Purpose-built tools to help you navigate heavy medical workloads, retain complex facts, and pass with confidence.
-          </p>
-        </MotionReveal>
-
-        <MotionStaggerGroup staggerChildren={0.1} amount={0.1} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {featureList.map((feature, idx) => {
-            const Icon = feature.icon
-            return (
-              <MotionStaggerItem key={idx}>
-                <MotionCard3DTilt scaleOnHover={1.02} tiltMaxAngleX={6} tiltMaxAngleY={6}>
-                  <Card className="h-full border-border bg-card/60 transition-all hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5">
-                    <CardHeader>
-                      <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
-                        <Icon className="h-6 w-6" />
-                      </div>
-                      <CardTitle className="text-xl font-semibold">{feature.title}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <CardDescription className="text-sm leading-relaxed text-muted-foreground">
-                        {feature.description}
-                      </CardDescription>
-                    </CardContent>
-                  </Card>
-                </MotionCard3DTilt>
-              </MotionStaggerItem>
-            )
-          })}
-        </MotionStaggerGroup>
-
-        <div className="mt-12 text-center">
-          <MotionButton scaleHover={1.04} className="inline-block">
-            <Button asChild variant="outline" size="lg" className="gap-2 font-semibold">
-              <Link href="/features">
-                Explore All Features <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
-          </MotionButton>
-        </div>
-      </section>
-
-      {/* How It Works Section */}
-      <section className="border-t border-border bg-card/30 py-16 lg:py-24">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <MotionReveal direction="up" distance={20} className="text-center max-w-3xl mx-auto mb-16">
-            <span className="text-xs font-semibold uppercase tracking-widest text-primary">Simple & Direct</span>
-            <h2 className="mt-2 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-              How MedHaven works
-            </h2>
-            <p className="mt-3 text-muted-foreground text-lg">
-              Get started in three quick steps and elevate your study routine immediately.
-            </p>
-          </MotionReveal>
-
-          <MotionStaggerGroup staggerChildren={0.15} amount={0.2} className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {howItWorks.map((item, idx) => {
-              const Icon = item.icon
-              return (
-                <MotionStaggerItem key={idx}>
-                  <MotionCard3DTilt scaleOnHover={1.03} enable3DTilt={false}>
-                    <div className="relative flex flex-col items-center text-center p-6 rounded-xl border border-border bg-card shadow-sm h-full">
-                      <div className="absolute -top-4 bg-primary text-primary-foreground font-bold text-xs px-3 py-1 rounded-full shadow-sm">
-                        Step {item.step}
-                      </div>
-                      <div className="mt-4 mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
-                        <Icon className="h-7 w-7" />
-                      </div>
-                      <h3 className="text-xl font-semibold text-foreground mb-2">{item.title}</h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>
-                    </div>
-                  </MotionCard3DTilt>
-                </MotionStaggerItem>
-              )
-            })}
-          </MotionStaggerGroup>
-        </div>
-      </section>
-
-      {/* Expansion Callout */}
-      <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
-        <MotionReveal direction="up" distance={24} duration={0.6}>
-          <div className="rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/10 via-card to-primary/10 p-8 sm:p-12 text-center shadow-lg">
-            <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1 text-xs font-semibold text-primary mb-4">
-              <Globe2 className="h-4 w-4" />
-              <span>Nationwide Vision</span>
-            </div>
-            <h2 className="text-2xl font-bold text-foreground sm:text-3xl max-w-2xl mx-auto">
-              Currently serving University of Jos — coming soon to universities across Nigeria
-            </h2>
-            <p className="mt-4 text-muted-foreground max-w-xl mx-auto text-sm sm:text-base">
-              We are actively expanding our course database and past questions to support medical schools across the entire nation.
-            </p>
-            <div className="mt-6 flex flex-wrap justify-center gap-4">
-              <MotionButton scaleHover={1.04} className="inline-block">
-                <Button asChild size="lg" className="gap-2">
-                  <Link href="/register">
-                    Register to Get Notified <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </Button>
-              </MotionButton>
-              <MotionButton scaleHover={1.04} className="inline-block">
-                <Button asChild variant="outline" size="lg" className="gap-2 font-semibold">
-                  <Link href="/courses">
-                    Browse Course Catalog <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </Button>
-              </MotionButton>
-            </div>
+        <section className="grid flex-1 items-center gap-12 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:py-24">
+          <div className="max-w-2xl">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-teal-300/20 bg-teal-300/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-teal-200"><Sparkles className="size-3.5" /> Digital academic ecosystem</div>
+            <h1 className="text-5xl font-semibold tracking-tight text-white sm:text-6xl lg:text-7xl">One university. <span className="text-teal-200">Many paths</span> to possibility.</h1>
+            <p className="mt-7 max-w-xl text-lg leading-8 text-slate-300">JositeX connects the University of Jos academic community to focused digital environments built around the needs of each department.</p>
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row"><Button asChild size="lg" className="bg-teal-300 text-slate-950 hover:bg-teal-200"><Link href="/login">Enter JositeX <ArrowRight className="size-4" /></Link></Button><Button asChild size="lg" variant="outline" className="border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"><Link href="#environments">Explore environments</Link></Button></div>
+            <div className="mt-12 flex flex-wrap gap-x-6 gap-y-3 text-sm text-slate-400"><span className="inline-flex items-center gap-2"><BookOpen className="size-4 text-teal-200" /> Department-aware learning</span><span className="inline-flex items-center gap-2"><ShieldCheck className="size-4 text-teal-200" /> Secure by design</span></div>
           </div>
-        </MotionReveal>
-      </section>
-
-      {/* Support & Donate Section */}
-      <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
-        <MotionReveal direction="up" distance={24} duration={0.6}>
-          <div className="rounded-2xl border border-rose-500/20 bg-gradient-to-r from-rose-500/5 via-primary/5 to-rose-500/5 p-6 sm:p-10 shadow-lg">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="space-y-2 text-center md:text-left">
-                <div className="inline-flex items-center gap-2 rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-xs font-semibold text-rose-600 dark:text-rose-300">
-                  <Heart className="h-3.5 w-3.5 fill-rose-500 text-rose-500" />
-                  <span>Empower Medical Education</span>
-                </div>
-                <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-                  Support open access for medical scholars
-                </h2>
-                <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
-                  Your contributions keep study resources, practical guides, and learning tools accessible to medical students and trainees across campuses.
-                </p>
-              </div>
-              <MotionButton scaleHover={1.04} scaleDown={0.96} className="shrink-0">
-                <Button asChild size="lg" className="shrink-0 gap-2 bg-rose-600 text-white hover:bg-rose-700 dark:bg-rose-600 dark:hover:bg-rose-700 shadow-md">
-                  <Link href="/donate">
-                    <Heart className="h-4 w-4 fill-white" />
-                    Make a Donation
-                  </Link>
-                </Button>
-              </MotionButton>
+          <div id="environments" className="scroll-mt-8">
+            <div className="mb-5"><p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">Available academic environments</p><p className="mt-2 text-slate-300">Choose the environment connected to your department.</p></div>
+            <div className="grid gap-4">
+              {appCards.map((app) => { const Icon = app.icon; return <Card key={app.slug} className={`border-white/10 bg-gradient-to-br ${app.className} text-white backdrop-blur-xl`}><CardHeader><div className="flex items-start justify-between gap-4"><span className="flex size-11 items-center justify-center rounded-xl bg-white/10 text-teal-100"><Icon className="size-5" /></span><span className="rounded-full border border-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-300">{app.departmentName ?? "University community"}</span></div><CardTitle className="pt-2 text-2xl">{app.name}</CardTitle><CardDescription className="text-slate-300">{app.description}</CardDescription></CardHeader><CardContent><Button asChild variant="outline" className="w-full border-white/15 bg-black/10 text-white hover:bg-white/10 hover:text-white"><Link href="/login">Continue to {app.name} <ArrowRight className="size-4" /></Link></Button></CardContent></Card> })}
             </div>
+            {!apps.length && <p className="mt-4 text-xs leading-5 text-slate-500">Application availability is managed by the JositeX academic directory.</p>}
           </div>
-        </MotionReveal>
-      </section>
-    </SiteShell>
+        </section>
+        <footer className="border-t border-white/10 py-5 text-xs text-slate-500">JositeX · University of Jos Digital Academic Ecosystem</footer>
+      </div>
+    </main>
   )
 }

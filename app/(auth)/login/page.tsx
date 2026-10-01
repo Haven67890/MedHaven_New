@@ -266,7 +266,7 @@ function LoginContent() {
     <Card className="border-border shadow-xl shadow-primary/5">
       <CardHeader>
         <CardTitle className="text-2xl">Welcome back</CardTitle>
-        <CardDescription>Use your MedHaven email and password to continue.</CardDescription>
+        <CardDescription>Use your JositeX email and password to continue to your department workspace.</CardDescription>
       </CardHeader>
       <CardContent>
         <form aria-label="Sign in" className="flex flex-col gap-6" onSubmit={handleSubmit}>
@@ -331,11 +331,11 @@ function LoginContent() {
             Continue with Google
           </Button>
 
-          <FieldDescription className="text-center">Use your MedHaven credentials to access your workspace.</FieldDescription>
+          <FieldDescription className="text-center">Your department determines which JositeX environment you can access.</FieldDescription>
         </form>
       </CardContent>
       <CardFooter className="justify-center border-t border-border pt-6 text-sm text-muted-foreground">
-        New to MedHaven?&nbsp;<Link href="/register" className="font-medium text-primary underline-offset-4 hover:underline">Create an account</Link>
+          New to JositeX?&nbsp;<Link href="/register" className="font-medium text-primary underline-offset-4 hover:underline">Create an account</Link>
       </CardFooter>
     </Card>
   )

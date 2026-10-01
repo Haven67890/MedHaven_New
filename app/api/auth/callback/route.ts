@@ -53,11 +53,11 @@ export async function GET(request: Request) {
           if (isGoogleUser && !next.startsWith('/reset-password')) {
             const { data: profile } = await supabase
               .from('profiles')
-              .select('department, current_level')
+              .select('department_id, current_level')
               .eq('id', user.id)
               .maybeSingle()
 
-            if (!profile || !profile.department || !profile.current_level) {
+            if (!profile || !profile.department_id || !profile.current_level) {
               // Skeleton profile upsert to allow client RLS and updating
               if (!profile) {
                 await supabase.from('profiles').upsert({

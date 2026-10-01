@@ -12,11 +12,11 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <ThemeToggle />
       </div>
       <aside className="hidden w-[42%] flex-col justify-between border-r border-border bg-primary p-10 text-primary-foreground lg:flex xl:p-14">
-        <MedHavenLogo href="/" inverse />
-        <div className="flex max-w-md flex-col gap-5">
-          <p className="text-sm font-semibold uppercase tracking-widest text-primary-foreground/70">MedHaven</p>
-          <h1 className="text-balance text-4xl font-semibold tracking-tight xl:text-5xl">A thoughtful foundation for care, connection, and progress.</h1>
-          <p className="text-pretty text-lg leading-relaxed text-primary-foreground/75">A modern platform is taking shape—built to be clear, dependable, and easy to use from the very beginning.</p>
+          <MedHavenLogo href="/" inverse />
+          <div className="flex max-w-md flex-col gap-5">
+          <p className="text-sm font-semibold uppercase tracking-widest text-primary-foreground/70">JositeX · University of Jos</p>
+          <h1 className="text-balance text-4xl font-semibold tracking-tight xl:text-5xl">One secure gateway to your academic environment.</h1>
+          <p className="text-pretty text-lg leading-relaxed text-primary-foreground/75">Sign in once and JositeX will connect you to the academic workspace for your department.</p>
         </div>
         <p className="text-sm text-primary-foreground/65">Secure foundation. Human-centered design.</p>
       </aside>

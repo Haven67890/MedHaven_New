@@ -1,8 +1,15 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 import { getSupabaseConfig } from "@/lib/supabase/config"
+import { appHomePath, getUserEcosystemContext } from "@/lib/jositex"
 
-const PUBLIC_ROUTES = ["/", "/login", "/register", "/features", "/courses", "/about", "/contact"]
+const PUBLIC_ROUTES = ["/", "/login", "/register", "/features", "/courses", "/about", "/contact", "/medhaven/landing"]
+
+const LEGACY_APP_PREFIXES = [
+  "/dashboard", "/library", "/materials", "/profile", "/admin", "/notifications", "/settings",
+  "/past-questions", "/lectures", "/flashcards", "/quizzes", "/timetable", "/progress", "/marketplace",
+  "/clinical-guides", "/tutorials", "/directory", "/donate", "/osce", "/practical",
+]
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -69,9 +76,10 @@ export async function middleware(request: NextRequest) {
   // Check route protection
   const isPublicRoute = PUBLIC_ROUTES.includes(pathname)
 
-  // If already logged in and visiting login/register, redirect to dashboard
+  // If already logged in and visiting login/register, let the app resolver choose the destination.
   if (user && (pathname === "/login" || pathname === "/register")) {
-    return redirectWithCookies("/dashboard")
+    const context = await getUserEcosystemContext(supabase, user.id)
+    return redirectWithCookies(appHomePath(context?.app.slug))
   }
 
   // Force onboarding details completion only for Google Sign-In and incomplete profiles
@@ -83,11 +91,11 @@ export async function middleware(request: NextRequest) {
       if (pathname !== "/profile/complete") {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("department, current_level")
+          .select("department_id, current_level")
           .eq("id", user.id)
           .maybeSingle()
 
-        if (!profile || !profile.department || !profile.current_level) {
+        if (!profile || !profile.department_id || !profile.current_level) {
           return redirectWithCookies("/profile/complete")
         }
       }
@@ -99,26 +107,28 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  const isLegacyAppRoute = LEGACY_APP_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
+  const isMedHavenRoute = pathname === "/medhaven" || (pathname.startsWith("/medhaven/") && !pathname.startsWith("/medhaven/landing"))
+  const isPoliteiaRoute = pathname === "/politeia" || pathname.startsWith("/politeia/")
+
+  // If authenticated, enforce the department/application mapping for both new and legacy routes.
+  if (user && (isLegacyAppRoute || isMedHavenRoute || isPoliteiaRoute)) {
+    const context = await getUserEcosystemContext(supabase, user.id)
+    if (!context) {
+      if (pathname !== "/profile/complete") return redirectWithCookies("/profile/complete")
+    } else if (isPoliteiaRoute && context.app.slug !== "politeia") {
+      return redirectWithCookies(appHomePath(context.app.slug))
+    } else if ((isMedHavenRoute || isLegacyAppRoute) && context.app.slug !== "medhaven") {
+      return redirectWithCookies(appHomePath(context.app.slug))
+    } else if (isMedHavenRoute && pathname !== "/medhaven/landing") {
+      return redirectWithCookies("/dashboard")
+    }
+  }
+
   // If no user and route is protected, redirect to login
   if (!user && !isPublicRoute) {
     const isProtected =
-      pathname.startsWith("/dashboard") ||
-      pathname.startsWith("/library") ||
-      pathname.startsWith("/materials") ||
-      pathname.startsWith("/profile") ||
-      pathname.startsWith("/admin") ||
-      pathname.startsWith("/notifications") ||
-      pathname.startsWith("/settings") ||
-      pathname.startsWith("/past-questions") ||
-      pathname.startsWith("/lectures") ||
-      pathname.startsWith("/flashcards") ||
-      pathname.startsWith("/quizzes") ||
-      pathname.startsWith("/timetable") ||
-      pathname.startsWith("/progress") ||
-      pathname.startsWith("/marketplace") ||
-      pathname.startsWith("/clinical-guides") ||
-      pathname.startsWith("/tutorials") ||
-      pathname.startsWith("/directory")
+      isLegacyAppRoute || isMedHavenRoute || isPoliteiaRoute
 
     if (isProtected) {
       const loginUrl = new URL("/login", request.url)
