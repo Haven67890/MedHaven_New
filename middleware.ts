@@ -1,109 +1,76 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 import { getSupabaseConfig } from "@/lib/supabase/config"
+import { isEmailVerified, safeNextPath } from "@/lib/auth/redirects"
 import { appHomePath, getUserEcosystemContext } from "@/lib/jositex"
 
-const PUBLIC_ROUTES = ["/", "/login", "/register", "/features", "/courses", "/about", "/contact", "/medhaven/landing"]
-
+const PUBLIC_ROUTES = ["/", "/login", "/register", "/forgot-password", "/reset-password", "/verify-email", "/features", "/courses", "/about", "/contact", "/medhaven/landing"]
+const PUBLIC_API_ROUTES = ["/api/auth/callback", "/api/donations/verify", "/api/image-proxy", "/api/slideshare-embed"]
 const LEGACY_APP_PREFIXES = [
   "/dashboard", "/library", "/materials", "/profile", "/admin", "/notifications", "/settings",
   "/past-questions", "/lectures", "/flashcards", "/quizzes", "/timetable", "/progress", "/marketplace",
   "/clinical-guides", "/tutorials", "/directory", "/donate", "/osce", "/practical",
 ]
 
+function isPublicApi(pathname: string) {
+  return PUBLIC_API_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+  if (pathname.startsWith("/_next") || pathname.includes(".") || pathname === "/favicon.ico") return NextResponse.next()
+  if (pathname === "/api/auth/callback") return NextResponse.next()
 
-  // Allow public assets and Next.js internals through
-  if (
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/api") ||
-    pathname.includes(".") ||
-    pathname === "/favicon.ico"
-  ) {
-    return NextResponse.next()
-  }
-
-  // Create mutable response
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  })
-
-  // Get Supabase config
+  let response = NextResponse.next({ request: { headers: request.headers } })
   const { supabaseUrl, supabaseAnonKey } = getSupabaseConfig()
-
-  // Create Supabase server client
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
-      getAll() {
-        return request.cookies.getAll()
-      },
+      getAll: () => request.cookies.getAll(),
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-        response = NextResponse.next({
-          request,
-        })
-        cookiesToSet.forEach(({ name, value, options }) =>
-          response.cookies.set(name, value, options)
-        )
+        response = NextResponse.next({ request })
+        cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
       },
     },
   })
 
-  const redirectWithCookies = (url: string | URL) => {
-    const redirectResponse = NextResponse.redirect(typeof url === "string" ? new URL(url, request.url) : url)
-    response.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie.name, cookie.value, {
-        path: cookie.path,
-        domain: cookie.domain,
-        maxAge: cookie.maxAge,
-        secure: cookie.secure,
-        sameSite: cookie.sameSite,
-        expires: cookie.expires,
-        httpOnly: cookie.httpOnly,
-      })
-    })
+  const redirectWithCookies = (target: string | URL) => {
+    const redirectResponse = NextResponse.redirect(typeof target === "string" ? new URL(target, request.url) : target)
+    response.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie.name, cookie.value, {
+      path: cookie.path, domain: cookie.domain, maxAge: cookie.maxAge, secure: cookie.secure,
+      sameSite: cookie.sameSite, expires: cookie.expires, httpOnly: cookie.httpOnly,
+    }))
     return redirectResponse
   }
 
-  // Securely verify session by fetching user info
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
+  const isApi = pathname.startsWith("/api")
 
-  // Check route protection
+  if (isApi) {
+    if (isPublicApi(pathname)) return response
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!isEmailVerified(user)) return NextResponse.json({ error: "Email verification required" }, { status: 403 })
+    return response
+  }
+
   const isPublicRoute = PUBLIC_ROUTES.includes(pathname)
+  const isAuthFlowRoute = pathname === "/verify-email" || pathname === "/forgot-password" || pathname === "/reset-password"
+  if (user && !isEmailVerified(user) && !isAuthFlowRoute) {
+    return redirectWithCookies(`/verify-email?email=${encodeURIComponent(user.email ?? "")}&next=${encodeURIComponent(safeNextPath(pathname))}`)
+  }
 
-  // If already logged in and visiting login/register, let the app resolver choose the destination.
   if (user && (pathname === "/login" || pathname === "/register")) {
     const context = await getUserEcosystemContext(supabase, user.id)
     return redirectWithCookies(appHomePath(context?.app.slug))
   }
 
-  // Force onboarding details completion only for Google Sign-In and incomplete profiles
-  if (user && !pathname.startsWith("/api")) {
-    const isGoogleUser = user.app_metadata?.provider === "google" ||
-                         user.app_metadata?.providers?.includes("google")
-
-    if (isGoogleUser) {
-      if (pathname !== "/profile/complete") {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("department_id, current_level")
-          .eq("id", user.id)
-          .maybeSingle()
-
-        if (!profile || !profile.department_id || !profile.current_level) {
-          return redirectWithCookies("/profile/complete")
-        }
-      }
-    } else {
-      // Email signups and non-Google users should never be routed to /profile/complete
-      if (pathname === "/profile/complete") {
-        return redirectWithCookies("/dashboard")
-      }
+  if (user) {
+    const isGoogleUser = user.app_metadata?.provider === "google" || user.app_metadata?.providers?.includes("google")
+    if (isGoogleUser && pathname !== "/profile/complete") {
+      const { data: profile } = await supabase.from("profiles").select("department_id, current_level").eq("id", user.id).maybeSingle()
+      if (!profile || !profile.department_id || !profile.current_level) return redirectWithCookies("/profile/complete")
+    } else if (!isGoogleUser && pathname === "/profile/complete") {
+      return redirectWithCookies("/dashboard")
     }
   }
 
@@ -111,21 +78,13 @@ export async function middleware(request: NextRequest) {
   const isMedHavenRoute = pathname === "/medhaven" || (pathname.startsWith("/medhaven/") && !pathname.startsWith("/medhaven/landing"))
   const isPoliteiaRoute = pathname === "/politeia" || pathname.startsWith("/politeia/")
 
-  // If authenticated, enforce the department/application mapping for both new and legacy routes.
   if (user && (isLegacyAppRoute || isMedHavenRoute || isPoliteiaRoute)) {
     const context = await getUserEcosystemContext(supabase, user.id)
     if (!context) {
-      const { data: profileState } = await supabase
-        .from("profiles")
-        .select("department_id, current_level")
-        .eq("id", user.id)
-        .maybeSingle()
-      const hasCompleteInstitutionalProfile = Boolean(profileState?.department_id && profileState?.current_level)
-      if (!hasCompleteInstitutionalProfile) {
+      const { data: profileState } = await supabase.from("profiles").select("department_id, current_level").eq("id", user.id).maybeSingle()
+      if (!profileState?.department_id || !profileState?.current_level) {
         if (pathname !== "/profile/complete") return redirectWithCookies("/profile/complete")
-      } else if (pathname !== "/") {
-        return redirectWithCookies("/")
-      }
+      } else if (pathname !== "/") return redirectWithCookies("/")
     } else if (isPoliteiaRoute && context.app.slug !== "politeia") {
       return redirectWithCookies(appHomePath(context.app.slug))
     } else if ((isMedHavenRoute || isLegacyAppRoute) && context.app.slug !== "medhaven") {
@@ -135,41 +94,17 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // If no user and route is protected, redirect to login
-  if (!user && !isPublicRoute) {
-    const isProtected =
-      isLegacyAppRoute || isMedHavenRoute || isPoliteiaRoute
-
-    if (isProtected) {
-      const loginUrl = new URL("/login", request.url)
-      return redirectWithCookies(loginUrl)
-    }
+  if (!user && !isPublicRoute && (isLegacyAppRoute || isMedHavenRoute || isPoliteiaRoute)) {
+    return redirectWithCookies(`/login?next=${encodeURIComponent(safeNextPath(pathname))}`)
   }
 
-  // If authenticated, check admin access
   if (user && pathname.startsWith("/admin")) {
-    // Check if user has admin role
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle()
-
-    const profile = profileData as Record<string, unknown> | null
-    const role = String(profile?.role ?? "").toLowerCase()
-    const isAdmin =
-      role === "admin" ||
-      role === "super_admin" ||
-      role === "moderator"
-
-    if (!isAdmin) {
-      return redirectWithCookies("/dashboard")
-    }
+    const { data: profileData } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
+    const role = String(profileData?.role ?? "").toLowerCase()
+    if (!["admin", "super_admin", "moderator"].includes(role)) return redirectWithCookies("/dashboard")
   }
 
   return response
 }
 
-export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
-}
+export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"] }
