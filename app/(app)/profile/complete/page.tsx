@@ -2,44 +2,28 @@
 
 import { useRouter } from "next/navigation"
 import { FormEvent, useState, useEffect, Suspense } from "react"
+import type { User } from "@supabase/supabase-js"
 
 import { createClient } from "@/lib/supabase/client"
+import { useInstitutionalCatalogue } from "@/components/onboarding/institutional-selector"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
-
-type University = {
-  id: string
-  name: string
-  short_name: string
-}
-
-type Faculty = {
-  id: string
-  name: string
-  university_id: string
-}
 
 function ProfileCompleteContent() {
   const supabase = createClient()
   const router = useRouter()
 
-  const [universities, setUniversities] = useState<University[]>([])
-  const [faculties, setFaculties] = useState<Faculty[]>([])
-
-  const [selectedUniversityId, setSelectedUniversityId] = useState("")
-  const [selectedFacultyId, setSelectedFacultyId] = useState("")
-  const [department, setDepartment] = useState("Medicine & Surgery")
+  const { universities, availableFaculties, availableDepartments, selectedUniversityId, selectedFacultyId, selectedDepartmentId, selectedDepartment, loadingMetadata, metadataError, changeUniversity, changeFaculty, changeDepartment } = useInstitutionalCatalogue()
   const [level, setLevel] = useState("400L")
 
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [loadingMetadata, setLoadingMetadata] = useState(true)
   const [error, setError] = useState("")
   const [userId, setUserId] = useState<string | null>(null)
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<User | null>(null)
 
   useEffect(() => {
-    supabase.auth.getUser().then((response: any) => {
+    supabase.auth.getUser().then((response: { data: { user: User | null } }) => {
       const data = response.data
       if (data && data.user) {
         setUserId(data.user.id)
@@ -50,56 +34,19 @@ function ProfileCompleteContent() {
     })
   }, [router, supabase])
 
-  useEffect(() => {
-    const fetchMetadata = async () => {
-      try {
-        const [uniRes, facRes] = await Promise.all([
-          supabase.from("universities").select("id, name, short_name"),
-          supabase.from("faculties").select("id, name, university_id")
-        ])
-
-        if (uniRes.error) throw uniRes.error
-        if (facRes.error) throw facRes.error
-
-        const unis = (uniRes.data || []) as University[]
-        const facs = (facRes.data || []) as Faculty[]
-
-        if (unis.length === 0 || facs.length === 0) {
-          throw new Error("No metadata rows returned from database")
-        }
-
-        setUniversities(unis)
-        setFaculties(facs)
-
-        if (unis.length > 0) {
-          setSelectedUniversityId(unis[0].id)
-        }
-        if (facs.length > 0) {
-          setSelectedFacultyId(facs[0].id)
-        }
-      } catch (err) {
-        console.warn("Error loading onboarding metadata dynamically, applying grace fallbacks:", err)
-        const mockUnis: University[] = [
-          { id: "mock-uni-id", name: "Jos University Teaching Hospital", short_name: "JUTH" }
-        ]
-        const mockFacs: Faculty[] = [
-          { id: "mock-fac-id", name: "Clinical Sciences", university_id: "mock-uni-id" }
-        ]
-        setUniversities(mockUnis)
-        setFaculties(mockFacs)
-        setSelectedUniversityId("mock-uni-id")
-        setSelectedFacultyId("mock-fac-id")
-      } finally {
-        setLoadingMetadata(false)
-      }
-    }
-
-    void fetchMetadata()
-  }, [supabase])
-
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError("")
+
+    if (metadataError) {
+      setError(metadataError)
+      return
+    }
+
+    if (!selectedDepartment) {
+      setError("Please select a valid department.")
+      return
+    }
 
     if (!userId) {
       setError("User session not found. Please log in.")
@@ -114,42 +61,17 @@ function ProfileCompleteContent() {
     const fullName = user?.user_metadata?.full_name || user?.user_metadata?.name || emailPrefix
 
     try {
-      // First attempt to update the existing profile row's institutional details
-      const { data, error: updateError } = await supabase
-        .from("profiles")
-        .update({
-          university_id: selectedUniversityId || null,
-          faculty_id: selectedFacultyId || null,
-          department: department,
-          current_level: level,
-        })
-        .eq("id", userId)
-        .select()
-
-      if (updateError) {
-        setError(updateError.message)
+      const { error: onboardingError } = await supabase.rpc("complete_profile_onboarding", {
+        p_university_id: selectedUniversityId,
+        p_faculty_id: selectedFacultyId,
+        p_department_id: selectedDepartment.id,
+        p_level: level,
+        p_full_name: fullName,
+      })
+      if (onboardingError) {
+        setError("Unable to save your institutional details. Please verify your selections and try again.")
         setIsSubmitting(false)
         return
-      }
-
-      // If the row didn't exist for some reason, we perform a safe upsert
-      if (!data || data.length === 0) {
-        const { error: upsertError } = await supabase
-          .from("profiles")
-          .upsert({
-            id: userId,
-            full_name: fullName,
-            university_id: selectedUniversityId || null,
-            faculty_id: selectedFacultyId || null,
-            department: department,
-            current_level: level,
-          }, { onConflict: "id" })
-
-        if (upsertError) {
-          setError(upsertError.message)
-          setIsSubmitting(false)
-          return
-        }
       }
 
       router.refresh()
@@ -174,7 +96,7 @@ function ProfileCompleteContent() {
       <Card className="w-full max-w-md border-border shadow-xl shadow-primary/5">
         <CardHeader>
           <CardTitle className="text-2xl font-bold">Complete Your Profile</CardTitle>
-          <CardDescription>Configure your academic workspace details on MedHaven to access your student dashboard.</CardDescription>
+          <CardDescription>Configure your university, faculty, department, and academic level for JositeX.</CardDescription>
         </CardHeader>
         <CardContent>
           <form aria-label="Complete profile onboarding" className="flex flex-col gap-6" onSubmit={handleSubmit}>
@@ -191,7 +113,7 @@ function ProfileCompleteContent() {
                 <select
                   id="onboard-university"
                   value={selectedUniversityId}
-                  onChange={(event) => setSelectedUniversityId(event.target.value)}
+                  onChange={(event) => changeUniversity(event.target.value)}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   required
                 >
@@ -208,12 +130,11 @@ function ProfileCompleteContent() {
                 <select
                   id="onboard-faculty"
                   value={selectedFacultyId}
-                  onChange={(event) => setSelectedFacultyId(event.target.value)}
+                  onChange={(event) => changeFaculty(event.target.value)}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   required
                 >
-                  {faculties
-                    .filter((fac) => !selectedUniversityId || fac.university_id === selectedUniversityId)
+                  {availableFaculties
                     .map((fac) => (
                       <option key={fac.id} value={fac.id}>
                         {fac.name}
@@ -226,16 +147,12 @@ function ProfileCompleteContent() {
                 <FieldLabel htmlFor="onboard-department">Department</FieldLabel>
                 <select
                   id="onboard-department"
-                  value={department}
-                  onChange={(event) => setDepartment(event.target.value)}
+                  value={selectedDepartmentId}
+                  onChange={(event) => changeDepartment(event.target.value)}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   required
                 >
-                  <option value="Medicine & Surgery">Medicine & Surgery</option>
-                  <option value="Nursing">Nursing</option>
-                  <option value="Medical Laboratory Science">Medical Laboratory Science</option>
-                  <option value="Physiology">Physiology</option>
-                  <option value="Anatomy">Anatomy</option>
+                  {availableDepartments.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                 </select>
               </Field>
 

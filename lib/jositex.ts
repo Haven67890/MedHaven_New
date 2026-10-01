@@ -46,6 +46,7 @@ function bool(row: Row, ...keys: string[]): boolean {
 }
 
 function appFromRow(row: Row): EcosystemApp {
+  const status = text(row, "status")
   return {
     id: String(row.id ?? row.slug ?? ""),
     slug: text(row, "slug", "app_slug") ?? "",
@@ -53,7 +54,7 @@ function appFromRow(row: Row): EcosystemApp {
     departmentId: (row.department_id ?? row.departmentId ?? null) as string | number | null,
     departmentName: text(row, "department_name", "department"),
     description: text(row, "description", "tagline"),
-    isActive: bool(row, "is_active", "active", "enabled"),
+    isActive: status ? status === "active" : bool(row, "is_active", "active", "enabled"),
     logoUrl: text(row, "logo_url", "logo"),
     accentColor: text(row, "accent_color", "color"),
   }
@@ -63,6 +64,7 @@ export async function getAvailableEcosystemApps(supabase: SupabaseClient): Promi
   const { data, error } = await supabase
     .from("ecosystem_apps")
     .select("*")
+    .eq("status", "active")
     .order("name", { ascending: true })
 
   if (error) {
@@ -88,7 +90,7 @@ export async function getUserEcosystemContext(
   const departmentId = profile.department_id as string | number
   const [{ data: department }, { data: appRows, error: appError }] = await Promise.all([
     supabase.from("departments").select("id, name").eq("id", departmentId).maybeSingle(),
-    supabase.from("ecosystem_apps").select("*").eq("department_id", departmentId).limit(1),
+    supabase.from("ecosystem_apps").select("*").eq("department_id", departmentId).eq("status", "active").limit(1),
   ])
 
   if (appError || !appRows?.[0]) return null
@@ -130,5 +132,7 @@ export async function getEcosystemFeatures(
 }
 
 export function appHomePath(slug: string | null | undefined): string {
-  return slug === "politeia" ? "/politeia" : "/medhaven"
+  if (slug === "politeia") return "/politeia"
+  if (slug === "medhaven") return "/medhaven"
+  return "/"
 }

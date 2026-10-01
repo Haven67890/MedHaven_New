@@ -5,7 +5,7 @@ import { ArrowRight, BookOpen, GraduationCap, Landmark, ShieldCheck, Sparkles } 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { createClient } from "@/lib/supabase/server"
-import { getAvailableEcosystemApps } from "@/lib/jositex"
+import { getAvailableEcosystemApps, getUserEcosystemContext } from "@/lib/jositex"
 
 export const metadata: Metadata = {
   title: "JositeX — University of Jos Digital Academic Ecosystem",
@@ -34,6 +34,11 @@ const fallbackApps = [
 export default async function HomePage() {
   const supabase = await createClient()
   const apps = await getAvailableEcosystemApps(supabase)
+  const { data: { user } } = await supabase.auth.getUser()
+  const context = user ? await getUserEcosystemContext(supabase, user.id) : null
+  const { data: profile } = user && !context
+    ? await supabase.from("profiles").select("department").eq("id", user.id).maybeSingle()
+    : { data: null }
   const appCards = apps.length
     ? apps.map((app) => ({ ...app, icon: app.slug === "politeia" ? Landmark : ShieldCheck, className: app.slug === "politeia" ? "from-indigo-500/15 to-violet-500/10" : "from-emerald-500/15 to-cyan-500/10" }))
     : fallbackApps
@@ -62,6 +67,7 @@ export default async function HomePage() {
             <div className="mb-5"><p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">Available academic environments</p><p className="mt-2 text-slate-300">Choose the environment connected to your department.</p></div>
             <div className="grid gap-4">
               {appCards.map((app) => { const Icon = app.icon; return <Card key={app.slug} className={`border-white/10 bg-gradient-to-br ${app.className} text-white backdrop-blur-xl`}><CardHeader><div className="flex items-start justify-between gap-4"><span className="flex size-11 items-center justify-center rounded-xl bg-white/10 text-teal-100"><Icon className="size-5" /></span><span className="rounded-full border border-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-300">{app.departmentName ?? "University community"}</span></div><CardTitle className="pt-2 text-2xl">{app.name}</CardTitle><CardDescription className="text-slate-300">{app.description}</CardDescription></CardHeader><CardContent><Button asChild variant="outline" className="w-full border-white/15 bg-black/10 text-white hover:bg-white/10 hover:text-white"><Link href="/login">Continue to {app.name} <ArrowRight className="size-4" /></Link></Button></CardContent></Card> })}
+              {user && !context && <Card className="border-amber-200/20 bg-amber-200/5 text-white"><CardHeader><CardTitle className="text-xl">Your department workspace is coming soon</CardTitle><CardDescription className="text-slate-300">{profile?.department ? `${profile.department} is in the JositeX institutional catalogue, but its dedicated application is not active yet.` : "Your institutional catalogue entry is being prepared for a dedicated JositeX application."}</CardDescription></CardHeader><CardContent><p className="text-sm text-slate-400">You will not be sent into MedHaven or POLITEIA unless your department is explicitly connected to that application.</p></CardContent></Card>}
             </div>
             {!apps.length && <p className="mt-4 text-xs leading-5 text-slate-500">Application availability is managed by the JositeX academic directory.</p>}
           </div>

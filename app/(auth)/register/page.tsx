@@ -2,26 +2,15 @@
 
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { FormEvent, useState, useEffect, useRef, Suspense, KeyboardEvent, ClipboardEvent } from "react"
+import { FormEvent, useState, useRef, Suspense, KeyboardEvent, ClipboardEvent } from "react"
 
 import { createClient } from "@/lib/supabase/client"
+import { useInstitutionalCatalogue } from "@/components/onboarding/institutional-selector"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-
-type University = {
-  id: string
-  name: string
-  short_name: string
-}
-
-type Faculty = {
-  id: string
-  name: string
-  university_id: string
-}
 
 function RegisterContent() {
   const supabase = createClient()
@@ -29,15 +18,10 @@ function RegisterContent() {
   const searchParams = useSearchParams()
   const errorQuery = searchParams ? searchParams.get("error") : null
 
-  const [universities, setUniversities] = useState<University[]>([])
-  const [faculties, setFaculties] = useState<Faculty[]>([])
-  const [selectedUniversityId, setSelectedUniversityId] = useState("")
-  const [selectedFacultyId, setSelectedFacultyId] = useState("")
-  const [loadingMetadata, setLoadingMetadata] = useState(true)
+  const { universities, availableFaculties, availableDepartments, selectedUniversityId, selectedFacultyId, selectedDepartmentId, selectedDepartment, loadingMetadata, metadataError, changeUniversity, changeFaculty, changeDepartment } = useInstitutionalCatalogue()
 
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
-  const [department, setDepartment] = useState("Medicine & Surgery")
   const [level, setLevel] = useState("400L")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -49,56 +33,19 @@ function RegisterContent() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
 
-  useEffect(() => {
-    const fetchMetadata = async () => {
-      try {
-        const [uniRes, facRes] = await Promise.all([
-          supabase.from("universities").select("id, name, short_name"),
-          supabase.from("faculties").select("id, name, university_id")
-        ])
-
-        if (uniRes.error) throw uniRes.error
-        if (facRes.error) throw facRes.error
-
-        const unis = (uniRes.data || []) as University[]
-        const facs = (facRes.data || []) as Faculty[]
-
-        if (unis.length === 0 || facs.length === 0) {
-          throw new Error("No metadata rows returned from database")
-        }
-
-        setUniversities(unis)
-        setFaculties(facs)
-
-        if (unis.length > 0) {
-          setSelectedUniversityId(unis[0].id)
-        }
-        if (facs.length > 0) {
-          setSelectedFacultyId(facs[0].id)
-        }
-      } catch (err) {
-        console.warn("Error loading register metadata dynamically, applying grace fallbacks:", err)
-        const mockUnis: University[] = [
-          { id: "mock-uni-id", name: "Jos University Teaching Hospital", short_name: "JUTH" }
-        ]
-        const mockFacs: Faculty[] = [
-          { id: "mock-fac-id", name: "Clinical Sciences", university_id: "mock-uni-id" }
-        ]
-        setUniversities(mockUnis)
-        setFaculties(mockFacs)
-        setSelectedUniversityId("mock-uni-id")
-        setSelectedFacultyId("mock-fac-id")
-      } finally {
-        setLoadingMetadata(false)
-      }
-    }
-
-    void fetchMetadata()
-  }, [supabase])
-
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError("")
+
+    if (metadataError) {
+      setError(metadataError)
+      return
+    }
+
+    if (!selectedDepartment) {
+      setError("Please select a valid department.")
+      return
+    }
 
     if (!fullName.trim()) {
       setError("Full name is required.")
@@ -126,7 +73,8 @@ function RegisterContent() {
           emailRedirectTo: `${typeof window !== "undefined" ? window.location.origin : ""}/api/auth/callback`,
           data: {
             full_name: fullName.trim(),
-            department: department,
+            department: selectedDepartment.name,
+            department_id: selectedDepartment.id,
             level: level,
             university_id: selectedUniversityId,
             faculty_id: selectedFacultyId,
@@ -144,27 +92,20 @@ function RegisterContent() {
         return
       }
 
-      // Step 2: Create the profile row in the profiles table safely via upsert
-      // SECURITY AUDIT: This write payload strictly contains only allowed registration fields
-      // (university_id, faculty_id, department, current_level, full_name). It must NEVER contain
-      // role, account_status, suspended_reason, suspended_until, or admin_permissions.
-      try {
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .upsert({
-            id: authData.user.id,
-            full_name: fullName.trim(),
-            university_id: selectedUniversityId || null,
-            faculty_id: selectedFacultyId || null,
-            department: department,
-            current_level: level,
-          }, { onConflict: "id" })
-
-        if (profileError) {
-          console.warn("Profile upsert result warning:", profileError.message)
+      // Profile writes are server-validated against the university → faculty → department relationship.
+      if (authData.session) {
+        const { error: onboardingError } = await supabase.rpc("complete_profile_onboarding", {
+          p_university_id: selectedUniversityId,
+          p_faculty_id: selectedFacultyId,
+          p_department_id: selectedDepartment.id,
+          p_level: level,
+          p_full_name: fullName.trim(),
+        })
+        if (onboardingError) {
+          console.warn("Validated onboarding could not complete:", onboardingError.message)
+          router.replace("/profile/complete")
+          return
         }
-      } catch (dbErr) {
-        console.warn("Failed to create profile row gracefully:", dbErr)
       }
 
       // Check if session is established (meaning email confirmation is disabled)
@@ -329,7 +270,7 @@ function RegisterContent() {
     <Card className="border-border shadow-xl shadow-primary/5">
       <CardHeader>
         <CardTitle className="text-2xl">Create your account</CardTitle>
-        <CardDescription>Register for access to MedHaven and your academic workspace.</CardDescription>
+        <CardDescription>Register for JositeX and your department academic workspace.</CardDescription>
       </CardHeader>
       <CardContent>
         <form aria-label="Register account" className="flex flex-col gap-6" onSubmit={handleSubmit}>
@@ -358,14 +299,7 @@ function RegisterContent() {
                 id="register-university"
                 value={selectedUniversityId}
                 onChange={(event) => {
-                  const val = event.target.value
-                  setSelectedUniversityId(val)
-                  const relatedFacs = faculties.filter((f) => f.university_id === val)
-                  if (relatedFacs.length > 0) {
-                    setSelectedFacultyId(relatedFacs[0].id)
-                  } else {
-                    setSelectedFacultyId("")
-                  }
+                  changeUniversity(event.target.value)
                 }}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 required
@@ -388,7 +322,7 @@ function RegisterContent() {
               <select
                 id="register-faculty"
                 value={selectedFacultyId}
-                onChange={(event) => setSelectedFacultyId(event.target.value)}
+                onChange={(event) => changeFaculty(event.target.value)}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 required
                 disabled={loadingMetadata}
@@ -396,8 +330,7 @@ function RegisterContent() {
                 {loadingMetadata ? (
                   <option value="">Loading faculties...</option>
                 ) : (
-                  faculties
-                    .filter((fac) => !selectedUniversityId || fac.university_id === selectedUniversityId)
+                  availableFaculties
                     .map((fac) => (
                       <option key={fac.id} value={fac.id}>
                         {fac.name}
@@ -411,16 +344,12 @@ function RegisterContent() {
               <FieldLabel htmlFor="register-department">Department</FieldLabel>
               <select
                 id="register-department"
-                value={department}
-                onChange={(event) => setDepartment(event.target.value)}
+                value={selectedDepartmentId}
+                onChange={(event) => changeDepartment(event.target.value)}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 required
               >
-                <option value="Medicine & Surgery">Medicine & Surgery</option>
-                <option value="Nursing">Nursing</option>
-                <option value="Medical Laboratory Science">Medical Laboratory Science</option>
-                <option value="Physiology">Physiology</option>
-                <option value="Anatomy">Anatomy</option>
+                {availableDepartments.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select>
             </Field>
 
