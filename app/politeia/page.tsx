@@ -1,16 +1,10 @@
-import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
-import { appHomePath, getEcosystemFeatures, getUserEcosystemContext } from "@/lib/jositex"
-import { PoliteiaShell } from "@/components/politeia/politeia-shell"
+import Link from "next/link"
+import { ArrowRight, BookOpen, CalendarDays, Library, Sparkles } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { requirePoliteiaContext } from "@/lib/politeia"
 
 export default async function PoliteiaPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect("/login")
-
-  const context = await getUserEcosystemContext(supabase, user.id)
-  if (!context || context.app.slug !== "politeia") redirect(appHomePath(context?.app.slug))
-  const features = await getEcosystemFeatures(supabase, context.app.id)
-
-  return <PoliteiaShell app={context.app} departmentName={context.departmentName} features={features} />
+  const { context, features } = await requirePoliteiaContext()
+  return <><div className="mb-8"><p className="text-sm font-semibold uppercase tracking-[0.18em] text-indigo-300">Political Science academic environment</p><h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Welcome to POLITEIA.</h1><p className="mt-3 max-w-2xl text-slate-400">A focused JositeX workspace for learning, research, and professional development in Political Science.</p></div><div className="grid gap-4 sm:grid-cols-3"><Card className="border-white/10 bg-white/[0.04] text-white"><CardHeader><BookOpen className="size-5 text-indigo-300" /><CardTitle className="pt-2 text-sm text-slate-400">Environment</CardTitle></CardHeader><CardContent><p className="text-xl font-semibold">POLITEIA</p><p className="mt-1 text-xs text-slate-500">{context.departmentName || "Political Science"}</p></CardContent></Card><Card className="border-white/10 bg-white/[0.04] text-white"><CardHeader><Library className="size-5 text-indigo-300" /><CardTitle className="pt-2 text-sm text-slate-400">Academic workspace</CardTitle></CardHeader><CardContent><p className="text-xl font-semibold">{features.length} sections</p><p className="mt-1 text-xs text-slate-500">Connected to JositeX features</p></CardContent></Card><Card className="border-white/10 bg-white/[0.04] text-white"><CardHeader><CalendarDays className="size-5 text-indigo-300" /><CardTitle className="pt-2 text-sm text-slate-400">Department access</CardTitle></CardHeader><CardContent><p className="text-xl font-semibold">Verified</p><p className="mt-1 text-xs text-slate-500">Political Science · {context.app.name}</p></CardContent></Card></div><Card className="mt-6 border-indigo-300/15 bg-gradient-to-br from-indigo-400/10 to-transparent text-white"><CardHeader><div className="flex items-center justify-between gap-4"><div><CardTitle className="text-xl">Your academic workspace</CardTitle><p className="mt-2 text-sm text-slate-400">Use the department navigation to access courses, resources, assessment tools, and career support.</p></div><Sparkles className="hidden size-8 text-indigo-200 sm:block" /></div></CardHeader><CardContent><div className="flex flex-wrap gap-3">{features.slice(0, 4).map((feature) => feature.href && <Button key={feature.id} asChild className="bg-indigo-300 text-slate-950 hover:bg-indigo-200"><Link href={feature.href}>{feature.name}<ArrowRight className="size-4" /></Link></Button>)}</div></CardContent></Card></>
 }

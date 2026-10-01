@@ -115,7 +115,17 @@ export async function middleware(request: NextRequest) {
   if (user && (isLegacyAppRoute || isMedHavenRoute || isPoliteiaRoute)) {
     const context = await getUserEcosystemContext(supabase, user.id)
     if (!context) {
-      if (pathname !== "/profile/complete") return redirectWithCookies("/profile/complete")
+      const { data: profileState } = await supabase
+        .from("profiles")
+        .select("department_id, current_level")
+        .eq("id", user.id)
+        .maybeSingle()
+      const hasCompleteInstitutionalProfile = Boolean(profileState?.department_id && profileState?.current_level)
+      if (!hasCompleteInstitutionalProfile) {
+        if (pathname !== "/profile/complete") return redirectWithCookies("/profile/complete")
+      } else if (pathname !== "/") {
+        return redirectWithCookies("/")
+      }
     } else if (isPoliteiaRoute && context.app.slug !== "politeia") {
       return redirectWithCookies(appHomePath(context.app.slug))
     } else if ((isMedHavenRoute || isLegacyAppRoute) && context.app.slug !== "medhaven") {

@@ -15,7 +15,7 @@ export type EcosystemApp = {
 export type EcosystemFeature = {
   id: string
   name: string
-  slug: string | null
+  slug: string
   description: string | null
   href: string | null
   icon: string | null
@@ -46,6 +46,7 @@ function bool(row: Row, ...keys: string[]): boolean {
 }
 
 function appFromRow(row: Row): EcosystemApp {
+  const status = text(row, "status")
   return {
     id: String(row.id ?? row.slug ?? ""),
     slug: text(row, "slug", "app_slug") ?? "",
@@ -53,7 +54,7 @@ function appFromRow(row: Row): EcosystemApp {
     departmentId: (row.department_id ?? row.departmentId ?? null) as string | number | null,
     departmentName: text(row, "department_name", "department"),
     description: text(row, "description", "tagline"),
-    isActive: bool(row, "is_active", "active", "enabled"),
+    isActive: status ? status === "active" : bool(row, "is_active", "active", "enabled"),
     logoUrl: text(row, "logo_url", "logo"),
     accentColor: text(row, "accent_color", "color"),
   }
@@ -63,6 +64,7 @@ export async function getAvailableEcosystemApps(supabase: SupabaseClient): Promi
   const { data, error } = await supabase
     .from("ecosystem_apps")
     .select("*")
+    .eq("status", "active")
     .order("name", { ascending: true })
 
   if (error) {
@@ -88,7 +90,7 @@ export async function getUserEcosystemContext(
   const departmentId = profile.department_id as string | number
   const [{ data: department }, { data: appRows, error: appError }] = await Promise.all([
     supabase.from("departments").select("id, name").eq("id", departmentId).maybeSingle(),
-    supabase.from("ecosystem_apps").select("*").eq("department_id", departmentId).limit(1),
+    supabase.from("ecosystem_apps").select("*").eq("department_id", departmentId).eq("status", "active").limit(1),
   ])
 
   if (appError || !appRows?.[0]) return null
@@ -109,7 +111,7 @@ export async function getEcosystemFeatures(
 ): Promise<EcosystemFeature[]> {
   const { data, error } = await supabase
     .from("app_features")
-    .select("*")
+    .select("id, key, name, route, enabled, sort_order, description, icon")
     .eq("app_id", appId)
     .order("sort_order", { ascending: true })
 
@@ -118,17 +120,19 @@ export async function getEcosystemFeatures(
     return []
   }
 
-  return ((data ?? []) as Row[]).map((row) => ({
-    id: String(row.id ?? row.slug ?? row.name ?? "feature"),
-    name: text(row, "name", "display_name", "title") ?? "Feature",
-    slug: text(row, "slug", "feature_slug"),
+  return ((data ?? []) as Row[]).filter((row) => bool(row, "enabled")).map((row) => ({
+    id: String(row.id ?? row.key ?? row.name ?? "feature"),
+    name: text(row, "name") ?? "Feature",
+    slug: text(row, "key") ?? String(row.id ?? "feature"),
     description: text(row, "description"),
-    href: text(row, "href", "route", "path"),
-    icon: text(row, "icon", "icon_name"),
-    sortOrder: Number(row.sort_order ?? row.position ?? 0),
+    href: text(row, "route"),
+    icon: text(row, "icon"),
+    sortOrder: Number(row.sort_order ?? 0),
   }))
 }
 
 export function appHomePath(slug: string | null | undefined): string {
-  return slug === "politeia" ? "/politeia" : "/medhaven"
+  if (slug === "politeia") return "/politeia"
+  if (slug === "medhaven") return "/medhaven"
+  return "/"
 }
