@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { FormEvent, Suspense, useState } from "react"
 
 import { createClient } from "@/lib/supabase/client"
+import { appHomePath } from "@/lib/jositex"
 import { useInstitutionalCatalogue } from "@/components/onboarding/institutional-selector"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -38,11 +39,13 @@ function RegisterContent() {
     setIsSubmitting(true)
     try {
       const formattedEmail = email.trim().toLowerCase()
+      const { data: mappedApp } = await supabase.from("ecosystem_apps").select("slug").eq("department_id", selectedDepartment.id).eq("status", "active").maybeSingle()
+      const intendedNext = appHomePath(mappedApp?.slug)
       const { data, error: signupError } = await supabase.auth.signUp({
         email: formattedEmail,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/api/auth/callback?next=/verify-email`,
+          emailRedirectTo: `${window.location.origin}/api/auth/callback?next=${encodeURIComponent(intendedNext)}`,
           data: {
             full_name: fullName.trim(),
             department: selectedDepartment.name,
@@ -65,9 +68,9 @@ function RegisterContent() {
           p_full_name: fullName.trim(),
         })
         if (onboardingError) router.replace("/profile/complete")
-        else router.replace("/dashboard")
+        else router.replace(intendedNext)
       } else {
-        router.replace(`/verify-email?email=${encodeURIComponent(formattedEmail)}&next=/dashboard`)
+        router.replace(`/verify-email?email=${encodeURIComponent(formattedEmail)}&next=${encodeURIComponent(intendedNext)}`)
       }
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to create account.")
@@ -78,7 +81,7 @@ function RegisterContent() {
 
   const handleGoogleSignIn = async () => {
     setError("")
-    const { error: oauthError } = await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: `${window.location.origin}/api/auth/callback?next=/dashboard` } })
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: `${window.location.origin}/api/auth/callback?next=/` } })
     if (oauthError) setError(oauthError.message)
   }
 
@@ -92,9 +95,9 @@ function RegisterContent() {
             <Field><FieldLabel htmlFor="register-name">Full name</FieldLabel><Input id="register-name" autoComplete="name" value={fullName} onChange={(event) => setFullName(event.target.value)} required /></Field>
             <Field><FieldLabel htmlFor="register-email">Email address</FieldLabel><Input id="register-email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></Field>
             <Field><FieldLabel htmlFor="register-university">University</FieldLabel><select id="register-university" value={selectedUniversityId} onChange={(event) => changeUniversity(event.target.value)} disabled={loadingMetadata} required className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"><option value="">{loadingMetadata ? "Loading universities..." : "Select university"}</option>{universities.map((item) => <option key={item.id} value={item.id}>{item.name} ({item.short_name})</option>)}</select></Field>
-            <Field><FieldLabel htmlFor="register-faculty">Faculty</FieldLabel><select id="register-faculty" value={selectedFacultyId} onChange={(event) => changeFaculty(event.target.value)} disabled={loadingMetadata} required className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"><option value="">{loadingMetadata ? "Loading faculties..." : "Select faculty"}</option>{availableFaculties.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
-            <Field><FieldLabel htmlFor="register-department">Department</FieldLabel><select id="register-department" value={selectedDepartmentId} onChange={(event) => changeDepartment(event.target.value)} required className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"><option value="">Select department</option>{availableDepartments.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
-            <Field><FieldLabel htmlFor="register-level">Level / Academic Year</FieldLabel><select id="register-level" value={level} onChange={(event) => setLevel(event.target.value)} required className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">{["100L", "200L", "300L", "400L", "500L", "600L"].map((item) => <option key={item}>{item}</option>)}</select></Field>
+            <Field><FieldLabel htmlFor="register-faculty">Faculty</FieldLabel><select id="register-faculty" value={selectedFacultyId} onChange={(event) => changeFaculty(event.target.value)} disabled={loadingMetadata} required className="flex h-10 w-full rounded-md border border-input bg-background px-2 py-2 text-sm"><option value="">{loadingMetadata ? "Loading faculties..." : "Select faculty"}</option>{availableFaculties.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
+            <Field><FieldLabel htmlFor="register-department">Department</FieldLabel><select id="register-department" value={selectedDepartmentId} onChange={(event) => changeDepartment(event.target.value)} required className="flex h-10 w-full rounded-md border border-input bg-background px-2 py-2 text-sm"><option value="">Select department</option>{availableDepartments.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
+            <Field><FieldLabel htmlFor="register-level">Level / Academic Year</FieldLabel><select id="register-level" value={level} onChange={(event) => setLevel(event.target.value)} required className="flex h-10 w-full rounded-md border border-input bg-background px-2 py-2 text-sm">{["100L", "200L", "300L", "400L", "500L", "600L"].map((item) => <option key={item}>{item}</option>)}</select></Field>
             <Field><FieldLabel htmlFor="register-password">Password</FieldLabel><Input id="register-password" type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} required /></Field>
             <Field><FieldLabel htmlFor="register-confirm-password">Confirm password</FieldLabel><Input id="register-confirm-password" type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required /></Field>
           </FieldGroup>

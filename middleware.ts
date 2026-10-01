@@ -61,16 +61,17 @@ export async function middleware(request: NextRequest) {
 
   if (user && (pathname === "/login" || pathname === "/register")) {
     const context = await getUserEcosystemContext(supabase, user.id)
-    return redirectWithCookies(appHomePath(context?.app.slug))
+    if (context) return redirectWithCookies(appHomePath(context.app.slug))
+    const { data: profile } = await supabase.from("profiles").select("department_id, current_level").eq("id", user.id).maybeSingle()
+    if (!profile?.department_id || !profile.current_level) return redirectWithCookies("/profile/complete")
+    return redirectWithCookies("/")
   }
 
-  if (user) {
-    const isGoogleUser = user.app_metadata?.provider === "google" || user.app_metadata?.providers?.includes("google")
-    if (isGoogleUser && pathname !== "/profile/complete") {
-      const { data: profile } = await supabase.from("profiles").select("department_id, current_level").eq("id", user.id).maybeSingle()
-      if (!profile || !profile.department_id || !profile.current_level) return redirectWithCookies("/profile/complete")
-    } else if (!isGoogleUser && pathname === "/profile/complete") {
-      return redirectWithCookies("/dashboard")
+  if (user && pathname === "/profile/complete") {
+    const { data: profile } = await supabase.from("profiles").select("department_id, current_level").eq("id", user.id).maybeSingle()
+    if (profile?.department_id && profile.current_level) {
+      const context = await getUserEcosystemContext(supabase, user.id)
+      return redirectWithCookies(appHomePath(context?.app.slug))
     }
   }
 
@@ -84,7 +85,9 @@ export async function middleware(request: NextRequest) {
       const { data: profileState } = await supabase.from("profiles").select("department_id, current_level").eq("id", user.id).maybeSingle()
       if (!profileState?.department_id || !profileState?.current_level) {
         if (pathname !== "/profile/complete") return redirectWithCookies("/profile/complete")
-      } else if (pathname !== "/") return redirectWithCookies("/")
+      } else if (pathname !== "/") {
+        return redirectWithCookies("/")
+      }
     } else if (isPoliteiaRoute && context.app.slug !== "politeia") {
       return redirectWithCookies(appHomePath(context.app.slug))
     } else if ((isMedHavenRoute || isLegacyAppRoute) && context.app.slug !== "medhaven") {

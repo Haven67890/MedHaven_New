@@ -17,7 +17,7 @@ function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const errorQuery = searchParams.get("error")
-  const next = safeNextPath(searchParams.get("next"), "/dashboard")
+  const next = safeNextPath(searchParams.get("next"), "/")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -56,7 +56,7 @@ function LoginContent() {
     setError("")
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/api/auth/callback?next=/dashboard` },
+      options: { redirectTo: `${window.location.origin}/api/auth/callback?next=${encodeURIComponent(next)}` },
     })
     if (oauthError) setError(oauthError.message)
   }
@@ -71,14 +71,8 @@ function LoginContent() {
         <form aria-label="Sign in" className="flex flex-col gap-6" onSubmit={handleSubmit}>
           {(error || errorQuery) ? <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/15 p-4 text-sm text-destructive"><p>{error || errorQuery}</p></div> : null}
           <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="login-email">Email address</FieldLabel>
-              <Input id="login-email" type="email" autoComplete="email" placeholder="name@example.com" value={email} onChange={(event) => setEmail(event.target.value)} required />
-            </Field>
-            <Field>
-              <div className="flex items-center justify-between"><FieldLabel htmlFor="login-password">Password</FieldLabel><Link href="/forgot-password" className="text-xs text-primary underline-offset-4 hover:underline">Forgot Password?</Link></div>
-              <Input id="login-password" type="password" autoComplete="current-password" placeholder="Enter your password" value={password} onChange={(event) => setPassword(event.target.value)} required />
-            </Field>
+            <Field><FieldLabel htmlFor="login-email">Email address</FieldLabel><Input id="login-email" type="email" autoComplete="email" placeholder="name@example.com" value={email} onChange={(event) => setEmail(event.target.value)} required /></Field>
+            <Field><div className="flex items-center justify-between"><FieldLabel htmlFor="login-password">Password</FieldLabel><Link href="/forgot-password" className="text-xs text-primary underline-offset-4 hover:underline">Forgot Password?</Link></div><Input id="login-password" type="password" autoComplete="current-password" placeholder="Enter your password" value={password} onChange={(event) => setPassword(event.target.value)} required /></Field>
           </FieldGroup>
           <Button type="submit" className="w-full" disabled={isSubmitting}>{isSubmitting ? "Signing in..." : "Sign in"}</Button>
           <div className="flex items-center gap-3"><Separator className="flex-1" /><span className="text-xs uppercase tracking-wider text-muted-foreground">or</span><Separator className="flex-1" /></div>
