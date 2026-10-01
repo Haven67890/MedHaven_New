@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { requireVerifiedUser } from "@/lib/auth/server"
 
 export async function POST(request: Request) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const { supabase, response } = await requireVerifiedUser()
+  if (response) return response
   const payload = await request.json().catch(() => null)
   const quizId = typeof payload?.quizId === "string" ? payload.quizId : ""
   const answers = payload?.answers && typeof payload.answers === "object" ? payload.answers : null
