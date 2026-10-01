@@ -5,6 +5,7 @@ import { FormEvent, useState, useEffect, Suspense } from "react"
 import type { User } from "@supabase/supabase-js"
 
 import { createClient } from "@/lib/supabase/client"
+import { appHomePath, getUserEcosystemContext } from "@/lib/jositex"
 import { useInstitutionalCatalogue } from "@/components/onboarding/institutional-selector"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -74,8 +75,9 @@ function ProfileCompleteContent() {
         return
       }
 
+      const context = await getUserEcosystemContext(supabase, userId)
       router.refresh()
-      router.push("/dashboard")
+      router.replace(appHomePath(context?.app.slug))
       // Do not reset isSubmitting on success to preserve loading/disabled state during navigation
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to save profile details.")

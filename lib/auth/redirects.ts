@@ -1,4 +1,4 @@
-export function safeNextPath(value: string | null | undefined, fallback = "/dashboard"): string {
+export function safeNextPath(value: string | null | undefined, fallback = "/"): string {
   if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\")) return fallback
   if (value.startsWith("/api/")) return fallback
   return value
