@@ -671,9 +671,8 @@ export async function processMaterialImageExtraction(material: {
         continue
       }
 
-      // Generate direct public Supabase Storage URL for public quiz-bank bucket
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://fexsfbdvewlmvzfnwqul.supabase.co"
-      const imageUrl = `${supabaseUrl}/storage/v1/object/public/quiz-bank/${storagePath}`
+      // Keep private quiz-bank objects behind the authenticated storage proxy.
+      const imageUrl = `/api/materials/signed-url?path=${encodeURIComponent(storagePath)}&bucket=quiz-bank`
 
       // Vision + Lecture Context AI Draft Generation
       const aiDrafts = await generateAIDraftedSpecimenFields(
