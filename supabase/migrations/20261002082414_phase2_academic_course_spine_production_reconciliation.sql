@@ -1,6 +1,7 @@
--- JositeX Phase 2: canonical academic course spine.
--- Non-destructive: preserves legacy level/code fields and leaves unknown
--- semester/session values unresolved until authoritative departmental data exists.
+-- JositeX Phase 2 production reconciliation.
+-- The original Phase 2 migration was chronologically earlier than production's
+-- already-applied Phase 5 migration, so this file is the only deployable copy.
+-- Non-destructive: preserves legacy fields and does not invent semester/session data.
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS public.academic_levels (
@@ -11,7 +12,8 @@ CREATE TABLE IF NOT EXISTS public.academic_levels (
   sort_order integer,
   status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
   created_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT academic_levels_department_code_key UNIQUE (department_id, code)
+  CONSTRAINT academic_levels_department_code_key UNIQUE (department_id, code),
+  CONSTRAINT academic_levels_id_department_key UNIQUE (id, department_id)
 );
 
 CREATE TABLE IF NOT EXISTS public.semesters (
@@ -22,12 +24,13 @@ CREATE TABLE IF NOT EXISTS public.semesters (
   sort_order integer,
   status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
   created_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT semesters_department_code_key UNIQUE (department_id, code)
+  CONSTRAINT semesters_department_code_key UNIQUE (department_id, code),
+  CONSTRAINT semesters_id_department_key UNIQUE (id, department_id)
 );
 
 CREATE TABLE IF NOT EXISTS public.academic_sessions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  university_id uuid REFERENCES public.universities(id) ON DELETE RESTRICT,
+  university_id uuid NOT NULL REFERENCES public.universities(id) ON DELETE RESTRICT,
   code text NOT NULL,
   starts_on date,
   ends_on date,
@@ -41,27 +44,35 @@ ALTER TABLE public.courses
   ADD COLUMN IF NOT EXISTS semester_id uuid,
   ADD COLUMN IF NOT EXISTS academic_session_id uuid;
 
+-- Composite references make a level or semester from Department B
+-- impossible to attach to a course owned by Department A.
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'courses_level_id_fkey') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'courses_level_department_fkey') THEN
     ALTER TABLE public.courses
-      ADD CONSTRAINT courses_level_id_fkey
-      FOREIGN KEY (level_id) REFERENCES public.academic_levels(id) ON DELETE RESTRICT;
+      ADD CONSTRAINT courses_level_department_fkey
+      FOREIGN KEY (level_id, department_id)
+      REFERENCES public.academic_levels(id, department_id)
+      ON DELETE RESTRICT;
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'courses_semester_id_fkey') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'courses_semester_department_fkey') THEN
     ALTER TABLE public.courses
-      ADD CONSTRAINT courses_semester_id_fkey
-      FOREIGN KEY (semester_id) REFERENCES public.semesters(id) ON DELETE RESTRICT;
+      ADD CONSTRAINT courses_semester_department_fkey
+      FOREIGN KEY (semester_id, department_id)
+      REFERENCES public.semesters(id, department_id)
+      ON DELETE RESTRICT;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'courses_academic_session_id_fkey') THEN
     ALTER TABLE public.courses
       ADD CONSTRAINT courses_academic_session_id_fkey
-      FOREIGN KEY (academic_session_id) REFERENCES public.academic_sessions(id) ON DELETE RESTRICT;
+      FOREIGN KEY (academic_session_id)
+      REFERENCES public.academic_sessions(id)
+      ON DELETE RESTRICT;
   END IF;
 END $$;
 
--- The legacy enum is authoritative for existing rows. Reuse only values
--- already present in courses; do not invent departmental curricula.
+-- Existing legacy course levels are authoritative. No semester or session rows
+-- are created, and no course is assigned to a session by inference.
 INSERT INTO public.academic_levels (department_id, code, name, sort_order)
 SELECT DISTINCT
   c.department_id,
@@ -88,9 +99,8 @@ WHERE l.department_id = c.department_id
   AND l.code = c.level::text
   AND c.level_id IS NULL;
 
--- The old global (code, level) constraint is too broad for a multi-department
--- university. Enforce identity at department scope, while allowing the same
--- code to recur in a later known academic session.
+-- Replace the old global identity boundary without deleting course rows.
+ALTER TABLE public.courses DROP CONSTRAINT IF EXISTS courses_code_level_key;
 DROP INDEX IF EXISTS public.courses_code_level_key;
 CREATE UNIQUE INDEX IF NOT EXISTS courses_department_code_level_unresolved_session_key
   ON public.courses (department_id, code, level_id)
@@ -110,6 +120,46 @@ CREATE INDEX IF NOT EXISTS idx_courses_department_level_semester
 CREATE INDEX IF NOT EXISTS idx_courses_academic_session
   ON public.courses (academic_session_id);
 
+-- Courses do not currently store university_id. Enforce session scope by
+-- checking the course department's university at the database boundary.
+CREATE OR REPLACE FUNCTION public.validate_course_academic_hierarchy()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+DECLARE
+  course_university_id uuid;
+  session_university_id uuid;
+BEGIN
+  IF NEW.academic_session_id IS NULL OR NEW.department_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT d.university_id INTO course_university_id
+  FROM public.departments AS d
+  WHERE d.id = NEW.department_id;
+
+  SELECT s.university_id INTO session_university_id
+  FROM public.academic_sessions AS s
+  WHERE s.id = NEW.academic_session_id;
+
+  IF course_university_id IS DISTINCT FROM session_university_id THEN
+    RAISE EXCEPTION 'Course department and academic session university must match';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS courses_validate_academic_hierarchy ON public.courses;
+CREATE TRIGGER courses_validate_academic_hierarchy
+  BEFORE INSERT OR UPDATE OF department_id, semester_id, academic_session_id, level_id
+  ON public.courses
+  FOR EACH ROW EXECUTE FUNCTION public.validate_course_academic_hierarchy();
+
+REVOKE EXECUTE ON FUNCTION public.validate_course_academic_hierarchy() FROM PUBLIC, anon, authenticated;
+
 ALTER TABLE public.academic_levels ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.semesters ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.academic_sessions ENABLE ROW LEVEL SECURITY;
@@ -117,19 +167,18 @@ ALTER TABLE public.academic_sessions ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Department members can view academic levels" ON public.academic_levels;
 CREATE POLICY "Department members can view academic levels"
   ON public.academic_levels FOR SELECT TO authenticated
-  USING (is_super_admin() OR department_id = current_user_department_id());
+  USING ((SELECT public.is_super_admin()) OR department_id = (SELECT public.current_user_department_id()));
 
 DROP POLICY IF EXISTS "Department members can view semesters" ON public.semesters;
 CREATE POLICY "Department members can view semesters"
   ON public.semesters FOR SELECT TO authenticated
-  USING (is_super_admin() OR department_id = current_user_department_id());
+  USING ((SELECT public.is_super_admin()) OR department_id = (SELECT public.current_user_department_id()));
 
 DROP POLICY IF EXISTS "Authenticated users can view academic sessions" ON public.academic_sessions;
 CREATE POLICY "Authenticated users can view academic sessions"
   ON public.academic_sessions FOR SELECT TO authenticated
   USING (
-    is_super_admin()
-    OR university_id IS NULL
+    (SELECT public.is_super_admin())
     OR university_id = (SELECT p.university_id FROM public.profiles AS p WHERE p.id = (SELECT auth.uid()))
   );
 
