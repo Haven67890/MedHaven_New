@@ -95,6 +95,8 @@ function useProfile(userId: string | undefined) {
   }, [userId, supabase])
 
   useEffect(() => {
+    // This effect loads the authenticated profile and also subscribes to profile-updated events.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadProfile()
 
     const handleProfileUpdate = () => {
@@ -148,7 +150,7 @@ export default function ProfilePage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title="Profile" description="Your academic identity on MedHaven.">
+      <PageHeader title="Profile" description="Your JositeX account and academic identity.">
         <Button variant="outline" asChild>
           <Link href="/settings"><Settings className="mr-2 size-4" />Settings</Link>
         </Button>
@@ -176,7 +178,7 @@ export default function ProfilePage() {
                   <h2 className="text-xl font-semibold tracking-tight text-foreground">{displayName}</h2>
                   {profile?.nickname && profile.nickname.trim() !== "" && (
                     <span className="text-sm font-medium text-muted-foreground">
-                      ("{profile.nickname}")
+                      (&quot;{profile.nickname}&quot;)
                     </span>
                   )}
                 </div>
@@ -249,7 +251,7 @@ export default function ProfilePage() {
             <CardContent className="flex flex-col gap-3 text-sm">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <CalendarDays className="size-4" aria-hidden="true" />
-                Account created for MedHaven
+                JositeX account
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <BookOpen className="size-4" aria-hidden="true" />
