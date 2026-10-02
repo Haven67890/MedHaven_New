@@ -629,6 +629,12 @@ export default function StudyMaterialsPage() {
 
   const totalTitles = levelFilteredMaterials.length
 
+  const curatedResources = useMemo(() => {
+    return levelFilteredMaterials
+      .filter((m) => Boolean(m.source_url) || m.type === "video" || Boolean(getSlideDeckProvider(m.source_url)))
+      .slice(0, 6)
+  }, [levelFilteredMaterials])
+
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title="Study Materials" description="Curated notes, handouts, and references shared by lecturers and peers.">
@@ -718,6 +724,60 @@ export default function StudyMaterialsPage() {
           placeholder="Search study materials by title, description, or subject…"
           ariaLabel="Search study materials"
         />
+      </section>
+
+      {/* Curated Study Resources Banner & Featured Grid */}
+      <section className="rounded-2xl border border-primary/20 bg-linear-to-r from-primary/10 via-primary/5 to-background p-5 sm:p-6 shadow-xs flex flex-col gap-5">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="space-y-1.5 max-w-2xl">
+            <div className="flex items-center gap-2">
+              <Badge variant="default" className="bg-primary text-primary-foreground font-semibold px-2.5 py-0.5 text-xs">
+                CURATED STUDY RESOURCES
+              </Badge>
+              <Badge variant="outline" className="text-xs border-primary/30 text-primary">
+                External & Supplemental
+              </Badge>
+            </div>
+            <h2 className="text-lg sm:text-xl font-bold text-foreground tracking-tight">
+              Curated Medical Study Resources
+            </h2>
+            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+              Additional high-yield YouTube lectures, SlideShare slide decks, SlideServe presentations, and reference guides curated to accelerate your learning beyond core course lectures.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button asChild variant="outline" size="sm" className="text-xs font-medium border-primary/30 hover:bg-primary/10">
+              <a href="/library" className="flex items-center gap-1.5">
+                <Library className="size-3.5 text-primary" />
+                Go to Study Library
+              </a>
+            </Button>
+          </div>
+        </div>
+
+        {curatedResources.length > 0 && (
+          <MotionStaggerGroup className="grid w-full min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 pt-2">
+            {curatedResources.map((material) => (
+              <MotionStaggerItem key={`curated-${material.id}`}>
+                <MaterialCard
+                  material={material}
+                  onPreview={(mat, type, isEmbeddable) => {
+                    const targetUrl = mat.storage_path ? getMaterialUrl(mat) : (mat.source_url || "#")
+                    setPreviewModal({
+                      isOpen: true,
+                      title: mat.title,
+                      url: targetUrl,
+                      type: type,
+                      isEmbeddable: isEmbeddable,
+                      materialId: mat.id,
+                      storagePath: mat.storage_path || null,
+                    })
+                  }}
+                />
+              </MotionStaggerItem>
+            ))}
+          </MotionStaggerGroup>
+        )}
       </section>
 
       {/* Categories/Types section */}

@@ -258,27 +258,23 @@ export function MaterialPreviewModal({ modal, onClose }: MaterialPreviewModalPro
       return <PDFViewer storagePath={storagePath} />
     }
 
-    // DOCX Documents
-    if (ext === "docx" && storagePath) {
-      return <DocxViewer storagePath={storagePath} />
-    }
+    // Office Documents & Presentations (.ppt, .pptx, .doc, .docx, .xls, .xlsx, type === 'office')
+    const isOfficeFormat =
+      type === "office" ||
+      ["pptx", "ppt", "docx", "doc", "xlsx", "xls"].includes(ext)
 
-    // PPTX / PPT Presentations
-    if ((ext === "pptx" || ext === "ppt") && storagePath) {
+    if (isOfficeFormat && storagePath) {
       return <PptxViewer storagePath={storagePath} />
     }
 
-    // Fallback card for legacy .doc, .xls, .xlsx, or unknown formats
-    const isDoc = ext === "doc"
-    const isSheet = ext === "xls" || ext === "xlsx"
-
+    // Fallback card for non-previewable file formats
     let IconComponent = FileText
-    let appName = "Office"
+    let appName = "File"
 
-    if (isDoc) {
+    if (ext === "doc") {
       IconComponent = FilePenLine
       appName = "Word"
-    } else if (isSheet) {
+    } else if (ext === "xls" || ext === "xlsx") {
       IconComponent = FileSpreadsheet
       appName = "Excel"
     }

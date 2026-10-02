@@ -283,6 +283,7 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
   const isOffice = isWord || isPowerPoint || ["xlsx", "xls"].includes(ext) || (material.type?.toLowerCase() === "office" && ext !== "pdf")
   const isImage = ["jpg", "jpeg", "png", "webp", "gif", "svg"].includes(ext)
   const isStoredFile = fileUrl.startsWith("/api/materials/signed-url") || Boolean(material.storage_path) || fileUrl.includes("supabase.co/storage")
+  const isExternalLink = !material.storage_path && material.source_url && !isVideo && !isSlideDeck
 
   const showViewButton = isPdf || isOffice || isImage || isVideo || isSlideDeck
   const showDownloadButton = isStoredFile
@@ -508,11 +509,33 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
           </div>
 
           <div className="flex items-center gap-2">
+            {isExternalLink && (
+              <Button
+                size="sm"
+                variant="default"
+                className="h-7 sm:h-8 text-xs font-medium px-2.5 sm:px-3 flex items-center gap-1 shadow-xs"
+                asChild
+              >
+                <a
+                  href={material.source_url!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => {
+                    if (user?.id) {
+                      logMaterialActivity(user.id, material.id, "view")
+                    }
+                  }}
+                >
+                  <ExternalLink className="size-3 sm:size-3.5 shrink-0" /> Open Link
+                </a>
+              </Button>
+            )}
+
             {showViewButton && (
               <Button
                 size="sm"
                 variant={isVideo ? "destructive" : "default"}
-                className="h-7 sm:h-8 text-xs font-medium px-2.5 sm:px-3 flex items-center gap-1 shadow-sm"
+                className="h-7 sm:h-8 text-xs font-medium px-2.5 sm:px-3 flex items-center gap-1 shadow-xs"
                 onClick={handlePreviewClick}
               >
                 {isVideo ? (
