@@ -1,9 +1,13 @@
-# Supabase migrations placeholder
+# Supabase migrations
 
-This folder stores SQL migration files for the Supabase project. At the moment there are no committed migrations in the repository.
+This folder contains the timestamped SQL migrations tracked for the JositeX / MedHaven Supabase project.
 
-If you maintain a live Supabase project, export the migrations (or SQL schema dump) and commit them here under timestamped directories like:
+Production schema and migration history are authoritative for drift audits. Before adding a migration:
 
-  supabase/migrations/2026-07-30-initial-schema.sql
+- inspect the current production schema and applied migration list;
+- use a new timestamped file rather than editing historical migrations;
+- make changes idempotent where practical;
+- preserve existing data, RLS, grants, and production functionality;
+- do not fabricate academic data or migrate storage in unrelated phases.
 
-Do NOT run migrations that drop or recreate tables unless you fully understand the live database. If you provide a SQL schema dump or service_role key I can generate migration files that match the live schema.
+A production migration version may exist without a checked-in source file when it was applied from an unavailable historical branch. Record that drift rather than reconstructing unknown SQL.
