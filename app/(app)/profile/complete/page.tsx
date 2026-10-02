@@ -15,8 +15,8 @@ function ProfileCompleteContent() {
   const supabase = createClient()
   const router = useRouter()
 
-  const { universities, availableFaculties, availableDepartments, levels, selectedUniversityId, selectedFacultyId, selectedDepartmentId, selectedDepartment, loadingMetadata, metadataError, changeUniversity, changeFaculty, changeDepartment, initializeSelection } = useInstitutionalCatalogue()
-  const [level, setLevel] = useState("400L")
+  const { universities, availableFaculties, availableColleges, availableProgrammes, availableLevels, selectedUniversityId, selectedFacultyId, selectedCollegeId, selectedProgrammeId, selectedProgramme, loadingMetadata, metadataError, changeUniversity, changeFaculty, changeCollege, chooseProgramme, initializeSelection } = useInstitutionalCatalogue()
+  const [level, setLevel] = useState("100L")
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
@@ -39,12 +39,12 @@ function ProfileCompleteContent() {
     if (!userId || loadingMetadata) return
     void supabase
       .from("profiles")
-      .select("university_id, faculty_id, department_id, current_level")
+      .select("university_id, faculty_id, undergraduate_programme_id, current_level")
       .eq("id", userId)
       .maybeSingle()
-      .then(({ data }: { data: { university_id: string | null; faculty_id: string | null; department_id: string | null; current_level: string | null } | null }) => {
+      .then(({ data }: { data: { university_id: string | null; faculty_id: string | null; undergraduate_programme_id: string | null; current_level: string | null } | null }) => {
         if (!data) return
-        initializeSelection(data.university_id ?? "", data.faculty_id ?? "", data.department_id ?? "")
+        initializeSelection(data.university_id ?? "", data.faculty_id ?? "", data.undergraduate_programme_id ?? "")
         if (data.current_level) setLevel(data.current_level)
       })
   }, [initializeSelection, loadingMetadata, supabase, userId])
@@ -58,8 +58,8 @@ function ProfileCompleteContent() {
       return
     }
 
-    if (!selectedDepartment) {
-      setError("Please select a valid department.")
+    if (!selectedProgramme) {
+      setError("Please select a valid undergraduate programme.")
       return
     }
 
@@ -76,10 +76,10 @@ function ProfileCompleteContent() {
     const fullName = user?.user_metadata?.full_name || user?.user_metadata?.name || emailPrefix
 
     try {
-      const { error: onboardingError } = await supabase.rpc("complete_profile_onboarding", {
+      const { error: onboardingError } = await supabase.rpc("complete_undergraduate_profile_onboarding", {
         p_university_id: selectedUniversityId,
         p_faculty_id: selectedFacultyId,
-        p_department_id: selectedDepartment.id,
+        p_undergraduate_programme_id: selectedProgramme.id,
         p_level: level,
         p_full_name: fullName,
       })
@@ -112,7 +112,7 @@ function ProfileCompleteContent() {
       <Card className="w-full max-w-md border-border shadow-xl shadow-primary/5">
         <CardHeader>
           <CardTitle className="text-2xl font-bold">Complete Your Profile</CardTitle>
-          <CardDescription>Configure your university, faculty, department, and academic level for JositeX.</CardDescription>
+          <CardDescription>Select your university, college where applicable, faculty, undergraduate programme, and current level for JositeX.</CardDescription>
         </CardHeader>
         <CardContent>
           <form aria-label="Complete profile onboarding" className="flex flex-col gap-6" onSubmit={handleSubmit}>
@@ -159,21 +159,22 @@ function ProfileCompleteContent() {
                 </select>
               </Field>
 
+              {availableColleges.length ? <Field>
+                <FieldLabel htmlFor="onboard-college">College</FieldLabel>
+                <select id="onboard-college" value={selectedCollegeId} onChange={(event) => changeCollege(event.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" required>
+                  {availableColleges.map((college) => <option key={college.id} value={college.id}>{college.name}</option>)}
+                </select>
+              </Field> : null}
+
               <Field>
-                <FieldLabel htmlFor="onboard-department">Department</FieldLabel>
-                <select
-                  id="onboard-department"
-                  value={selectedDepartmentId}
-                  onChange={(event) => changeDepartment(event.target.value)}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  required
-                >
-                  {availableDepartments.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                <FieldLabel htmlFor="onboard-programme">Undergraduate programme</FieldLabel>
+                <select id="onboard-programme" value={selectedProgrammeId} onChange={(event) => chooseProgramme(event.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" required>
+                  {availableProgrammes.map((programme) => <option key={programme.id} value={programme.id}>{programme.name}{programme.award ? ` · ${programme.award}` : ""}</option>)}
                 </select>
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="onboard-level">Level / Academic Year</FieldLabel>
+                <FieldLabel htmlFor="onboard-level">Current level</FieldLabel>
                 <select
                   id="onboard-level"
                   value={level}
@@ -181,7 +182,7 @@ function ProfileCompleteContent() {
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   required
                 >
-                  {levels.map((item) => <option key={item.id} value={item.code || item.name}>{item.code || item.name}</option>)}
+                  {availableLevels.map((item) => <option key={item.id} value={item.code || item.name}>{item.code || item.name}</option>)}
                 </select>
               </Field>
             </FieldGroup>

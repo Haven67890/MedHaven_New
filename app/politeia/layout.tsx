@@ -3,5 +3,5 @@ import { requirePoliteiaContext } from "@/lib/politeia"
 
 export default async function PoliteiaLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const { context, features } = await requirePoliteiaContext()
-  return <PoliteiaShell app={context.app} departmentName={context.departmentName} features={features}>{children}</PoliteiaShell>
+  return <PoliteiaShell app={context.app} departmentName={context.programmeName ?? context.departmentName} features={features}>{children}</PoliteiaShell>
 }

@@ -7,9 +7,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const context = user ? await getUserEcosystemContext(supabase, user.id) : null
-
-  if (!context || context.app.slug === "medhaven") return <ApplicationShell>{children}</ApplicationShell>
-
+  if (!context || (context.workspace.type === "specialized" && context.app.slug === "medhaven")) return <ApplicationShell>{children}</ApplicationShell>
   const features = await getEcosystemFeatures(supabase, context.app.id)
-  return <UniversalWorkspaceShell app={context.app} departmentName={context.departmentName} facultyName={context.facultyName} universityName={context.universityName} features={features}>{children}</UniversalWorkspaceShell>
+  return <UniversalWorkspaceShell app={context.app} departmentName={context.programmeName ?? context.departmentName} facultyName={context.facultyName} universityName={context.universityName} features={features}>{children}</UniversalWorkspaceShell>
 }

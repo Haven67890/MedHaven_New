@@ -5,7 +5,7 @@ import { ArrowRight, BookOpen, GraduationCap, ShieldCheck, Sparkles } from "luci
 import { AcademicExplorer } from "@/components/home/academic-explorer"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/server"
-import { appHomePath, getAcademicDirectory, getUserEcosystemContext } from "@/lib/jositex"
+import { getAcademicDirectory, getUserEcosystemContext, workspacePath } from "@/lib/jositex"
 
 export const metadata: Metadata = {
   title: "JositeX — University of Jos Digital Academic Ecosystem",
@@ -20,7 +20,7 @@ export default async function HomePage() {
   ])
   const context = user ? await getUserEcosystemContext(supabase, user.id) : null
   const { data: profile } = user && !context ? await supabase.from("profiles").select("department").eq("id", user.id).maybeSingle() : { data: null }
-  const workspaceHref = user ? (context ? appHomePath(context.app.slug) : "/profile/complete") : "/login"
+  const workspaceHref = user ? (context ? workspacePath(context.workspace) : "/profile/complete") : "/login"
   const workspaceLabel = user ? (context ? "Open your workspace" : "Complete your profile") : "Enter JositeX"
 
   return (
