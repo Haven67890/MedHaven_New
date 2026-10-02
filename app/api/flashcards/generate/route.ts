@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { getAuthorizedCourse } from "@/lib/course-domain"
 import * as pdfjs from "pdfjs-dist"
 
 export async function POST(request: NextRequest) {
@@ -18,6 +19,10 @@ export async function POST(request: NextRequest) {
 
     if (!course_id) {
       return NextResponse.json({ error: "Missing course_id in request body" }, { status: 400 })
+    }
+    const { course: authorizedCourse, error: courseAccessError } = await getAuthorizedCourse(supabase, String(course_id))
+    if (!authorizedCourse) {
+      return NextResponse.json({ error: courseAccessError || "Course is not available" }, { status: 403 })
     }
 
     // Define defaults
@@ -60,15 +65,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 4. Fetch Course details to provide better prompt context to Groq
-    const { data: courseData } = await supabase
-      .from("courses")
-      .select("code, title")
-      .eq("id", course_id)
-      .maybeSingle()
-
-    const courseContext = courseData
-      ? `${courseData.code || ""} ${courseData.title || ""}`.trim()
-      : "Medical Course"
+    const courseContext = `${authorizedCourse.code || ""} ${authorizedCourse.title || ""}`.trim() || "Academic Course"
 
     // 5. Query materials to see if we can find a PDF for this course
     const { data: materials } = await supabase

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
+import { getAuthorizedCourse } from "@/lib/course-domain"
 import {
   selectBankQuestions,
   generateAIQuestionsBatch,
@@ -100,6 +101,10 @@ export async function POST(request: NextRequest) {
     if (!course_id) {
       return NextResponse.json({ error: "Missing course_id in request body" }, { status: 400 })
     }
+    const { course: authorizedCourse, error: courseAccessError } = await getAuthorizedCourse(supabase, String(course_id))
+    if (!authorizedCourse) {
+      return NextResponse.json({ error: courseAccessError || "Course is not available" }, { status: 403 })
+    }
 
     // Support available quiz sizes: 5, 10, 15, 20, 25, 30
     let limitCount = count ? parseInt(count, 10) : 10
@@ -114,15 +119,7 @@ export async function POST(request: NextRequest) {
     const quizMode = mode === "practice" || mode === "mixed" ? mode : "ai"
 
     // 3. Fetch Course details
-    const { data: courseData } = await supabase
-      .from("courses")
-      .select("code, title")
-      .eq("id", course_id)
-      .maybeSingle()
-
-    const courseCodeTitle = courseData
-      ? `${courseData.code || ""} ${courseData.title || ""}`.trim()
-      : "Medical Course"
+    const courseCodeTitle = `${authorizedCourse.code || ""} ${authorizedCourse.title || ""}`.trim() || "Academic Course"
 
     let finalQuestions: ValidatedQuestion[] = []
     let usedFallback = false
