@@ -15,7 +15,7 @@ const SELECTS: Record<string, string> = {
   staff: "id,full_name,title,department,specialty,courses,status",
   timetable_entries: "id,day_of_week,start_time,end_time,title,activity_type,course_id,lecturer,notes,level",
   materials: "id,title,type,tier,description,storage_path,course_id,status,featured,created_at",
-  question_bank: "id,course_id,topic,question_text,options,correct_answer,explanation,difficulty,status",
+	question_bank: "id,course_id,topic,question_text,options,explanation,difficulty,status",
   quizzes: "id,course_id,topic,format,created_at",
   flashcard_decks: "id,course_id,topic,source,created_at",
 }

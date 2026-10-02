@@ -59,23 +59,25 @@ export async function middleware(request: NextRequest) {
     return redirectWithCookies(`/verify-email?email=${encodeURIComponent(user.email ?? "")}&next=${encodeURIComponent(safeNextPath(pathname))}`)
   }
 
-  if (user && (pathname === "/login" || pathname === "/register")) {
-    const context = await getUserEcosystemContext(supabase, user.id)
-    if (context) return redirectWithCookies(appHomePath(context.app.slug))
+	if (user && (pathname === "/login" || pathname === "/register")) {
+		const context = await getUserEcosystemContext(supabase, user.id)
+		if (context) return redirectWithCookies("/dashboard")
     const { data: profile } = await supabase.from("profiles").select("department_id, current_level").eq("id", user.id).maybeSingle()
     if (!profile?.department_id || !profile.current_level) return redirectWithCookies("/profile/complete")
     return redirectWithCookies("/")
   }
 
-  if (user && pathname === "/profile/complete") {
+	if (user && pathname === "/profile/complete") {
     const { data: profile } = await supabase.from("profiles").select("department_id, current_level").eq("id", user.id).maybeSingle()
-    if (profile?.department_id && profile.current_level) {
-      const context = await getUserEcosystemContext(supabase, user.id)
-      return redirectWithCookies(appHomePath(context?.app.slug))
-    }
-  }
+		if (profile?.department_id && profile.current_level) {
+			const context = await getUserEcosystemContext(supabase, user.id)
+			return redirectWithCookies(context ? "/dashboard" : "/")
+		}
+	}
 
-  const isLegacyAppRoute = LEGACY_APP_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
+	const isLegacyAppRoute = LEGACY_APP_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
+	const isUniversalDashboardRoute = pathname === "/dashboard" || pathname.startsWith("/dashboard/")
+	const isSharedAccountRoute = pathname === "/profile" || pathname.startsWith("/profile/") || pathname === "/settings" || pathname.startsWith("/settings/")
   const isMedHavenRoute = pathname === "/medhaven" || (pathname.startsWith("/medhaven/") && !pathname.startsWith("/medhaven/landing"))
   const isPoliteiaRoute = pathname === "/politeia" || pathname.startsWith("/politeia/")
 
@@ -88,9 +90,13 @@ export async function middleware(request: NextRequest) {
       } else if (pathname !== "/") {
         return redirectWithCookies("/")
       }
-    } else if (isPoliteiaRoute && context.app.slug !== "politeia") {
-      return redirectWithCookies(appHomePath(context.app.slug))
-    } else if ((isMedHavenRoute || isLegacyAppRoute) && context.app.slug !== "medhaven") {
+		} else if (isPoliteiaRoute && context.app.slug !== "politeia") {
+			return redirectWithCookies(appHomePath(context.app.slug))
+		} else if (isUniversalDashboardRoute) {
+			// `/dashboard` and its feature routes are the universal department entry point.
+		} else if (isSharedAccountRoute) {
+			// Profile and settings are shared account surfaces, not MedHaven data routes.
+		} else if ((isMedHavenRoute || isLegacyAppRoute) && context.app.slug !== "medhaven") {
       return redirectWithCookies(appHomePath(context.app.slug))
     } else if (isMedHavenRoute && pathname !== "/medhaven/landing") {
       return redirectWithCookies("/dashboard")
