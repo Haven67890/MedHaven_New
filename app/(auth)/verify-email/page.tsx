@@ -6,6 +6,7 @@ import { FormEvent, Suspense, useCallback, useEffect, useMemo, useState } from "
 
 import { createClient } from "@/lib/supabase/client"
 import { safeNextPath, isEmailVerified, maskEmail } from "@/lib/auth/redirects"
+import { resolveAuthenticatedDestination } from "@/lib/auth/destination"
 import { VerificationCodeInput, VERIFICATION_CODE_LENGTH } from "@/components/auth/verification-code-input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -47,6 +48,10 @@ function VerifyEmailContent() {
   const maskedEmail = useMemo(() => maskEmail(email), [email])
 
   const goToLogin = useCallback(() => router.replace(`/login?next=${encodeURIComponent(next)}&error=${encodeURIComponent("Your email was not verified in an active session. Please sign in and try again.")}`), [next, router])
+  const continueToWorkspace = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    router.replace(user ? await resolveAuthenticatedDestination(supabase, user.id) : "/login")
+  }, [router, supabase])
 
   useEffect(() => {
     const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""))
@@ -143,7 +148,7 @@ function VerifyEmailContent() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">Continue to your intended JositeX workspace.</p>
-          <Button className="w-full" onClick={() => router.replace(next)}>Continue to JositeX</Button>
+          <Button className="w-full" onClick={() => void continueToWorkspace()}>Continue to JositeX</Button>
         </CardContent>
       </Card>
     )

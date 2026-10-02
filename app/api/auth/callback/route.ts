@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 import { type EmailOtpType } from "@supabase/supabase-js"
 import { getSupabaseConfig } from "@/lib/supabase/config"
-import { safeNextPath } from "@/lib/auth/redirects"
+import { resolveAuthenticatedDestination } from "@/lib/auth/destination"
 
 function safeErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : String(error ?? "")
@@ -12,13 +12,26 @@ function safeErrorMessage(error: unknown) {
   return "This authentication link is invalid."
 }
 
+function isLocalOrigin(origin: string) {
+  try {
+    const hostname = new URL(origin).hostname
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]"
+  } catch {
+    return true
+  }
+}
+
+function getApplicationOrigin(request: Request) {
+  const requestOrigin = new URL(request.url).origin
+  const configuredOrigin = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/$/, "")
+  if (configuredOrigin && (process.env.NODE_ENV !== "production" || !isLocalOrigin(configuredOrigin))) return configuredOrigin
+  return requestOrigin
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url)
   const type = url.searchParams.get("type")
-  const requestedNext = safeNextPath(url.searchParams.get("next"), type === "recovery" ? "/reset-password" : "/verify-email")
-  const next = type === "recovery" ? "/reset-password" : requestedNext
-  const configuredOrigin = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/$/, "")
-  const origin = configuredOrigin || url.origin
+  const origin = getApplicationOrigin(request)
   const cookieStore = await cookies()
   const { supabaseUrl, supabaseAnonKey } = getSupabaseConfig()
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
@@ -48,11 +61,8 @@ export async function GET(request: Request) {
   }
 
   const { data: { user } } = await supabase.auth.getUser()
-  const isGoogleUser = user?.app_metadata?.provider === "google" || user?.app_metadata?.providers?.includes("google")
-  if (user && isGoogleUser && next !== "/reset-password") {
-    const { data: profile } = await supabase.from("profiles").select("department_id, current_level").eq("id", user.id).maybeSingle()
-    if (!profile?.department_id || !profile?.current_level) return NextResponse.redirect(`${origin}/profile/complete`)
-  }
-
-  return NextResponse.redirect(`${origin}${next}`)
+  if (!user) return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent("Your authentication session could not be established.")}`)
+  if (type === "recovery") return NextResponse.redirect(`${origin}/reset-password`)
+  const destination = await resolveAuthenticatedDestination(supabase, user.id)
+  return NextResponse.redirect(`${origin}${destination}`)
 }

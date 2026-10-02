@@ -31,19 +31,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let listener: { subscription: Subscription } | null = null
 
     supabase.auth.getSession()
-      .then((response: any) => {
-        const data = response.data
+      .then(({ data }: { data: { session: Session | null } }) => {
         if (!mounted) return
         setUser(sessionUser(data?.session))
         setLoading(false)
       })
-      .catch((err: any) => {
+      .catch((err: unknown) => {
         console.warn("Supabase getSession failed to fetch:", err)
         if (mounted) setLoading(false)
       })
 
     try {
-      const res: any = supabase.auth.onAuthStateChange((_event: any, session: any) => {
+      const res = supabase.auth.onAuthStateChange((_event: string, session: Session | null) => {
         if (mounted) {
           setUser(sessionUser(session))
         }
@@ -61,7 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // ignore unsubscribe errors
       }
     }
-  }, [])
+  }, [supabase.auth])
 
   const login = async (email: string, password: string) => {
     setLoading(true)
@@ -92,23 +91,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false)
       if (res.error) throw res.error
 
-      // Attempt to safely UPSERT profile row after signup without crashing
-      if (res.data.user) {
-        try {
-          const { error: profileError } = await supabase
-            .from("profiles")
-            .upsert({
-              id: res.data.user.id,
-              full_name: fullName ?? null,
-            }, { onConflict: "id" })
-          if (profileError) {
-            console.warn("Profile creation/upsert warning:", profileError.message)
-          }
-        } catch (dbErr) {
-          console.warn("Failed to create profile row gracefully:", dbErr)
-        }
-      }
-
       return res
     } catch (error) {
       setLoading(false)
@@ -138,7 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return res
   }
 
-  const value = useMemo(() => ({ user, loading, login, register, logout, resetPassword }), [user, loading])
+  const value = useMemo(() => ({ user, loading, login, register, logout, resetPassword }), [user, loading, login, register, logout, resetPassword])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
