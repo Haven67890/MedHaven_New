@@ -16,11 +16,23 @@ type CourseRecord = {
   level_id?: string | null
   semester_id?: string | null
   academic_session_id?: string | null
+  departments?: { id?: string; name?: string | null; faculty_id?: string | null; university_id?: string | null } | null
   academic_levels?: { code?: string | null; name?: string | null } | null
   semesters?: { code?: string | null; name?: string | null } | null
   academic_sessions?: { code?: string | null } | null
   [key: string]: unknown
 }
+
+// Relationship names are the explicit foreign-key constraint names created by
+// the production reconciliation migration, not guessed column aliases.
+const COURSE_SELECT = [
+  'id', 'code', 'name', 'title', 'level', 'level_id', 'semester_id', 'academic_session_id',
+  'level_group', 'parent_id', 'department_id', 'faculty_id', 'university_id', 'description',
+  'departments!courses_department_id_fkey(id,name,faculty_id,university_id)',
+  'academic_levels!courses_level_department_fkey(code,name)',
+  'semesters!courses_semester_department_fkey(code,name)',
+  'academic_sessions!courses_academic_session_id_fkey(code)',
+].join(',')
 
 export function useCourses(level?: string) {
   const [courses, setCourses] = useState<CourseRecord[]>([])
@@ -35,7 +47,7 @@ export function useCourses(level?: string) {
     try {
       let query = supabase
         .from('courses')
-        .select('id, code, name, title, level, level_id, semester_id, academic_session_id, level_group, parent_id, department_id, faculty_id, university_id, description, academic_levels:level_id(code,name), semesters:semester_id(code,name), academic_sessions:academic_session_id(code)')
+        .select(COURSE_SELECT)
         .order('name', { ascending: true })
 
       if (selectedLevel) {
@@ -65,7 +77,7 @@ export function useCourses(level?: string) {
       try {
         let query = supabase
           .from('courses')
-          .select('id, code, name, title, level, level_id, semester_id, academic_session_id, level_group, parent_id, department_id, faculty_id, university_id, description, academic_levels:level_id(code,name), semesters:semester_id(code,name), academic_sessions:academic_session_id(code)')
+          .select(COURSE_SELECT)
           .order('name', { ascending: true })
 
         if (level) {

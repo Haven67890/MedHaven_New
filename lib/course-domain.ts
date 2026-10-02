@@ -46,17 +46,20 @@ export function toCourseIdentity(row: CourseRow | null | undefined): CourseIdent
     academicSessionId: text(row.academic_session_id),
     departmentId: text(row.department_id) ?? text(department.id),
     departmentName: text(department.name),
-    facultyId: text(department.faculty_id),
-    universityId: text(department.university_id),
+    facultyId: text(row.faculty_id) ?? text(department.faculty_id),
+    universityId: text(row.university_id) ?? text(department.university_id),
   }
 }
 
+// These relationship names are backed by the live production foreign-key
+// names, with the composite level/semester relationships created by the
+// reconciliation migration. They must stay in sync with the SQL constraints.
 const COURSE_SELECT = [
-  "id", "code", "title", "name", "level", "level_id", "semester_id", "academic_session_id", "department_id",
+  "id", "code", "title", "name", "level", "level_id", "semester_id", "academic_session_id", "department_id", "faculty_id", "university_id",
   "departments!inner(id,name,faculty_id,university_id)",
-  "academic_levels:level_id(code,name)",
-  "semesters:semester_id(code,name)",
-  "academic_sessions:academic_session_id(code)",
+  "academic_levels!courses_level_department_fkey(code,name)",
+  "semesters!courses_semester_department_fkey(code,name)",
+  "academic_sessions!courses_academic_session_id_fkey(code)",
 ].join(",")
 
 /**
