@@ -1,13 +1,23 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { requireVerifiedUser } from "@/lib/auth/server"
 
 export async function POST(request: Request) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const { supabase, user, response } = await requireVerifiedUser()
+  if (response || !user) return response ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const body = await request.json().catch(() => null) as { flashcardId?: string } | null
   if (!body?.flashcardId) return NextResponse.json({ error: "flashcardId is required" }, { status: 400 })
+
+  // RLS on flashcards/decks/courses is the database authorization boundary.
+  // Requiring the card to be visible here prevents a user from creating
+  // progress rows for another department's flashcards by guessing an ID.
+  const { data: accessibleCard, error: cardError } = await supabase
+    .from("flashcards")
+    .select("id, flashcard_decks!inner(course_id, courses!inner(department_id))")
+    .eq("id", body.flashcardId)
+    .maybeSingle()
+  if (cardError) return NextResponse.json({ error: "Unable to verify flashcard access" }, { status: 500 })
+  if (!accessibleCard) return NextResponse.json({ error: "Flashcard is not available" }, { status: 403 })
 
   const { data: current, error: readError } = await supabase
     .from("flashcard_progress")
