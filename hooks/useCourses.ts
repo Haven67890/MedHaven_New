@@ -13,6 +13,12 @@ type CourseRecord = {
   faculty_id?: string | number | null
   university_id?: string | number | null
   description?: string | null
+  level_id?: string | null
+  semester_id?: string | null
+  academic_session_id?: string | null
+  academic_levels?: { code?: string | null; name?: string | null } | null
+  semesters?: { code?: string | null; name?: string | null } | null
+  academic_sessions?: { code?: string | null } | null
   [key: string]: unknown
 }
 
@@ -29,7 +35,7 @@ export function useCourses(level?: string) {
     try {
       let query = supabase
         .from('courses')
-        .select('id, code, name, title, level, level_group, parent_id, department_id, faculty_id, university_id, description')
+        .select('id, code, name, title, level, level_id, semester_id, academic_session_id, level_group, parent_id, department_id, faculty_id, university_id, description, academic_levels:level_id(code,name), semesters:semester_id(code,name), academic_sessions:academic_session_id(code)')
         .order('name', { ascending: true })
 
       if (selectedLevel) {
@@ -59,7 +65,7 @@ export function useCourses(level?: string) {
       try {
         let query = supabase
           .from('courses')
-          .select('id, code, name, title, level, level_group, parent_id, department_id, faculty_id, university_id, description')
+          .select('id, code, name, title, level, level_id, semester_id, academic_session_id, level_group, parent_id, department_id, faculty_id, university_id, description, academic_levels:level_id(code,name), semesters:semester_id(code,name), academic_sessions:academic_session_id(code)')
           .order('name', { ascending: true })
 
         if (level) {

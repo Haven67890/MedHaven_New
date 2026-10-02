@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import crypto from "crypto"
 
 import { createClient, createServiceClient } from "@/lib/supabase/server"
+import { getAuthorizedCourse } from "@/lib/course-domain"
 import { generateOSCEStationsBatch, type OSCESpecimenImage, type OSCEStation } from "@/lib/osce-engine"
 
 function generateQuestionFingerprint(questionText: string, imageBankId: string): string {
@@ -20,6 +21,12 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => ({}))
     const { course_id, limit = 5 } = body
+    if (course_id) {
+      const { course, error: courseAccessError } = await getAuthorizedCourse(supabase, String(course_id))
+      if (!course) {
+        return NextResponse.json({ error: courseAccessError || "Course is not available" }, { status: 403 })
+      }
+    }
 
     let serviceSupabase
     try {
