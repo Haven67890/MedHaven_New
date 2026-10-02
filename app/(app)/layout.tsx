@@ -11,5 +11,5 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!context || context.app.slug === "medhaven") return <ApplicationShell>{children}</ApplicationShell>
 
   const features = await getEcosystemFeatures(supabase, context.app.id)
-  return <UniversalWorkspaceShell app={context.app} departmentName={context.departmentName} features={features}>{children}</UniversalWorkspaceShell>
+  return <UniversalWorkspaceShell app={context.app} departmentName={context.departmentName} facultyName={context.facultyName} universityName={context.universityName} features={features}>{children}</UniversalWorkspaceShell>
 }

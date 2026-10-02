@@ -15,9 +15,11 @@ import useAuth from "@/hooks/useAuth"
 import { createClient } from "@/lib/supabase/client"
 import {
   MotionReveal,
-  MotionStaggerGroup,
-  MotionStaggerItem,
 } from "@/components/ui/motion"
+
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback
+}
 
 function Toggle({ checked, onChange, label, description }: { checked: boolean; onChange: (v: boolean) => void; label: string; description: string }) {
   return (
@@ -250,10 +252,10 @@ export default function SettingsPage() {
         type: "success",
         text: `Personal details saved successfully!${emailMsg}`,
       })
-    } catch (err: any) {
+    } catch (err: unknown) {
       setPersonalMessage({
         type: "error",
-        text: err.message || "Failed to save personal details.",
+        text: errorMessage(err, "Failed to save personal details."),
       })
     } finally {
       setPersonalLoading(false)
@@ -294,10 +296,10 @@ export default function SettingsPage() {
       setCurrentPassword("")
       setNewPassword("")
       setConfirmPassword("")
-    } catch (err: any) {
+    } catch (err: unknown) {
       setPasswordMessage({
         type: "error",
-        text: err.message || "Failed to update password.",
+        text: errorMessage(err, "Failed to update password."),
       })
     } finally {
       setPasswordLoading(false)
@@ -325,10 +327,10 @@ export default function SettingsPage() {
       }
 
       setNotifMessage({ type: "success", text: "Notification preferences saved!" })
-    } catch (err: any) {
+    } catch (err: unknown) {
       setNotifMessage({
         type: "error",
-        text: err.message || "Failed to save notification preferences.",
+        text: errorMessage(err, "Failed to save notification preferences."),
       })
     } finally {
       setNotifLoading(false)
@@ -388,10 +390,10 @@ export default function SettingsPage() {
       }
 
       setAppearanceMessage({ type: "success", text: "Display & content preferences saved!" })
-    } catch (err: any) {
+    } catch (err: unknown) {
       setAppearanceMessage({
         type: "error",
-        text: err.message || "Failed to save display & content preferences.",
+        text: errorMessage(err, "Failed to save display & content preferences."),
       })
     } finally {
       setAppearanceLoading(false)
@@ -409,7 +411,7 @@ export default function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base"><User className="size-4 text-primary" aria-hidden="true" /> Personal details</CardTitle>
-              <CardDescription>Update how your name appears across MedHaven.</CardDescription>
+              <CardDescription>Update how your name appears across JositeX.</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSavePersonalDetails}>
@@ -618,7 +620,7 @@ export default function SettingsPage() {
         </MotionReveal>
 
         {/* SECTION 4: Appearance & Content */}
-        <SectionHeading title="Appearance & Content" description="How MedHaven looks and filters content for you." />
+        <SectionHeading title="Appearance & Content" description="How JositeX looks and filters content for you." />
         <MotionReveal direction="up" distance={16}>
           <Card>
             <CardHeader>
