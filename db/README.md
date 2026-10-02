@@ -1,13 +1,12 @@
 # Database notes
 
-The project uses Supabase (supabase-js). To run locally you must provide the following environment variables in your .env:
+The project uses Supabase (`supabase-js`). Local development requires:
 
-  NEXT_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"
-  NEXT_PUBLIC_SUPABASE_ANON_KEY="public-anon-key"
+```env
+NEXT_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="public-anon-key"
+```
 
-Migrations: this repository currently does not include migration SQL files. If you have a live Supabase database and want migrations generated that match it, provide either:
+The checked-in migration source lives in `supabase/migrations/`. Production migration history is authoritative when reconciling drift. The repository intentionally does not reconstruct historical migrations whose source is unavailable; inspect the live schema and add only new, idempotent, non-destructive migrations when a change is justified.
 
-- A SQL schema dump (pg_dump --schema-only) or
-- A Supabase service_role key so I can introspect and generate SQL that matches the live schema.
-
-I will not modify or drop existing tables — migrations will be additive and synchronized to the live schema.
+Do not drop or recreate existing tables, migrate academic files, or fabricate department/course data as part of routine work.
