@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { getSupabaseConfig } from "@/lib/supabase/config"
 import { isEmailVerified, safeNextPath } from "@/lib/auth/redirects"
 import { appHomePath, getUserEcosystemContext } from "@/lib/jositex"
+import { resolveAuthenticatedDestination } from "@/lib/auth/destination"
 
 const PUBLIC_ROUTES = ["/", "/login", "/register", "/forgot-password", "/reset-password", "/verify-email", "/features", "/courses", "/about", "/contact", "/medhaven/landing"]
 const PUBLIC_API_ROUTES = ["/api/auth/callback", "/api/donations/verify", "/api/image-proxy", "/api/slideshare-embed"]
@@ -60,20 +61,13 @@ export async function middleware(request: NextRequest) {
   }
 
 	if (user && (pathname === "/login" || pathname === "/register")) {
-		const context = await getUserEcosystemContext(supabase, user.id)
-		if (context) return redirectWithCookies("/dashboard")
-    const { data: profile } = await supabase.from("profiles").select("department_id, current_level").eq("id", user.id).maybeSingle()
-    if (!profile?.department_id || !profile.current_level) return redirectWithCookies("/profile/complete")
-    return redirectWithCookies("/")
-  }
+		return redirectWithCookies(await resolveAuthenticatedDestination(supabase, user.id))
+	}
 
 	if (user && pathname === "/profile/complete") {
-    const { data: profile } = await supabase.from("profiles").select("department_id, current_level").eq("id", user.id).maybeSingle()
-		if (profile?.department_id && profile.current_level) {
-			const context = await getUserEcosystemContext(supabase, user.id)
-			return redirectWithCookies(context ? "/dashboard" : "/")
+		const destination = await resolveAuthenticatedDestination(supabase, user.id)
+		if (destination !== "/profile/complete") return redirectWithCookies(destination)
 		}
-	}
 
 	const isLegacyAppRoute = LEGACY_APP_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
 	const isUniversalDashboardRoute = pathname === "/dashboard" || pathname.startsWith("/dashboard/")

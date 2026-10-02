@@ -6,6 +6,7 @@ import { FormEvent, Suspense, useState } from "react"
 
 import { createClient } from "@/lib/supabase/client"
 import { safeNextPath } from "@/lib/auth/redirects"
+import { resolveAuthenticatedDestination } from "@/lib/auth/destination"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
@@ -44,7 +45,8 @@ function LoginContent() {
         router.replace(`/verify-email?email=${encodeURIComponent(formattedEmail)}&next=${encodeURIComponent(next)}`)
         return
       }
-      router.replace(next)
+      const destination = await resolveAuthenticatedDestination(supabase, data.user.id)
+      router.replace(destination)
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to sign in.")
     } finally {
@@ -56,7 +58,7 @@ function LoginContent() {
     setError("")
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/api/auth/callback?next=${encodeURIComponent(next)}` },
+      options: { redirectTo: `${window.location.origin}/api/auth/callback` },
     })
     if (oauthError) setError(oauthError.message)
   }

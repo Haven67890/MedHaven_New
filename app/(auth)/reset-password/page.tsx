@@ -35,7 +35,7 @@ function ResetPasswordContent() {
           setHasSession(!!session)
           setIsCheckingSession(false)
         }
-      } catch (err) {
+      } catch {
         if (isMounted) {
           setHasSession(false)
           setIsCheckingSession(false)
@@ -112,7 +112,7 @@ function ResetPasswordContent() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            You can now log in to MedHaven using your newly configured password.
+            Your JositeX password has been updated. Sign in to continue to your department workspace.
           </p>
           <Button asChild className="w-full">
             <Link href="/login">Go back to Sign In</Link>
@@ -156,7 +156,7 @@ function ResetPasswordContent() {
     <Card className="border-border shadow-xl shadow-primary/5">
       <CardHeader>
         <CardTitle className="text-2xl">Set New Password</CardTitle>
-        <CardDescription>Enter a strong new password for your MedHaven account.</CardDescription>
+        <CardDescription>Enter a strong new password for your JositeX account.</CardDescription>
       </CardHeader>
       <CardContent>
         <form aria-label="Set new password" className="flex flex-col gap-6" onSubmit={handleSubmit}>

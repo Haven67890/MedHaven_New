@@ -5,7 +5,7 @@ import { FormEvent, useState, useEffect, Suspense } from "react"
 import type { User } from "@supabase/supabase-js"
 
 import { createClient } from "@/lib/supabase/client"
-import { appHomePath, getUserEcosystemContext } from "@/lib/jositex"
+import { resolveAuthenticatedDestination } from "@/lib/auth/destination"
 import { useInstitutionalCatalogue } from "@/components/onboarding/institutional-selector"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -15,7 +15,7 @@ function ProfileCompleteContent() {
   const supabase = createClient()
   const router = useRouter()
 
-  const { universities, availableFaculties, availableDepartments, selectedUniversityId, selectedFacultyId, selectedDepartmentId, selectedDepartment, loadingMetadata, metadataError, changeUniversity, changeFaculty, changeDepartment } = useInstitutionalCatalogue()
+  const { universities, availableFaculties, availableDepartments, levels, selectedUniversityId, selectedFacultyId, selectedDepartmentId, selectedDepartment, loadingMetadata, metadataError, changeUniversity, changeFaculty, changeDepartment, initializeSelection } = useInstitutionalCatalogue()
   const [level, setLevel] = useState("400L")
 
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -34,6 +34,20 @@ function ProfileCompleteContent() {
       }
     })
   }, [router, supabase])
+
+  useEffect(() => {
+    if (!userId || loadingMetadata) return
+    void supabase
+      .from("profiles")
+      .select("university_id, faculty_id, department_id, current_level")
+      .eq("id", userId)
+      .maybeSingle()
+      .then(({ data }: { data: { university_id: string | null; faculty_id: string | null; department_id: string | null; current_level: string | null } | null }) => {
+        if (!data) return
+        initializeSelection(data.university_id ?? "", data.faculty_id ?? "", data.department_id ?? "")
+        if (data.current_level) setLevel(data.current_level)
+      })
+  }, [initializeSelection, loadingMetadata, supabase, userId])
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -75,9 +89,9 @@ function ProfileCompleteContent() {
         return
       }
 
-      const context = await getUserEcosystemContext(supabase, userId)
+      const destination = await resolveAuthenticatedDestination(supabase, userId)
       router.refresh()
-      router.replace(appHomePath(context?.app.slug))
+      router.replace(destination)
       // Do not reset isSubmitting on success to preserve loading/disabled state during navigation
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to save profile details.")
@@ -167,12 +181,7 @@ function ProfileCompleteContent() {
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   required
                 >
-                  <option value="100L">100L</option>
-                  <option value="200L">200L</option>
-                  <option value="300L">300L</option>
-                  <option value="400L">400L</option>
-                  <option value="500L">500L</option>
-                  <option value="600L">600L</option>
+                  {levels.map((item) => <option key={item.id} value={item.code || item.name}>{item.code || item.name}</option>)}
                 </select>
               </Field>
             </FieldGroup>

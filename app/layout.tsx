@@ -7,11 +7,11 @@ import { PwaProvider } from '@/components/providers/pwa-provider'
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://medhaven.onrender.com'),
   title: {
-    default: 'MedHaven — Medical Study Platform for UNIJOS & JUTH Students',
-    template: '%s | MedHaven',
+    default: 'JositeX — University Academic Ecosystem',
+    template: '%s | JositeX',
   },
-  description: 'MedHaven is the dedicated medical study platform for UNIJOS and JUTH medical students.',
-  applicationName: 'MedHaven',
+  description: 'JositeX connects the University of Jos academic community to department-focused digital workspaces.',
+  applicationName: 'JositeX',
   manifest: '/manifest.json',
   icons: {
     icon: '/logo.png',
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'MedHaven',
+    title: 'JositeX',
   },
 }
 
