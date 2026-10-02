@@ -13,6 +13,28 @@ export type EcosystemApp = {
   accentColor: string | null
 }
 
+export type AcademicDirectoryDepartment = {
+  id: string
+  name: string
+  workspace: {
+    slug: string
+    name: string
+    routePrefix: string
+  } | null
+}
+
+export type AcademicDirectoryFaculty = {
+  id: string
+  name: string
+  departments: AcademicDirectoryDepartment[]
+}
+
+export type AcademicDirectory = {
+  universityId: string
+  universityName: string
+  faculties: AcademicDirectoryFaculty[]
+}
+
 export type EcosystemFeature = {
   id: string
   name: string
@@ -68,6 +90,56 @@ function appFromRow(row: Row): EcosystemApp {
 }
 
 const APP_FIELDS = "id, university_id, department_id, name, slug, description, logo_url, route_prefix, status"
+
+export async function getAcademicDirectory(supabase: SupabaseClient): Promise<AcademicDirectory | null> {
+  const { data: university, error: universityError } = await supabase
+    .from("universities")
+    .select("id, name")
+    .order("name", { ascending: true })
+    .limit(1)
+    .maybeSingle()
+  if (universityError || !university) return null
+
+  const [{ data: facultyRows, error: facultyError }, { data: departmentRows, error: departmentError }, { data: appRows, error: appError }] = await Promise.all([
+    supabase.from("faculties").select("id, name, university_id").eq("university_id", university.id).order("name", { ascending: true }),
+    supabase.from("departments").select("id, name, faculty_id, university_id, status").eq("university_id", university.id).eq("status", "active").order("name", { ascending: true }),
+    supabase.from("ecosystem_apps").select("department_id, name, slug, route_prefix, status").eq("university_id", university.id).eq("status", "active"),
+  ])
+  if (facultyError || departmentError || appError) return null
+
+  const appsByDepartment = new Map<string, { slug: string; name: string; routePrefix: string }>()
+  for (const row of (appRows ?? []) as Row[]) {
+    const departmentId = text(row, "department_id")
+    const slug = text(row, "slug")
+    if (departmentId && slug && !appsByDepartment.has(departmentId)) {
+      appsByDepartment.set(departmentId, {
+        slug,
+        name: text(row, "name") ?? "JositeX workspace",
+        routePrefix: text(row, "route_prefix") ?? "/dashboard",
+      })
+    }
+  }
+
+  const departmentsByFaculty = new Map<string, AcademicDirectoryDepartment[]>()
+  for (const row of (departmentRows ?? []) as Row[]) {
+    const facultyId = text(row, "faculty_id")
+    const id = text(row, "id")
+    const name = text(row, "name")
+    if (!facultyId || !id || !name) continue
+    const department = { id, name, workspace: appsByDepartment.get(id) ?? null }
+    departmentsByFaculty.set(facultyId, [...(departmentsByFaculty.get(facultyId) ?? []), department])
+  }
+
+  return {
+    universityId: String(university.id),
+    universityName: String(university.name ?? "University of Jos"),
+    faculties: ((facultyRows ?? []) as Row[]).flatMap((row) => {
+      const id = text(row, "id")
+      const name = text(row, "name")
+      return id && name ? [{ id, name, departments: departmentsByFaculty.get(id) ?? [] }] : []
+    }),
+  }
+}
 
 export async function getAvailableEcosystemApps(supabase: SupabaseClient): Promise<EcosystemApp[]> {
   const { data, error } = await supabase

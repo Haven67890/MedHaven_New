@@ -5,7 +5,7 @@ import { isEmailVerified, safeNextPath } from "@/lib/auth/redirects"
 import { appHomePath, getUserEcosystemContext } from "@/lib/jositex"
 import { resolveAuthenticatedDestination } from "@/lib/auth/destination"
 
-const PUBLIC_ROUTES = ["/", "/login", "/register", "/forgot-password", "/reset-password", "/verify-email", "/features", "/courses", "/about", "/contact", "/medhaven/landing"]
+const PUBLIC_ROUTES = ["/", "/academics", "/login", "/register", "/forgot-password", "/reset-password", "/verify-email", "/features", "/courses", "/about", "/contact", "/medhaven/landing"]
 const PUBLIC_API_ROUTES = ["/api/auth/callback", "/api/donations/verify", "/api/image-proxy", "/api/slideshare-embed"]
 const LEGACY_APP_PREFIXES = [
   "/dashboard", "/library", "/materials", "/profile", "/admin", "/notifications", "/settings",
