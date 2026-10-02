@@ -77,9 +77,13 @@ export function QuizRunner({ quiz }: { quiz: ResourceRow }) {
 }
 
 export function FlashcardDeck({ cards }: { cards: ResourceRow[] }) {
-  const [index, setIndex] = useState(0)
-  const [revealed, setRevealed] = useState(false)
-  const card = cards[index]
-  if (!card) return null
-  return <div className="space-y-4"><Card className="min-h-64 cursor-pointer border-indigo-300/20 bg-indigo-300/[0.06] text-white" onClick={() => setRevealed((value) => !value)}><CardContent className="flex min-h-64 flex-col items-center justify-center p-8 text-center"><Badge variant="outline" className="mb-4 border-white/15 text-slate-300">Card {index + 1} of {cards.length}</Badge><p className="text-xl font-semibold">{revealed ? text(card, ["back", "answer"]) : text(card, ["front", "question"])}</p><p className="mt-4 text-xs text-slate-500">Tap to {revealed ? "show the prompt" : "reveal the answer"}</p></CardContent></Card><div className="flex justify-between gap-3"><Button variant="outline" disabled={index === 0} onClick={() => { setIndex((value) => value - 1); setRevealed(false) }} className="border-white/15 text-slate-200">Previous</Button><Button onClick={() => { setIndex((value) => (value + 1) % cards.length); setRevealed(false) }} className="bg-indigo-300 text-slate-950 hover:bg-indigo-200">Next card</Button></div></div>
+	const [index, setIndex] = useState(0)
+	const [revealed, setRevealed] = useState(false)
+	const card = cards[index]
+	if (!card) return null
+	async function reviewCurrentCard() {
+		if (!card.id) return
+		await fetch("/api/politeia/flashcard-progress", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ flashcardId: card.id }) }).catch(() => undefined)
+	}
+	return <div className="space-y-4"><Card className="min-h-64 cursor-pointer border-indigo-300/20 bg-indigo-300/[0.06] text-white" onClick={() => setRevealed((value) => !value)}><CardContent className="flex min-h-64 flex-col items-center justify-center p-8 text-center"><Badge variant="outline" className="mb-4 border-white/15 text-slate-300">Card {index + 1} of {cards.length}</Badge><p className="text-xl font-semibold">{revealed ? text(card, ["back", "answer"]) : text(card, ["front", "question"])}</p><p className="mt-4 text-xs text-slate-500">Tap to {revealed ? "show the prompt" : "reveal the answer"}</p></CardContent></Card><div className="flex justify-between gap-3"><Button variant="outline" disabled={index === 0} onClick={() => { setIndex((value) => value - 1); setRevealed(false) }} className="border-white/15 text-slate-200">Previous</Button><Button onClick={async () => { await reviewCurrentCard(); setIndex((value) => (value + 1) % cards.length); setRevealed(false) }} className="bg-indigo-300 text-slate-950 hover:bg-indigo-200">Next card</Button></div></div>
 }

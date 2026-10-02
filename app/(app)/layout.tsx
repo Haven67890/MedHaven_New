@@ -1,20 +1,15 @@
-"use client"
-
+import { UniversalWorkspaceShell } from "@/components/dashboard/universal-workspace-shell"
 import { ApplicationShell } from "@/components/layout/application-shell"
-import useAuth from "@/hooks/useAuth"
+import { getEcosystemFeatures, getUserEcosystemContext } from "@/lib/jositex"
+import { createClient } from "@/lib/supabase/server"
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { loading } = useAuth()
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const context = user ? await getUserEcosystemContext(supabase, user.id) : null
 
-  if (loading) {
-    return (
-      <div className="flex min-h-svh items-center justify-center bg-background text-sm text-muted-foreground">
-        Loading...
-      </div>
-    )
-  }
+  if (!context || context.app.slug === "medhaven") return <ApplicationShell>{children}</ApplicationShell>
 
-  // Auth protection is handled server-side by middleware.
-  // This client layout just renders the application shell for authenticated users.
-  return <ApplicationShell>{children}</ApplicationShell>
+  const features = await getEcosystemFeatures(supabase, context.app.id)
+  return <UniversalWorkspaceShell app={context.app} departmentName={context.departmentName} features={features}>{children}</UniversalWorkspaceShell>
 }
