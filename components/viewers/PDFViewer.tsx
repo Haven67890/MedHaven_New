@@ -25,6 +25,9 @@ export function PDFViewer({ storagePath }: PDFViewerProps) {
         const signedUrl = `/api/materials/signed-url?path=${encodeURIComponent(storagePath)}`
         const response = await fetch(signedUrl)
         if (!response.ok) {
+          if (response.status === 404) {
+            throw new Error("File not found in storage (404).")
+          }
           throw new Error(`Failed to fetch document (${response.status})`)
         }
         const arrayBuffer = await response.arrayBuffer()
@@ -40,13 +43,33 @@ export function PDFViewer({ storagePath }: PDFViewerProps) {
         if (!active) return
 
         setNumPages(pdf.numPages)
-        canvasRefs.current = new Array(pdf.numPages).fill(null)
 
         if (containerRef.current) {
           containerRef.current.innerHTML = ""
         }
 
-        for (let i = 1; i <= pdf.numPages; i++) {
+        // Render Page 1 immediately to achieve minimal Time to First Visible Content
+        const page1 = await pdf.getPage(1)
+        const viewport1 = page1.getViewport({ scale: 1.25 })
+        const canvas1 = document.createElement("canvas")
+        canvas1.className = "max-w-full my-3 shadow-lg rounded bg-white"
+        canvas1.width = viewport1.width
+        canvas1.height = viewport1.height
+        canvas1.dataset.pageNumber = "1"
+
+        const ctx1 = canvas1.getContext("2d")
+        if (ctx1) {
+          await page1.render({ canvasContext: ctx1, viewport: viewport1 }).promise
+        }
+
+        if (containerRef.current && active) {
+          containerRef.current.appendChild(canvas1)
+          // Hide loading spinner as soon as Page 1 is visible
+          setLoading(false)
+        }
+
+        // Render remaining pages progressively in background
+        for (let i = 2; i <= pdf.numPages; i++) {
           if (!active) break
           const page = await pdf.getPage(i)
           const viewport = page.getViewport({ scale: 1.25 })
@@ -70,9 +93,6 @@ export function PDFViewer({ storagePath }: PDFViewerProps) {
         console.error("PDFViewer error:", err)
         if (active) {
           setError(err.message || "Failed to render PDF document.")
-        }
-      } finally {
-        if (active) {
           setLoading(false)
         }
       }

@@ -163,7 +163,7 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
     }
   }, [material.id])
 
-  // PDF thumbnail generator
+  // PDF thumbnail generator - only load if cached locally to avoid downloading every PDF file on mount
   useEffect(() => {
     if (isPdf) {
       const cacheKey = `medhaven_pdf_thumb_${material.id}`
@@ -182,8 +182,8 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
       } catch (e) {
         // Ignore
       }
-
-      generatePdfThumbnail()
+      // Note: We intentionally avoid eagerly calling generatePdfThumbnail() for all cards on page load,
+      // which previously triggered simultaneous full-file downloads for every B2 PDF card.
     }
   }, [material.id, material.type, isPdf])
 
@@ -282,9 +282,10 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
     (material.type?.toLowerCase() === "lecture_slide" && !isSlideDeck && ext !== "pdf" && !isWord)
   const isOffice = isWord || isPowerPoint || ["xlsx", "xls"].includes(ext) || (material.type?.toLowerCase() === "office" && ext !== "pdf")
   const isImage = ["jpg", "jpeg", "png", "webp", "gif", "svg"].includes(ext)
+  const isExternalLink = !material.storage_path && Boolean(material.source_url) && !isVideo && !isSlideDeck
   const isStoredFile = fileUrl.startsWith("/api/materials/signed-url") || Boolean(material.storage_path) || fileUrl.includes("supabase.co/storage")
 
-  const showViewButton = isPdf || isOffice || isImage || isVideo || isSlideDeck
+  const showViewButton = isPdf || isOffice || isImage || isVideo || isSlideDeck || isExternalLink
   const showDownloadButton = isStoredFile
 
   const handlePreviewClick = () => {
@@ -509,22 +510,45 @@ export function MaterialCard({ material, onPreview }: MaterialCardProps) {
 
           <div className="flex items-center gap-2">
             {showViewButton && (
-              <Button
-                size="sm"
-                variant={isVideo ? "destructive" : "default"}
-                className="h-7 sm:h-8 text-xs font-medium px-2.5 sm:px-3 flex items-center gap-1 shadow-sm"
-                onClick={handlePreviewClick}
-              >
-                {isVideo ? (
-                  <>
-                    <Play className="size-3 sm:size-3.5 fill-current shrink-0" /> Play
-                  </>
-                ) : (
-                  <>
-                    <Eye className="size-3 sm:size-3.5 shrink-0" /> View
-                  </>
-                )}
-              </Button>
+              isExternalLink ? (
+                <Button
+                  size="sm"
+                  variant="default"
+                  className="h-7 sm:h-8 text-xs font-medium px-2.5 sm:px-3 flex items-center gap-1 shadow-sm"
+                  asChild
+                >
+                  <a
+                    href={material.source_url!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (user?.id) {
+                        logMaterialActivity(user.id, material.id, "view")
+                      }
+                    }}
+                  >
+                    <ExternalLink className="size-3 sm:size-3.5 shrink-0" /> Open Link
+                  </a>
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant={isVideo ? "destructive" : "default"}
+                  className="h-7 sm:h-8 text-xs font-medium px-2.5 sm:px-3 flex items-center gap-1 shadow-sm"
+                  onClick={handlePreviewClick}
+                >
+                  {isVideo ? (
+                    <>
+                      <Play className="size-3 sm:size-3.5 fill-current shrink-0" /> Play
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="size-3 sm:size-3.5 shrink-0" /> View
+                    </>
+                  )}
+                </Button>
+              )
             )}
 
             {showDownloadButton && (
